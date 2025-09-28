@@ -3,7 +3,7 @@ import {
   View,
   Text,
   TextInput,
-  ImageBackground,
+
   TouchableOpacity,
   Image,
   Platform,
@@ -20,6 +20,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import { useAuth } from "@/contexts/AppStateContext";
 import { COLORS } from "@/constants/theme";
+import { UserRole } from "@/types/auth";
 import * as Haptics from "expo-haptics";
 import { SafeAreaView } from "react-native-safe-area-context";
 import SafeAreaWrapper from "@/components/ui/SafeAreaWrapper";
@@ -36,6 +37,13 @@ export default function SignUpScreen() {
   });
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    phone: "",
+  });
   const router = useRouter();
   const params = useLocalSearchParams();
   const slideFromRight = params.slideFromRight === "true";
@@ -69,11 +77,68 @@ export default function SignUpScreen() {
     }
   }, [slideFromRight, slideRightAnim]);
 
+  // Client-side validation functions
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validatePhone = (phone: string): boolean => {
+    if (!phone.trim()) return true; // Optional field
+    // Morocco phone formats: +212XXXXXXXXX or 06XXXXXXXX/07XXXXXXXX
+    const phoneRegex = /^(\+212[5-7]\d{8}|0[6-7]\d{8})$/;
+    return phoneRegex.test(phone.replace(/\s/g, ''));
+  };
+
+  const validatePassword = (password: string): { isValid: boolean; message?: string } => {
+    // Match exact backend validation logic
+    if (password.length < 8) {
+      return {
+        isValid: false,
+        message: "Password must be at least 8 characters long"
+      };
+    }
+    
+    if (!/[A-Z]/.test(password)) {
+      return {
+        isValid: false,
+        message: "Password must contain at least one uppercase letter"
+      };
+    }
+    
+    if (!/[a-z]/.test(password)) {
+      return {
+        isValid: false,
+        message: "Password must contain at least one lowercase letter"
+      };
+    }
+    
+    if (!/\d/.test(password)) {
+      return {
+        isValid: false,
+        message: "Password must contain at least one number"
+      };
+    }
+    
+    // Match backend special characters regex exactly
+    if (!/[!@#$%^&*(),.?":{}|<>\[\]+=_\-~\/`;\\]/.test(password)) {
+      return {
+        isValid: false,
+        message: "Password must contain at least one special character (!@#$%^&*(),.?\":{}|<>[]+=_-~/`;\\)"
+      };
+    }
+    
+    return {
+      isValid: true,
+      message: undefined
+    };
+  };
+
   const handleSignUp = async () => {
     try {
       setError("");
       
-      // Validate all required fields
+      // Comprehensive client-side validation
       if (!formData.firstName.trim()) {
         setError("First name is required");
         return;
@@ -84,13 +149,29 @@ export default function SignUpScreen() {
         return;
       }
       
-      if (!formData.email.trim() || !formData.email.includes("@")) {
+      if (!formData.email.trim()) {
+        setError("Email is required");
+        return;
+      }
+      
+      if (!validateEmail(formData.email)) {
         setError("Please enter a valid email address");
         return;
       }
       
-      if (!formData.password.trim() || formData.password.length < 6) {
-        setError("Password must be at least 6 characters long");
+      if (!formData.password.trim()) {
+        setError("Password is required");
+        return;
+      }
+      
+      const passwordValidation = validatePassword(formData.password);
+      if (!passwordValidation.isValid) {
+        setError(passwordValidation.message || "Password does not meet security requirements");
+        return;
+      }
+      
+      if (formData.phone && !validatePhone(formData.phone)) {
+        setError("Invalid phone number format. Use +212XXXXXXXXX or 06XXXXXXXX/07XXXXXXXX");
         return;
       }
 
@@ -105,6 +186,7 @@ export default function SignUpScreen() {
         last_name: formData.lastName,
         phone: formData.phone || undefined,
         preferred_language: 'fr', // Default to French for Morocco
+        role: UserRole.RIDER, // Default role as per API docs
       });
 
       if (result.success) {
@@ -113,6 +195,7 @@ export default function SignUpScreen() {
           router.replace("/(main)/" as any);
         }, 2000);
       } else {
+        // Display specific error message from API
         setError(result.error || "Failed to create account. Please try again.");
       }
     } catch (err) {
@@ -177,49 +260,84 @@ export default function SignUpScreen() {
         {/* Email */}
         <Text className="text-md font-regular text-typography-white mb-4">Email</Text>
         <TextInput
-          className={`bg-white rounded-lg p-4 text-md font-regular mb-4 ${error ? 'border-2 border-[#f80404]' : ''}`}
+          className={`bg-white rounded-lg p-4 text-md font-regular mb-2 ${error || fieldErrors.email ? 'border-2 border-[#f80404]' : ''}`}
           placeholder="Enter your email address"
           value={formData.email}
           onChangeText={(text) => {
             setFormData({ ...formData, email: text });
             setError("");
+            
+            // Real-time email validation
+            if (text && !validateEmail(text)) {
+              setFieldErrors({ ...fieldErrors, email: "Please enter a valid email address" });
+            } else {
+              setFieldErrors({ ...fieldErrors, email: "" });
+            }
           }}
           keyboardType="email-address"
           autoCapitalize="none"
           placeholderTextColor={COLORS.text.secondary}
           style={{ minHeight: 44 }}
         />
+        {fieldErrors.email ? (
+          <Text className="text-[#f80404] text-xs mb-2 ml-1">{fieldErrors.email}</Text>
+        ) : null}
 
         {/* Phone (Optional) */}
         <Text className="text-md font-regular text-typography-white mb-4">Phone Number (Optional)</Text>
         <TextInput
-          className={`bg-white rounded-lg p-4 text-md font-regular mb-4 ${error ? 'border-2 border-[#f80404]' : ''}`}
-          placeholder="Enter your phone number"
+          className={`bg-white rounded-lg p-4 text-md font-regular mb-2 ${error || fieldErrors.phone ? 'border-2 border-[#f80404]' : ''}`}
+          placeholder="+212XXXXXXXXX or 06XXXXXXXX"
           value={formData.phone}
           onChangeText={(text) => {
             setFormData({ ...formData, phone: text });
             setError("");
+            
+            // Real-time phone validation
+            if (text && !validatePhone(text)) {
+              setFieldErrors({ ...fieldErrors, phone: "Format: +212XXXXXXXXX or 06XXXXXXXX/07XXXXXXXX" });
+            } else {
+              setFieldErrors({ ...fieldErrors, phone: "" });
+            }
           }}
           keyboardType="phone-pad"
           placeholderTextColor={COLORS.text.secondary}
           style={{ minHeight: 44 }}
         />
+        {fieldErrors.phone ? (
+          <Text className="text-[#f80404] text-xs mb-2 ml-1">{fieldErrors.phone}</Text>
+        ) : null}
 
         {/* Password */}
         <Text className="text-md font-regular text-typography-white mb-4">Password</Text>
         <TextInput
-          className={`bg-white rounded-lg p-4 text-md font-regular mb-2 ${error ? 'border-2 border-[#f80404]' : ''}`}
-          placeholder="Create a password (min. 6 characters)"
+          className={`bg-white rounded-lg p-4 text-md font-regular mb-2 ${error || fieldErrors.password ? 'border-2 border-[#f80404]' : ''}`}
+          placeholder="Create a secure password"
           value={formData.password}
           onChangeText={(text) => {
             setFormData({ ...formData, password: text });
             setError("");
+            
+            // Real-time password validation
+            if (text) {
+              const validation = validatePassword(text);
+              if (!validation.isValid) {
+                setFieldErrors({ ...fieldErrors, password: validation.message || "" });
+              } else {
+                setFieldErrors({ ...fieldErrors, password: "" });
+              }
+            } else {
+              setFieldErrors({ ...fieldErrors, password: "" });
+            }
           }}
           secureTextEntry
           autoCapitalize="none"
           placeholderTextColor={COLORS.text.secondary}
           style={{ minHeight: 44 }}
         />
+        {fieldErrors.password ? (
+          <Text className="text-[#f80404] text-xs mb-2 ml-1 leading-4">{fieldErrors.password}</Text>
+        ) : null}
         
         {error ? (
           <View className="bg-white rounded p-2 mb-4">
@@ -262,11 +380,7 @@ export default function SignUpScreen() {
     <SafeAreaWrapper>
       <Stack.Screen options={{ headerShown: false }} />
       <LinearGradient colors={["#006389", "#33B7E9"]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1 }}>
-        <ImageBackground
-          source={require("@assets/images/background/background_1.png")}
-          imageStyle={{ opacity: 0.1 }}
-          style={{ flex: 1 }}
-        >
+        <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)' }}>
           <SafeAreaView className="flex-1">
             <Animated.View
               style={[
@@ -284,7 +398,7 @@ export default function SignUpScreen() {
               </KeyboardAvoidingView>
             </Animated.View>
           </SafeAreaView>
-        </ImageBackground>
+        </View>
       </LinearGradient>
     </SafeAreaWrapper>
   );

@@ -73,7 +73,14 @@ class AuthService extends BaseApiService {
    * Register new user
    */
   async register(data: UserRegistrationRequest): Promise<ApiResponse<UserResponse>> {
-    const response = await this.post<UserResponse>('/auth/register', data, false);
+    // Set default role if not provided
+    const registrationData = {
+      ...data,
+      role: data.role || 'rider',
+      preferred_language: data.preferred_language || 'fr'
+    };
+    
+    const response = await this.post<UserResponse>('/auth/register', registrationData, false);
 
     if (response.success && response.data) {
       userData = response.data;

@@ -1,5 +1,5 @@
 import React, { useState, useRef } from "react";
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity, FlatList, Image, ImageBackground, StatusBar, Platform } from "react-native";
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, FlatList, Image, StatusBar, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { Stack } from "expo-router";
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from "@expo-google-fonts/montserrat";
@@ -144,10 +144,7 @@ export default function OnboardingScreen() {
           // statusBarTranslucent: true,
         }}
       />
-      <ImageBackground
-        source={require("@assets/images/background/background_1.png")}
-        style={[styles.container, { paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0 }]}
-      >
+      <View style={[styles.container, { paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0 }]}>
         {/* TODO: Replace with CoRide Morocco logo */}
         <Image source={require("@assets/images/logo/coride_blue_1024.png")} style={styles.logo} resizeMode="contain" />
         <FlatList
@@ -207,7 +204,7 @@ export default function OnboardingScreen() {
             />
           </View>
         </View>
-      </ImageBackground>
+      </View>
     </SafeAreaWrapper>
   );
 }
@@ -215,7 +212,7 @@ export default function OnboardingScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background.white,
+    backgroundColor: '#F8F9FA', // Light background with subtle Moroccan feel
   },
   slide: {
     width,

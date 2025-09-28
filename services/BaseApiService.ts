@@ -303,11 +303,33 @@ export class BaseApiService {
    * Parse error from API response
    */
   private parseError(data: any, statusCode: number): ApiError {
-    // FastAPI error format
+    // FastAPI error format with validation errors
     if (data && typeof data === 'object') {
+      let message = data.detail || data.message || 'An error occurred';
+      let details = data.details || data.description;
+      
+      // Handle validation errors with field_errors
+      if (data.details && data.details.field_errors) {
+        const fieldErrors = data.details.field_errors;
+        const errorMessages = [];
+        
+        for (const [field, errors] of Object.entries(fieldErrors)) {
+          if (Array.isArray(errors) && errors.length > 0) {
+            // Extract the actual error message, removing "Value error," prefix if present
+            const cleanError = errors[0].replace(/^Value error, /, '');
+            errorMessages.push(cleanError);
+          }
+        }
+        
+        if (errorMessages.length > 0) {
+          message = errorMessages.join('. ');
+          details = JSON.stringify(fieldErrors);
+        }
+      }
+      
       return {
-        message: data.detail || data.message || 'An error occurred',
-        details: data.details || data.description,
+        message,
+        details,
         field: data.field,
         code: data.code || data.error_code,
         statusCode,
@@ -407,9 +429,11 @@ export class BaseApiService {
   }
 }
 
+import ENV from '../env';
+
 // Default configuration
 export const defaultApiConfig: ApiConfig = {
-  baseUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000',
+  baseUrl: process.env.EXPO_PUBLIC_API_URL || ENV.API_URL || 'http://localhost:8000',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',

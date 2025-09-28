@@ -92,32 +92,35 @@ class UserProfileApiService extends BaseApiService {
    * Get current user's full profile
    */
   async getProfile(): Promise<ApiResponse<UserProfile>> {
-    return this.get<UserProfile>('/profile');
+    return this.get<UserProfile>('/auth/me');
   }
 
   /**
    * Get public profile of another user
+   * Note: This endpoint may not exist in current backend - placeholder for future implementation
    */
   async getPublicProfile(userId: number): Promise<ApiResponse<Partial<UserProfile>>> {
-    return this.get<Partial<UserProfile>>(`/profile/${userId}/public`);
+    return this.get<Partial<UserProfile>>(`/users/${userId}/profile`);
   }
 
   /**
    * Update basic profile information
+   * Note: This endpoint may not exist in current backend - placeholder for future implementation
    */
   async updateProfile(profileData: UpdateProfileRequest): Promise<ApiResponse<UserProfile>> {
-    return this.put<UserProfile>('/profile', profileData);
+    return this.put<UserProfile>('/auth/profile', profileData);
   }
 
   /**
    * Upload profile picture
+   * Note: This endpoint may not exist in current backend - placeholder for future implementation
    */
   async uploadProfilePicture(imageFile: File | Blob): Promise<ApiResponse<{ profile_picture_url: string }>> {
     const formData = new FormData();
     formData.append('profile_picture', imageFile);
 
     return this.request<{ profile_picture_url: string }>(
-      '/profile/picture',
+      '/auth/profile/picture',
       {
         method: 'POST',
         body: formData,
@@ -130,56 +133,63 @@ class UserProfileApiService extends BaseApiService {
 
   /**
    * Delete profile picture
+   * Note: This endpoint may not exist in current backend - placeholder for future implementation
    */
   async deleteProfilePicture(): Promise<ApiResponse<{ message: string }>> {
-    return this.delete<{ message: string }>('/profile/picture');
+    return this.delete<{ message: string }>('/auth/profile/picture');
   }
 
   /**
    * Update vehicle information
+   * Note: This endpoint may not exist in current backend - placeholder for future implementation
    */
   async updateVehicle(vehicleData: UpdateVehicleRequest): Promise<ApiResponse<VehicleInfo>> {
-    return this.put<VehicleInfo>('/profile/vehicle', vehicleData);
+    return this.put<VehicleInfo>('/auth/profile/vehicle', vehicleData);
   }
 
   /**
    * Delete vehicle information
+   * Note: This endpoint may not exist in current backend - placeholder for future implementation
    */
   async deleteVehicle(): Promise<ApiResponse<{ message: string }>> {
-    return this.delete<{ message: string }>('/profile/vehicle');
+    return this.delete<{ message: string }>('/auth/profile/vehicle');
   }
 
   /**
    * Update user preferences
+   * Note: This endpoint may not exist in current backend - placeholder for future implementation
    */
   async updatePreferences(preferences: UpdatePreferencesRequest): Promise<ApiResponse<UserPreferences>> {
-    return this.put<UserPreferences>('/profile/preferences', preferences);
+    return this.put<UserPreferences>('/auth/profile/preferences', preferences);
   }
 
   /**
    * Rate another user
+   * Note: This endpoint may not exist in current backend - placeholder for future implementation
    */
   async rateUser(ratingData: RatingRequest): Promise<ApiResponse<{ message: string }>> {
-    return this.post<{ message: string }>('/profile/ratings', ratingData);
+    return this.post<{ message: string }>('/auth/profile/ratings', ratingData);
   }
 
   /**
    * Get user's ratings and reviews
+   * Note: This endpoint may not exist in current backend - placeholder for future implementation
    */
   async getUserRatings(userId?: number): Promise<ApiResponse<any[]>> {
-    const endpoint = userId ? `/profile/${userId}/ratings` : '/profile/my-ratings';
+    const endpoint = userId ? `/users/${userId}/ratings` : '/auth/profile/my-ratings';
     return this.get<any[]>(endpoint);
   }
 
   /**
    * Request identity verification
+   * Note: This endpoint may not exist in current backend - placeholder for future implementation
    */
   async requestIdentityVerification(documentFile: File | Blob): Promise<ApiResponse<{ message: string }>> {
     const formData = new FormData();
     formData.append('identity_document', documentFile);
 
     return this.request<{ message: string }>(
-      '/profile/verification/identity',
+      '/auth/profile/verification/identity',
       {
         method: 'POST',
         body: formData,
@@ -191,13 +201,14 @@ class UserProfileApiService extends BaseApiService {
 
   /**
    * Request license verification (for drivers)
+   * Note: This endpoint may not exist in current backend - placeholder for future implementation
    */
   async requestLicenseVerification(licenseFile: File | Blob): Promise<ApiResponse<{ message: string }>> {
     const formData = new FormData();
     formData.append('driving_license', licenseFile);
 
     return this.request<{ message: string }>(
-      '/profile/verification/license',
+      '/auth/profile/verification/license',
       {
         method: 'POST',
         body: formData,
@@ -209,16 +220,18 @@ class UserProfileApiService extends BaseApiService {
 
   /**
    * Get verification status
+   * Note: This endpoint may not exist in current backend - placeholder for future implementation
    */
   async getVerificationStatus(): Promise<ApiResponse<VerificationStatus>> {
-    return this.get<VerificationStatus>('/profile/verification/status');
+    return this.get<VerificationStatus>('/auth/profile/verification/status');
   }
 
   /**
    * Deactivate account
+   * Note: This endpoint may not exist in current backend - placeholder for future implementation
    */
   async deactivateAccount(reason?: string): Promise<ApiResponse<{ message: string }>> {
-    return this.post<{ message: string }>('/profile/deactivate', { reason });
+    return this.post<{ message: string }>('/auth/profile/deactivate', { reason });
   }
 }
 

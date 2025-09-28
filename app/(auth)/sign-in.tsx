@@ -3,7 +3,7 @@ import {
   View,
   Text,
   TextInput,
-  ImageBackground,
+
   TouchableOpacity,
   Image,
   Dimensions,
@@ -227,11 +227,7 @@ export default function SignInScreen() {
         }}
       />
       <LinearGradient colors={["#006389", "#33B7E9"]} start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1, height: "100%" }}>
-        <ImageBackground
-          source={require("@assets/images/background/background_1.png")}
-          imageStyle={{ opacity: 0.1 }}
-          style={{ flex: 1, height: "100%" }}
-        >
+        <View style={{ flex: 1, height: "100%", backgroundColor: 'rgba(255,255,255,0.05)' }}>
           <SafeAreaView className="flex-1">  
             <Animated.View
               style={[
@@ -252,7 +248,7 @@ export default function SignInScreen() {
               </KeyboardAvoidingView>
             </Animated.View>
           </SafeAreaView>
-        </ImageBackground>
+        </View>
       </LinearGradient>
     </SafeAreaWrapper>
   );

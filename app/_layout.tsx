@@ -32,17 +32,8 @@ function AuthStateCheck() {
   const router = useRouter();
   const { lastAppSection, getDefaultPathForSection } = useAppSection();
 
-  // Use the user profile hook to access and potentially fetch user profile data
-  const { profile, getProfile } = useUserProfile();
-
-  // Ensure we have user profile data when authenticated
-  useEffect(() => {
-    if (isAuthenticated && !profile && !isLoading) {
-      getProfile().catch((err) => {
-        console.error("Error fetching user profile in layout:", err);
-      });
-    }
-  }, [isAuthenticated, profile, isLoading, getProfile]);
+  // Use the user profile hook to access user profile data (no automatic fetching here)
+  const { profile } = useUserProfile();
 
   useEffect(() => {
     // Wait until all checks are complete
@@ -162,7 +153,7 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
   const { profile, getProfile, isLoading } = useUserProfile();
 
-  // Attempt to load user profile if authenticated but profile is empty
+  // Attempt to load user profile if authenticated but profile is empty (only once)
   useEffect(() => {
     const initializeProfile = async () => {
       if (isAuthenticated && !profile && !isLoading) {
@@ -175,7 +166,7 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
     };
 
     initializeProfile();
-  }, [isAuthenticated, profile, isLoading, getProfile]);
+  }, [isAuthenticated]); // Remove profile and getProfile from dependencies to prevent infinite loop
 
   return <>{children}</>;
 }

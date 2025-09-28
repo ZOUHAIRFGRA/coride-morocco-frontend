@@ -4,7 +4,8 @@
 export enum UserRole {
   RIDER = 'rider',
   DRIVER = 'driver',
-  ADMIN = 'admin'
+  ADMIN = 'admin',
+  MODERATOR = 'moderator'
 }
 
 export interface UserRegistrationRequest {
@@ -39,12 +40,12 @@ export interface UserResponse {
   phone?: string;
   first_name: string;
   last_name: string;
-  role: UserRole;
+  role: string;
   is_verified: boolean;
   email_verified: boolean;
   phone_verified: boolean;
   preferred_language: string;
-  rating_average?: number;
+  rating_average: number | null;
   rating_count: number;
 }
 

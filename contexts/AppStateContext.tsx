@@ -273,16 +273,37 @@ export const useAuth = () => {
   const register = useCallback(async (userData: UserRegistrationRequest) => {
     dispatch({ type: 'AUTH_LOADING', payload: true });
     try {
-      const response = await authService.register(userData);
-      if (response.success && response.data) {
-        dispatch({ 
-          type: 'AUTH_SUCCESS', 
-          payload: { user: response.data } 
-        });
-        return { success: true };
+      // Step 1: Register user
+      const registerResponse = await authService.register(userData);
+      if (!registerResponse.success || !registerResponse.data) {
+        dispatch({ type: 'AUTH_ERROR', payload: registerResponse.error?.message || 'Registration failed' });
+        return { success: false, error: registerResponse.error?.message };
       }
-      dispatch({ type: 'AUTH_ERROR', payload: response.error?.message || 'Registration failed' });
-      return { success: false, error: response.error?.message };
+
+      // Step 2: Auto-login after successful registration
+      const loginResponse = await authService.login({
+        email: userData.email,
+        password: userData.password
+      });
+      
+      if (loginResponse.success && loginResponse.data) {
+        // Get user data with tokens
+        const userResponse = await authService.getCurrentUser();
+        if (userResponse.success && userResponse.data) {
+          dispatch({ 
+            type: 'AUTH_SUCCESS', 
+            payload: { 
+              user: userResponse.data,
+              tokens: loginResponse.data 
+            } 
+          });
+          return { success: true };
+        }
+      }
+      
+      // If auto-login fails, still consider registration successful but require manual login
+      dispatch({ type: 'AUTH_ERROR', payload: 'Registration successful but auto-login failed. Please login manually.' });
+      return { success: false, error: 'Registration successful but auto-login failed. Please login manually.' };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Registration failed';
       dispatch({ type: 'AUTH_ERROR', payload: errorMessage });
