@@ -18,20 +18,16 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { Stack } from "expo-router";
 import { GradientButton } from "@/components/ui/buttons/GradientButton";
 import { LinearGradient } from "expo-linear-gradient";
-import { ConfirmationModal } from "@/components/modals/ConfirmationModal";
 import { useFocusEffect } from "expo-router";
-import { useLoginMutation, useVerifyOtpMutation } from "@/redux/auth";
-import { useAuth } from "@hooks/useAuth";
+import { useAuth } from "@/contexts/AppStateContext";
 import { COLORS } from "@/constants/theme";
 import SafeAreaWrapper  from "@/components/ui/SafeAreaWrapper";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function SignInScreen() {
-  const [login, { isLoading: isLoginLoading }] = useLoginMutation();
-  const [verifyOtp, { isLoading: isVerifyLoading }] = useVerifyOtpMutation();
-  const { signIn } = useAuth();
+  const { login, isLoading } = useAuth();
   const [email, setEmail] = useState("");
-  const [isConfirmation, setIsConfirmation] = useState(false);
-  const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
   const slideUpAnim = useRef(new Animated.Value(Dimensions.get("window").height)).current;
@@ -93,98 +89,72 @@ export default function SignInScreen() {
   const handleSignIn = async () => {
     try {
       setError("");
-      const result = await login({ email }).unwrap();
-      if (result && result.success) {
-        setIsConfirmation(true);
+      if (!email || !password) {
+        setError("Please enter both email and password");
+        return;
+      }
+      
+      const result = await login({ email, password });
+      if (result.success) {
+        // Login successful, navigation will be handled by the layout
+        router.replace("/(main)/" as any);
       } else {
-        setError(result?.message || "Failed to send OTP");
+        setError(result.error || "Login failed. Please try again.");
       }
     } catch (err) {
       console.error("Login error:", err);
-      setError("Failed to send OTP. Please try again.");
-    }
-  };
-
-  const handleResendCode = async () => {
-    try {
-      setError("");
-      const result = await login({ email }).unwrap();
-      if (result && result.success) {
-        // Reset the code inputs
-        setCode(["", "", "", "", "", ""]);
-      } else {
-        setError(result?.message || "Failed to resend code");
-      }
-    } catch (err) {
-      console.error("Resend code error:", err);
-      setError("Failed to resend code. Please try again.");
-    }
-  };
-
-  const handleVerifyOtp = async (otp: string) => {
-    try {
-      setError("");
-      const result = await verifyOtp({ otp, email }).unwrap();
-      if (result?.success && result?.tokenAuth) {
-        await signIn(result.tokenAuth.accessToken, result.tokenAuth.refreshToken, email, result.clientMutationId);
-
-        // Profile fetching is now handled in app/_layout.tsx
-        router.replace("/investment/(tabs)/investment");
-      } else {
-        setError(result?.message || "Invalid OTP");
-      }
-    } catch (err) {
-      console.error("Verify OTP error:", err);
-      setError("Failed to verify OTP. Please try again.");
-    }
-  };
-
-  const handleCodeChange = (text: string, index: number) => {
-    const newCode = [...code];
-    newCode[index] = text;
-    setCode(newCode);
-    setError("");
-
-    // If all codes are filled, verify OTP
-    if (newCode.every((digit) => digit !== "")) {
-      handleVerifyOtp(newCode.join(""));
+      setError("Login failed. Please try again.");
     }
   };
 
   const renderInitial = () => (
     <>
       <View className="mb-8">
-        <Text className="text-md font-regular text-typography-white mb-4">Email/Phone</Text>
+        <Text className="text-md font-regular text-typography-white mb-4">Email</Text>
         <TextInput
-          className={`bg-white rounded-lg p-4 text-md font-regular mb-2 ${error ? 'border-2 border-[#f80404]' : ''}`}
-          placeholder="Enter your email / phone number"
+          className={`bg-white rounded-lg p-4 text-md font-regular mb-4 ${error ? 'border-2 border-[#f80404]' : ''}`}
+          placeholder="Enter your email address"
           value={email}
           onChangeText={(text) => {
             setEmail(text);
+            setError(""); // Clear error when user types
           }}
           keyboardType="email-address"
           autoCapitalize="none"
           placeholderTextColor={COLORS.text.secondary}
           style={{ minHeight: 44 }}
         />
-        <Text className="text-xs font-regular text-typography-white opacity-80 leading-tight">
-          Enter your email address or phone number to receive a code via email or SMS
-        </Text>
+        
+        <Text className="text-md font-regular text-typography-white mb-4">Password</Text>
+        <TextInput
+          className={`bg-white rounded-lg p-4 text-md font-regular mb-2 ${error ? 'border-2 border-[#f80404]' : ''}`}
+          placeholder="Enter your password"
+          value={password}
+          onChangeText={(text) => {
+            setPassword(text);
+            setError(""); // Clear error when user types
+          }}
+          secureTextEntry
+          autoCapitalize="none"
+          placeholderTextColor={COLORS.text.secondary}
+          style={{ minHeight: 44 }}
+        />
+        
         {error ? (
-          <Text className="text-[#f80404] bg-white text-l font-regular text-center mb-4">
-            {error.includes('User matching query does not exist') ? "You don't have an account" : error}
-          </Text>
+          <View className="bg-white rounded p-2 mb-4">
+            <Text className="text-[#f80404] text-sm font-regular text-center">
+              {error}
+            </Text>
+          </View>
         ) : null}
       </View>
 
       <View className="mt-1">
         <GradientButton 
           text="Sign In" 
-          onPress={() => {
-            handleSignIn();
-          }} 
+          onPress={handleSignIn}
           colors={["#001117", "#001117"]} 
-          isLoading={isLoginLoading} 
+          isLoading={isLoading} 
         />
       </View>
 
@@ -222,7 +192,7 @@ export default function SignInScreen() {
           hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
           style={{ minHeight: 44 }}
         >
-          <Image source={require("@assets/images/icons/google.png")} className="w-6 h-6" />
+          <Ionicons name="logo-google" size={24} color="#FFFFFF" />
           <Text className="text-md text-typography-white font-semiBold">Google</Text>
         </TouchableOpacity>
 
@@ -232,7 +202,7 @@ export default function SignInScreen() {
           hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
           style={{ minHeight: 44 }}
         >
-          <Image source={require("@assets/images/icons/facebook.png")} className="w-6 h-6" />
+          <Ionicons name="logo-facebook" size={24} color="#FFFFFF" />
           <Text className="text-md text-typography-white font-semiBold">Facebook</Text>
         </TouchableOpacity>
 
@@ -242,7 +212,7 @@ export default function SignInScreen() {
           hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
           style={{ minHeight: 44 }}
         >
-          <Image source={require("@assets/images/icons/apple.png")} className="w-6 h-6" />
+          <Ionicons name="logo-apple" size={24} color="#FFFFFF" />
           <Text className="text-md text-typography-white font-semiBold">Apple</Text>
         </TouchableOpacity>
       </View>
@@ -277,21 +247,9 @@ export default function SignInScreen() {
                   <Text className="text-4xl font-bold text-typography-white  mb-14 text-center">Sign-In</Text>
                   
                   {renderInitial()}
-                  {!isConfirmation && renderSocialButtons()}
+                  {renderSocialButtons()}
                 </ScrollView>
               </KeyboardAvoidingView>
-              {isConfirmation && (
-                <ConfirmationModal
-                  email={email}
-                  code={code}
-                  onCodeChange={handleCodeChange}
-                  onChangeEmail={() => setIsConfirmation(false)}
-                  onComplete={() => handleVerifyOtp(code.join(""))}
-                  onClose={() => setIsConfirmation(false)}
-                  onResendCode={handleResendCode}
-                  isLoading={isVerifyLoading}
-                />
-              )}
             </Animated.View>
           </SafeAreaView>
         </ImageBackground>

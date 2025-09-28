@@ -2,9 +2,9 @@
 
 const ENV_PROD = {
   ENVIRONMENT: "production",
-  BACKEND_WS_HOST: "intuitero.com",
+  BACKEND_WS_HOST: "trusted-frank-mudfish.ngrok-free.app",
   BACKEND_WS_PORT: 80,
-  API_URL: "https://intuitero.com/api/graphql",
+  API_URL: "https://trusted-frank-mudfish.ngrok-free.app/api",
   WS_PROTOCOL: "wss",
   WS_CONFIG: {
     AUTO_CONNECT: true,

@@ -4,12 +4,10 @@ import { useColorScheme, Platform, StatusBar, View, StyleSheet } from "react-nat
 import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import StatusBarManagerComponent from "@/components/ui/StatusBarManager";
-import { SpeechProvider } from "@/contexts/SpeechContext";
 import { UIProvider } from "@/contexts/UIContext";
-import { Provider } from "react-redux";
-import store from "@/redux/store";
-import { useAuth } from "@hooks/useAuth";
-import { useUser } from "@hooks/useUser";
+import { AppStateProvider } from "@/contexts/AppStateContext";
+import { useAuth } from "@/contexts/AppStateContext";
+import { useUserProfile } from "@hooks/useUserProfile";
 import { useAppSection, AppSectionPaths } from "@hooks/useAppSection";
 import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
 import { useFonts, Montserrat_400Regular, Montserrat_500Medium, Montserrat_600SemiBold, Montserrat_700Bold } from "@expo-google-fonts/montserrat";
@@ -29,26 +27,26 @@ SplashScreen.preventAutoHideAsync().catch(() => {
 
 // Handle auth state and routing
 function AuthStateCheck() {
-  const { isAuthenticated, isLoading, pendingNavigation } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   const { lastAppSection, getDefaultPathForSection } = useAppSection();
 
-  // Use the user hook to access and potentially fetch user profile data
-  const { profile, refetchProfile } = useUser();
+  // Use the user profile hook to access and potentially fetch user profile data
+  const { profile, getProfile } = useUserProfile();
 
   // Ensure we have user profile data when authenticated
   useEffect(() => {
     if (isAuthenticated && !profile && !isLoading) {
-      refetchProfile().catch((err) => {
+      getProfile().catch((err) => {
         console.error("Error fetching user profile in layout:", err);
       });
     }
-  }, [isAuthenticated, profile, isLoading, refetchProfile]);
+  }, [isAuthenticated, profile, isLoading, getProfile]);
 
   useEffect(() => {
     // Wait until all checks are complete
-    if (isLoading || pendingNavigation) return;
+    if (isLoading) return;
 
     const inAuthGroup = segments[0] === "(auth)";
     const inPublicGroup = segments[0] === "(public)";
@@ -79,7 +77,7 @@ function AuthStateCheck() {
       // Redirect to onboarding if not authenticated and trying to access protected routes
       router.replace("/(public)/onboarding");
     }
-  }, [isAuthenticated, isLoading, segments, pendingNavigation, lastAppSection]);
+  }, [isAuthenticated, isLoading, segments, lastAppSection]);
 
   return null;
 }
@@ -92,7 +90,7 @@ function RootLayoutNav() {
   // Always ensure hooks are called in every render
   const { isAuthenticated, isLoading } = useAuth();
   // Access user data to ensure it's loaded
-  const { profile } = useUser();
+  const { profile } = useUserProfile();
 
   const [fontsLoaded, fontError] = useFonts({
     Montserrat_400Regular,
@@ -159,17 +157,17 @@ function RootLayoutNav() {
   );
 }
 
-// Component to initialize user profile separately from Redux data loading
+// Component to initialize user profile using new Context system
 function AppInitializer({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
-  const { profile, refetchProfile, isLoading } = useUser();
+  const { profile, getProfile, isLoading } = useUserProfile();
 
   // Attempt to load user profile if authenticated but profile is empty
   useEffect(() => {
     const initializeProfile = async () => {
       if (isAuthenticated && !profile && !isLoading) {
         try {
-          await refetchProfile();
+          await getProfile();
         } catch (error) {
           console.error("Failed to load user profile on app initialization:", error);
         }
@@ -177,7 +175,7 @@ function AppInitializer({ children }: { children: React.ReactNode }) {
     };
 
     initializeProfile();
-  }, [isAuthenticated, profile, isLoading, refetchProfile]);
+  }, [isAuthenticated, profile, isLoading, getProfile]);
 
   return <>{children}</>;
 }
@@ -186,17 +184,15 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <GluestackUIProvider>
-        <Provider store={store}>
+        <AppStateProvider>
           <SafeAreaProvider>
-            <SpeechProvider>
               <UIProvider>
                 <AppInitializer>
                   <RootLayoutNav />
                 </AppInitializer>
               </UIProvider>
-            </SpeechProvider>
           </SafeAreaProvider>
-        </Provider>
+        </AppStateProvider>
       </GluestackUIProvider>
     </GestureHandlerRootView>
   );

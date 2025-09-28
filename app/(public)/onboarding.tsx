@@ -18,34 +18,34 @@ SplashScreen.preventAutoHideAsync().catch(() => {
   /* ignore error */
 });
 
-const onboardingData = [
+const slides = [
   {
     id: "1",
-    title: "VOICE CONTROL",
-    title2: "AI ASSISTANT",
-    description: "Execute trades using only your voice",
-    image: require("@assets/images/onboarding/voice-control.png"),
+    title: "FIND YOUR RIDE",
+    title2: "TRIBE",
+    description: "Connect with fellow commuters on your route and build lasting carpooling relationships in Morocco.",
+    image: require("@assets/images/onboarding/ride-matching.png"),
   },
   {
     id: "2",
-    title: "USE AUTOMATION",
-    title2: "GET RICH FASTER",
-    description: "AI gives you best market opportunities",
-    image: require("@assets/images/onboarding/automation.png"),
+    title: "SPLIT COSTS", 
+    title2: "SAVE MONEY",
+    description: "Share fuel costs, reduce your commuting expenses, and make transportation affordable for everyone.",
+    image: require("@assets/images/onboarding/cost-sharing.png"),
   },
   {
     id: "3",
-    title: "LEARN TO SPEND",
-    title2: "BETTER",
-    description: "With spending limits & smart budget tips",
-    image: require("@assets/images/onboarding/finance.png"),
+    title: "TRAJECTORY",
+    title2: "TRIBES",
+    description: "Join route-specific communities, share local insights, and make your daily commute more social and fun.",
+    image: require("@assets/images/onboarding/community.png"),
   },
   {
     id: "4",
-    title: "YOUR FINANCE ONE",
-    title2: "PLACE",
-    description: "Manage your investments, bank accounts & credit cards in one app",
-    image: require("@assets/images/onboarding/spend.png"),
+    title: "SAFE TRAVEL",
+    title2: "TOGETHER",
+    description: "Verified profiles, ratings, and secure payments ensure every ride is safe and trustworthy for all passengers.",
+    image: require("@assets/images/onboarding/safety.png"),
   },
 ];
 
@@ -87,7 +87,7 @@ export default function OnboardingScreen() {
   const renderDots = () => {
     return (
       <View style={styles.dotsContainer}>
-        {onboardingData.map((_, index) => (
+        {slides.map((_, index) => (
           <View
             key={index}
             style={[
@@ -104,7 +104,7 @@ export default function OnboardingScreen() {
   };
 
   const handleNext = () => {
-    if (currentIndex < onboardingData.length - 1) {
+    if (currentIndex < slides.length - 1) {
       flatListRef.current?.scrollToIndex({
         index: currentIndex + 1,
         animated: true,
@@ -148,10 +148,11 @@ export default function OnboardingScreen() {
         source={require("@assets/images/background/background_1.png")}
         style={[styles.container, { paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0 }]}
       >
-        <Image source={require("@assets/images/logo/voxprofit_blue_1024.png")} style={styles.logo} resizeMode="contain" />
+        {/* TODO: Replace with CoRide Morocco logo */}
+        <Image source={require("@assets/images/logo/coride_blue_1024.png")} style={styles.logo} resizeMode="contain" />
         <FlatList
           ref={flatListRef}
-          data={onboardingData}
+          data={slides}
           renderItem={renderItem}
           horizontal
           pagingEnabled
@@ -172,7 +173,7 @@ export default function OnboardingScreen() {
             ) : (
               <View style={styles.navButtonPlaceholder} />
             )}
-            {currentIndex < onboardingData.length - 1 ? (
+            {currentIndex < slides.length - 1 ? (
               <TouchableOpacity style={styles.navButton} onPress={handleNext}>
                 <Text style={styles.navButtonText}>Next</Text>
               </TouchableOpacity>
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     alignItems: "center",
-    marginBottom: hp(4),
+    marginBottom: hp(2),
     height: hp(5),
     justifyContent: "center",
   },
@@ -245,12 +246,13 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.regular,
     color: COLORS.text.primary,
     textAlign: "center",
-    marginBottom: hp(3),
+    marginBottom: hp(0),
     maxWidth: "80%",
   },
   image: {
     width: 250,
     height: 250,
+    marginBottom: hp(8), // Add spacing between image and bottom navigation
   },
   dotsContainer: {
     flexDirection: "row",

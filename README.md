@@ -1,81 +1,58 @@
-# Corriding App 🏎️
+# CoRide Morocco Frontend
 
-A clean, modern React Native app built with Expo Router, ready for corriding app development.
+## Project Overview
+**CoRide Morocco** is a mobile app for non-professional carpooling in Morocco, connecting commuters (e.g., students to Uni X, workers to Place X) for cost-sharing rides paid in cash, inspired by inDrive’s model. It tackles expensive taxis and unreliable buses with a unique “Trajectory Tribes” feature—hyper-local communities for sharing rides, traffic tips, and chats. Built with **React Native (Expo Go)**, this frontend delivers a bilingual (Arabic/French), Morocco-centric UX integrated with a FastAPI backend.
+
+This side project enhances my portfolio ([GitHub](https://github.com/ZOUHAIRFGRA)), building on my React Native experience (e.g., KessabPro, uni-nest-mobile) to showcase mobile development and localized UX design. It uses cash payments to stay non-commercial, aligning with Morocco’s regulations and user preferences.
 
 ## Features
+- **Route Input & Matching**: Enter trajectories (e.g., home to Uni X) for AI-driven ride matches.
+- **Trajectory Tribes**: Join/create communities for chats and ride coordination.
+- **Cash Payments**: In-app negotiation of cost-sharing (e.g., fuel costs), paid in cash, with amounts logged for transparency.
+- **Bilingual UI**: Arabic/French support with Morocco-inspired design (e.g., zellige patterns).
+- **Real-Time Updates**: Live tribe chats and ride status via WebSockets.
+- **Safety Features**: User profiles, ratings, and emergency button.
 
-✅ **Authentication System** - Complete auth flow with onboarding
-✅ **Modern UI Components** - Gluestack UI components with NativeWind styling  
-✅ **Theme System** - Consistent colors and design system
-✅ **Redux Toolkit** - State management ready for your features
-✅ **Expo Router** - File-based routing system
-✅ **TypeScript** - Full type safety
+## Tech Stack
+- **Framework**: React Native with Expo Go for cross-platform mobile.
+- **State Management**: Redux Toolkit for app state.
+- **Styling**: NativeWind (Tailwind CSS for React Native).
+- **Real-Time**: Pusher or WebSocket client for live updates.
+- **APIs**: Axios for REST calls to FastAPI backend.
+- **Maps**: Google Maps SDK or OpenStreetMap for route visualization.
+- **Testing**: Jest and React Native Testing Library.
+- **Build/Deploy**: Expo EAS for APKs and app store distribution.
 
-## Project Structure
+## Setup Instructions
+1. **Clone**: `git clone https://github.com/ZOUHAIRFGRA/coride-morocco-frontend.git`
+2. **Install Dependencies**: `npm install`
+3. **Configure Environment**: Copy `.env.example` to `.env` and set `API_URL`, `GOOGLE_MAPS_API_KEY`, `PUSHER_KEY`.
+4. **Run App**: `expo start` (scan QR code with Expo Go or use emulator: `a` for Android, `i` for iOS).
+5. **Access**: App runs at `http://localhost:19000`.
 
-```
-app/
-├── (auth)/          # Authentication screens
-├── (public)/        # Public screens (splash, onboarding)
-├── (main)/          # Main app screens
-└── _layout.tsx      # Root layout with providers
+## Contribution Guidelines
+- **Collaborators**: Fork the repo, use `feature/your-feature` branches, and submit PRs with tests. Needed: UI designers for Arabic RTL, testers for low-data networks.
+- **Issues**: See [Issues](https://github.com/ZOUHAIRFGRA/coride-morocco-frontend/issues) for tasks (e.g., CO2 tracker UI, map optimizations).
+- **Code Style**: ESLint with Prettier; follow React Native best practices.
 
-components/
-├── ui/              # Reusable UI components
-├── modals/          # Modal components
-└── schema-forms/    # Form components
+## Roadmap
+- Implement CO2 savings dashboard.
+- Add Arabic RTL for full bilingual UX.
+- Optimize map rendering for low-data networks.
+- Enhance cash payment UI (e.g., QR code receipts).
+- Publish to Google Play/App Store via Expo EAS.
 
-hooks/               # Custom React hooks
-redux/               # Redux store and slices
-utils/               # Utility functions
-constants/           # App constants and theme
-```
+## Why This Project?
+This frontend builds on my React Native expertise, showcasing:
+- Cross-platform mobile development with Expo Go.
+- Localized UX for Morocco’s commuters, including cash-based payments.
+- Real-time UI integration with WebSockets.
+- Modern tooling for scalable apps.
 
-## Get Started
+For collaborators, it’s an opportunity to shape a user-focused app for Morocco’s mobility needs. For recruiters, it demonstrates my ability to deliver polished mobile experiences.
 
-1. **Install dependencies**
-   ```bash
-   npm install
-   ```
 
-2. **Start the development server**
-   ```bash
-   npx expo start
-   ```
-
-3. **Run on device/simulator**
-   - Press `a` for Android emulator
-   - Press `i` for iOS simulator
-   - Scan QR code with Expo Go app
-
-## Customization
-
-### Theme & Colors
-- Edit `constants/theme.ts` for color schemes
-- Modify `tailwind.config.js` for styling
-- Update `gluestack-ui.config.json` for component themes
-
-### Add New Features
-1. Create new screens in `app/` directory
-2. Add Redux slices in `redux/` folder
-3. Create reusable components in `components/`
-4. Add custom hooks in `hooks/`
-
-## Available Scripts
-
-- `npm start` - Start Expo development server
-- `npm run android` - Run on Android
-- `npm run ios` - Run on iOS  
-- `npm run web` - Run on web
-- `npm test` - Run tests
-- `npm run lint` - Lint code
-
-## Clean Foundation
-
-This template has been cleaned from a previous investment app, keeping only:
-- Authentication & onboarding flows
-- UI component library and theme system
-- Essential utilities and configurations
-- Redux store with auth and user management
-
-Perfect foundation for building your corriding app! 🚀
+## Contact
+- GitHub: [ZOUHAIRFGRA](https://github.com/ZOUHAIRFGRA)
+- Email: [zouhairfgra@gmail.com](mailto:zouhairfgra@gmail.com)
+- Issues: Report bugs or suggest features in the repo.

@@ -42,7 +42,7 @@ export default function SplashPage() {
       <Stack.Screen options={{ headerShown: false }} />
       <LinearGradient colors={["#006389", "#33B7E9"]} style={styles.gradient}>
         <View style={styles.content}>
-          <Image source={require("@assets/images/logo/voxprofit_white.png")} style={styles.logo} resizeMode="contain" />
+          <Image source={require("@assets/images/logo/coride_white.png")} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>USE AI TO GET RICH</Text>
         </View>
       </LinearGradient>

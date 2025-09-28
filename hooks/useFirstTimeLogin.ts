@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useAppSelector } from "@/redux/hooks";
+import { useAuth } from "@/contexts/AppStateContext";
+import { useUserProfile } from "./useUserProfile";
 
 const FIRST_TIME_LOGIN_KEY = "@first_time_login_shown";
 
@@ -12,13 +13,13 @@ export function useFirstTimeLogin() {
   const [showFirstTimeModal, setShowFirstTimeModal] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Get authentication state
-  const isAuthenticated = useAppSelector((state) => state.auth.isAuthenticated);
-  const user = useAppSelector((state) => state.auth.user);
+  // Get authentication state and user profile
+  const { isAuthenticated, user } = useAuth();
+  const { profile } = useUserProfile();
 
   useEffect(() => {
     checkFirstTimeLogin();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, profile]);
 
   const checkFirstTimeLogin = async () => {
     try {
@@ -27,8 +28,9 @@ export function useFirstTimeLogin() {
         return;
       }
 
-      // Create a unique key for this user
-      const userKey = `${FIRST_TIME_LOGIN_KEY}_${user.id || user.email || "default"}`;
+      // Create a unique key for this user using profile data or auth user data
+      const userId = profile?.id || user?.id || user?.email || "default";
+      const userKey = `${FIRST_TIME_LOGIN_KEY}_${userId}`;
 
       // Check if we've shown the modal to this user before
       const hasShownModal = await AsyncStorage.getItem(userKey);
@@ -47,9 +49,10 @@ export function useFirstTimeLogin() {
 
   const markFirstTimeLoginShown = async () => {
     try {
-      if (!user) return;
+      const userId = profile?.id || user?.id || user?.email || "default";
+      if (!userId) return;
 
-      const userKey = `${FIRST_TIME_LOGIN_KEY}_${user.id || user.email || "default"}`;
+      const userKey = `${FIRST_TIME_LOGIN_KEY}_${userId}`;
       await AsyncStorage.setItem(userKey, "true");
       setShowFirstTimeModal(false);
     } catch (error) {

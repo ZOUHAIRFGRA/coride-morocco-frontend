@@ -1,6 +1,6 @@
 // Development Environment Configuration
 const USING_NGROK = process.env.EXPO_PUBLIC_USING_NGROK === "true" || false;
-const BACKEND_HOST = USING_NGROK ? "prime-legible-turkey.ngrok-free.app" : "localhost" 
+const BACKEND_HOST = USING_NGROK ? "trusted-frank-mudfish.ngrok-free.app" : "localhost" 
 const PROTOCOL = USING_NGROK ? "https" : "http"
 const ENV_DEV = {
   ENVIRONMENT: "development",
