@@ -394,8 +394,7 @@ export class BaseApiService {
    */
   protected async refreshTokens(): Promise<boolean> {
     // This should be implemented by the AuthService
-    // Base implementation returns false
-    console.warn('Token refresh not implemented in base service');
+    // Base implementation returns false (no warning needed)
     return false;
   }
 

@@ -209,9 +209,23 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (isAuthenticated) {
           const userResponse = await authService.getCurrentUser();
           if (userResponse.success && userResponse.data) {
+            // Get tokens from storage for complete auth state
+            const accessToken = await authService.getStoredAccessToken();
+            const refreshToken = await authService.getStoredRefreshToken();
+            
+            const tokens = accessToken && refreshToken ? {
+              access_token: accessToken,
+              refresh_token: refreshToken,
+              token_type: 'bearer',
+              expires_in: 86400 // Default 24h
+            } : undefined;
+            
             dispatch({ 
               type: 'AUTH_SUCCESS', 
-              payload: { user: userResponse.data } 
+              payload: { 
+                user: userResponse.data,
+                tokens 
+              } 
             });
           }
         }
@@ -248,17 +262,30 @@ export const useAuth = () => {
     try {
       const response = await authService.login(credentials);
       if (response.success && response.data) {
-        // Get user data after login
-        const userResponse = await authService.getCurrentUser();
-        if (userResponse.success && userResponse.data) {
+        // Get cached user data from auth service
+        const cachedUser = authService.getUserData();
+        if (cachedUser) {
           dispatch({ 
             type: 'AUTH_SUCCESS', 
             payload: { 
-              user: userResponse.data,
+              user: cachedUser,
               tokens: response.data 
             } 
           });
           return { success: true };
+        } else {
+          // Fallback: fetch user data if not cached
+          const userResponse = await authService.getCurrentUser();
+          if (userResponse.success && userResponse.data) {
+            dispatch({ 
+              type: 'AUTH_SUCCESS', 
+              payload: { 
+                user: userResponse.data,
+                tokens: response.data 
+              } 
+            });
+            return { success: true };
+          }
         }
       }
       dispatch({ type: 'AUTH_ERROR', payload: response.error?.message || 'Login failed' });

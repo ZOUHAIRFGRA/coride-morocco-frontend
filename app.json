@@ -86,9 +86,9 @@
         "origin": false
       },
       "eas": {
-        "projectId": "e23451b1-b44b-47ab-a199-539caabae7ec"
+        "projectId": "<your-project-id>"
       }
     },
-    "owner": "yankz"
+    "owner": "zouhairfgra"
   }
 }

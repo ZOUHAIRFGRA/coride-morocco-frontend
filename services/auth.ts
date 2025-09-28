@@ -11,25 +11,51 @@ import {
 } from '../types/auth';
 import { BaseApiService, defaultApiConfig, TokenStorage } from './BaseApiService';
 
-// Custom token storage for auth service
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Custom token storage for auth service with persistence
 class AuthTokenStorage implements TokenStorage {
-  private tokens: { access?: string; refresh?: string } = {};
+  private static readonly ACCESS_TOKEN_KEY = '@coride/access_token';
+  private static readonly REFRESH_TOKEN_KEY = '@coride/refresh_token';
 
-  getAccessToken(): string | null {
-    return this.tokens.access || null;
+  async getAccessToken(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(AuthTokenStorage.ACCESS_TOKEN_KEY);
+    } catch (error) {
+      console.error('Failed to get access token from storage:', error);
+      return null;
+    }
   }
 
-  getRefreshToken(): string | null {
-    return this.tokens.refresh || null;
+  async getRefreshToken(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem(AuthTokenStorage.REFRESH_TOKEN_KEY);
+    } catch (error) {
+      console.error('Failed to get refresh token from storage:', error);
+      return null;
+    }
   }
 
-  setTokens(accessToken: string, refreshToken: string): void {
-    this.tokens.access = accessToken;
-    this.tokens.refresh = refreshToken;
+  async setTokens(accessToken: string, refreshToken: string): Promise<void> {
+    try {
+      await Promise.all([
+        AsyncStorage.setItem(AuthTokenStorage.ACCESS_TOKEN_KEY, accessToken),
+        AsyncStorage.setItem(AuthTokenStorage.REFRESH_TOKEN_KEY, refreshToken)
+      ]);
+    } catch (error) {
+      console.error('Failed to store tokens:', error);
+    }
   }
 
-  clearTokens(): void {
-    this.tokens = {};
+  async clearTokens(): Promise<void> {
+    try {
+      await Promise.all([
+        AsyncStorage.removeItem(AuthTokenStorage.ACCESS_TOKEN_KEY),
+        AsyncStorage.removeItem(AuthTokenStorage.REFRESH_TOKEN_KEY)
+      ]);
+    } catch (error) {
+      console.error('Failed to clear tokens:', error);
+    }
   }
 }
 
@@ -98,7 +124,7 @@ class AuthService extends BaseApiService {
     if (response.success && response.data) {
       await this.storeTokens(response.data.access_token, response.data.refresh_token);
       
-      // Get user data after login
+      // Get user data after login (this will be cached and deduplicated)
       const userResponse = await this.getCurrentUser();
       if (userResponse.success && userResponse.data) {
         userData = userResponse.data;
@@ -108,11 +134,28 @@ class AuthService extends BaseApiService {
     return response;
   }
 
+  // Request deduplication for getCurrentUser
+  private currentUserRequest: Promise<ApiResponse<UserResponse>> | null = null;
+
   /**
-   * Get current user info
+   * Get current user info (with request deduplication)
    */
   async getCurrentUser(): Promise<ApiResponse<UserResponse>> {
-    return this.get<UserResponse>('/auth/me');
+    // If there's already a request in progress, return the same promise
+    if (this.currentUserRequest) {
+      return this.currentUserRequest;
+    }
+
+    // Create new request and store the promise
+    this.currentUserRequest = this.get<UserResponse>('/auth/me');
+    
+    try {
+      const result = await this.currentUserRequest;
+      return result;
+    } finally {
+      // Clear the request after completion (success or failure)
+      this.currentUserRequest = null;
+    }
   }
 
   /**
@@ -158,10 +201,22 @@ class AuthService extends BaseApiService {
       return false;
     }
 
-    // Optionally validate token by making a request
+    // Validate token by making a request
     try {
       const response = await this.getCurrentUser();
-      return response.success;
+      if (response.success) {
+        return true;
+      }
+      
+      // If token is invalid, try to refresh
+      const refreshed = await this.refreshTokens();
+      if (refreshed) {
+        // Try again with new token
+        const retryResponse = await this.getCurrentUser();
+        return retryResponse.success;
+      }
+      
+      return false;
     } catch {
       return false;
     }
@@ -180,6 +235,20 @@ class AuthService extends BaseApiService {
   async clearAuth(): Promise<void> {
     await this.clearTokens();
     userData = null;
+  }
+
+  /**
+   * Get current access token (public method)
+   */
+  async getStoredAccessToken(): Promise<string | null> {
+    return await this.getAccessToken();
+  }
+
+  /**
+   * Get current refresh token (public method)
+   */
+  async getStoredRefreshToken(): Promise<string | null> {
+    return await this.getRefreshToken();
   }
 }
 

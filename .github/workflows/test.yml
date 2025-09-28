@@ -1,11 +1,12 @@
 name: Test
 
 on:
-  workflow_call:
-  push:
-    branches: ["*"]
-  pull_request:
-    branches: ["*"]
+  workflow_dispatch:   
+    inputs:
+      branch:
+        description: 'Branch to Test'
+        required: true
+        default: 'master'
 
 jobs:
   test:

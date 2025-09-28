@@ -84,15 +84,32 @@ export interface RatingRequest {
 }
 
 class UserProfileApiService extends BaseApiService {
+  // Request deduplication for getProfile
+  private profileRequest: Promise<ApiResponse<UserProfile>> | null = null;
+
   constructor() {
     super(defaultApiConfig);
   }
 
   /**
-   * Get current user's full profile
+   * Get current user's full profile (with request deduplication)
    */
   async getProfile(): Promise<ApiResponse<UserProfile>> {
-    return this.get<UserProfile>('/auth/me');
+    // If there's already a request in progress, return the same promise
+    if (this.profileRequest) {
+      return this.profileRequest;
+    }
+
+    // Create new request and store the promise
+    this.profileRequest = this.get<UserProfile>('/auth/me');
+    
+    try {
+      const result = await this.profileRequest;
+      return result;
+    } finally {
+      // Clear the request after completion (success or failure)
+      this.profileRequest = null;
+    }
   }
 
   /**
