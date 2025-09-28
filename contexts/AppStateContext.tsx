@@ -21,15 +21,13 @@ import type {
 import type { 
   UserProfile, 
   UpdateProfileRequest, 
-  UpdateVehicleRequest, 
-  UpdatePreferencesRequest, 
-  RatingRequest 
-} from '../services/userProfileApi';
+  UpdatePreferencesRequest
+} from '../types/user';
 
 // State interfaces
 export interface AuthState {
   user: UserResponse | null;
-  tokens: TokenResponse | null;
+  tokens: TokenResponse | null | undefined;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -59,7 +57,7 @@ export interface AppState {
 // Action types
 type AuthAction = 
   | { type: 'AUTH_LOADING'; payload: boolean }
-  | { type: 'AUTH_SUCCESS'; payload: { user: UserResponse; tokens?: TokenResponse } }
+  | { type: 'AUTH_SUCCESS'; payload: { user: UserResponse; tokens?: TokenResponse | null } }
   | { type: 'AUTH_ERROR'; payload: string }
   | { type: 'AUTH_LOGOUT' }
   | { type: 'AUTH_CLEAR_ERROR' };
@@ -205,10 +203,27 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        // Don't initialize if we're already in a loading state or already authenticated
+        if (state.auth.isLoading || state.auth.isAuthenticated) {
+          return;
+        }
+
+        dispatch({ type: 'AUTH_LOADING', payload: true });
+
         const isAuthenticated = await authService.isAuthenticated();
         if (isAuthenticated) {
-          const userResponse = await authService.getCurrentUser();
-          if (userResponse.success && userResponse.data) {
+          // isAuthenticated() already called getCurrentUser(), so check cached data first
+          let userData = authService.getUserData();
+          
+          // Only make API call if we don't have cached user data
+          if (!userData) {
+            const userResponse = await authService.getCurrentUser();
+            if (userResponse.success && userResponse.data) {
+              userData = userResponse.data;
+            }
+          }
+
+          if (userData) {
             // Get tokens from storage for complete auth state
             const accessToken = await authService.getStoredAccessToken();
             const refreshToken = await authService.getStoredRefreshToken();
@@ -223,19 +238,30 @@ export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             dispatch({ 
               type: 'AUTH_SUCCESS', 
               payload: { 
-                user: userResponse.data,
+                user: userData,
                 tokens 
               } 
             });
+
+            // Also populate the user profile with the same data since UserProfile extends UserResponse
+            dispatch({ 
+              type: 'PROFILE_SUCCESS', 
+              payload: userData as any 
+            });
+          } else {
+            dispatch({ type: 'AUTH_LOADING', payload: false });
           }
+        } else {
+          dispatch({ type: 'AUTH_LOADING', payload: false });
         }
       } catch (error) {
         console.error('Failed to initialize auth:', error);
+        dispatch({ type: 'AUTH_LOADING', payload: false });
       }
     };
 
     initializeAuth();
-  }, []);
+  }, []); // Keep empty dependency array
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>
@@ -272,6 +298,11 @@ export const useAuth = () => {
               tokens: response.data 
             } 
           });
+          // Also populate the user profile
+          dispatch({ 
+            type: 'PROFILE_SUCCESS', 
+            payload: cachedUser as any 
+          });
           return { success: true };
         } else {
           // Fallback: fetch user data if not cached
@@ -283,6 +314,11 @@ export const useAuth = () => {
                 user: userResponse.data,
                 tokens: response.data 
               } 
+            });
+            // Also populate the user profile
+            dispatch({ 
+              type: 'PROFILE_SUCCESS', 
+              payload: userResponse.data as any 
             });
             return { success: true };
           }
@@ -323,6 +359,11 @@ export const useAuth = () => {
               user: userResponse.data,
               tokens: loginResponse.data 
             } 
+          });
+          // Also populate the user profile
+          dispatch({ 
+            type: 'PROFILE_SUCCESS', 
+            payload: userResponse.data as any 
           });
           return { success: true };
         }

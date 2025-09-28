@@ -49,9 +49,8 @@ export const checkServicesHealth = async () => {
   };
 
   try {
-    // You can implement health check endpoints
-    // For now, just check if services are configured
-    results.auth = await authService.isAuthenticated() || true; // Service exists
+    // Just check if services are configured without making API calls
+    results.auth = true; // Service exists
     results.rides = true; // Service exists
     results.profile = true; // Service exists
   } catch (error) {

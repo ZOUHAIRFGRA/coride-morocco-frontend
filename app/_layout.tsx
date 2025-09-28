@@ -150,30 +150,8 @@ function RootLayoutNav() {
 
 // Component to initialize user profile using new Context system
 function AppInitializer({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, user } = useAuth();
-  const { profile, getProfile, isLoading } = useUserProfile();
-
-  // Only attempt to load user profile if we have auth but no profile data
-  // and user data exists (meaning we're properly authenticated)
-  useEffect(() => {
-    const initializeProfile = async () => {
-      if (isAuthenticated && user && !profile && !isLoading) {
-        try {
-          await getProfile();
-        } catch (error) {
-          console.error("Failed to load user profile on app initialization:", error);
-        }
-      }
-    };
-
-    // Add a small delay to ensure auth state is fully settled
-    const timeoutId = setTimeout(() => {
-      initializeProfile();
-    }, 100);
-
-    return () => clearTimeout(timeoutId);
-  }, [isAuthenticated, user]); // Depend on user existence to ensure auth is complete
-
+  // For now, just return children without any profile initialization
+  // The profile will be loaded when needed by individual components
   return <>{children}</>;
 }
 

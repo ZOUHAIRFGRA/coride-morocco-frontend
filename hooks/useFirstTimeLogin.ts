@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/contexts/AppStateContext";
-import { useUserProfile } from "./useUserProfile";
+import { useUserProfile } from "@/hooks/useUserProfile";
 
 const FIRST_TIME_LOGIN_KEY = "@first_time_login_shown";
 

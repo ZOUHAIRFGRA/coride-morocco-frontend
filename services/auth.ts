@@ -63,6 +63,9 @@ class AuthTokenStorage implements TokenStorage {
 let userData: UserResponse | null = null;
 
 class AuthService extends BaseApiService {
+  // Request deduplication for isAuthenticated
+  private authCheckRequest: Promise<boolean> | null = null;
+
   constructor() {
     super(defaultApiConfig, new AuthTokenStorage());
   }
@@ -151,6 +154,12 @@ class AuthService extends BaseApiService {
     
     try {
       const result = await this.currentUserRequest;
+      
+      // Cache the user data if the request was successful
+      if (result.success && result.data) {
+        userData = result.data;
+      }
+      
       return result;
     } finally {
       // Clear the request after completion (success or failure)
@@ -193,9 +202,30 @@ class AuthService extends BaseApiService {
   }
 
   /**
-   * Check if user is authenticated (override base method)
+   * Check if user is authenticated (override base method with deduplication)
    */
   async isAuthenticated(): Promise<boolean> {
+    // If there's already an auth check in progress, return the same promise
+    if (this.authCheckRequest) {
+      return this.authCheckRequest;
+    }
+
+    // Create new auth check request
+    this.authCheckRequest = this._performAuthCheck();
+    
+    try {
+      const result = await this.authCheckRequest;
+      return result;
+    } finally {
+      // Clear the request after completion
+      this.authCheckRequest = null;
+    }
+  }
+
+  /**
+   * Internal auth check method
+   */
+  private async _performAuthCheck(): Promise<boolean> {
     const token = await this.getAccessToken();
     if (!token) {
       return false;
