@@ -1,0 +1,357 @@
+import React, { useEffect, useRef, useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  Animated,
+  Dimensions,
+  PanResponder,
+  Keyboard,
+  TouchableWithoutFeedback,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS, FONTS } from "@constants/theme";
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from "react-native-responsive-screen";
+import { Image } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { height } = Dimensions.get("window");
+
+interface PriceAlertModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSetAlert: (price: string, type: string) => void;
+}
+
+const PriceAlertModal = ({ visible, onClose, onSetAlert }: PriceAlertModalProps) => {
+  const [alertType, setAlertType] = useState("price"); // 'price' or 'percentage'
+  const [priceValue, setPriceValue] = useState("96.345,95");
+  const [currentPrice, setCurrentPrice] = useState("$96.345,95");
+  const [isClosing, setIsClosing] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  const slideAnim = useRef(new Animated.Value(height)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setIsMounted(true);
+      setIsClosing(false);
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else if (isMounted) {
+      closeModal();
+    }
+  }, [visible]);
+
+  const closeModal = () => {
+    if (isClosing) return;
+
+    setIsClosing(true);
+    Keyboard.dismiss();
+
+    Animated.timing(slideAnim, {
+      toValue: height,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setIsMounted(false);
+      onClose();
+    });
+  };
+
+  const handleSetAlert = () => {
+    if (isClosing) return;
+    onSetAlert(priceValue, alertType);
+    closeModal();
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          slideAnim.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy > 100) {
+          closeModal();
+        } else {
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+    })
+  ).current;
+
+  if (!visible && !isMounted) return null;
+
+  return (
+    <Modal transparent visible={visible} animationType="none" onRequestClose={closeModal}>
+      <TouchableWithoutFeedback onPress={closeModal}>
+        <View style={styles.overlay}>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <Animated.View
+              style={[
+                styles.container,
+                {
+                  transform: [{ translateY: slideAnim }],
+                },
+              ]}
+              {...panResponder.panHandlers}
+            >
+              {/* Drag Handle */}
+              <View style={styles.dragHandle}>
+                <View style={styles.dragIndicator} />
+              </View>
+
+              {/* Close Button */}
+              <TouchableOpacity style={styles.closeButton} onPress={closeModal} disabled={isClosing}>
+                <Ionicons name="close" size={wp(6)} color="#666" />
+              </TouchableOpacity>
+
+              {/* Modal Header */}
+              <View style={styles.modalHeader}>
+                <Image source={require("@assets/images/icons/bitcoin.png")} style={styles.modalBitcoinIcon} />
+                <Text style={styles.modalTitle}>Bitcoin</Text>
+              </View>
+
+              <View style={styles.modalDivider} />
+
+              {/* Alert Type Selector */}
+              <View style={styles.alertTypeContainer}>
+                <TouchableOpacity
+                  style={[styles.alertTypeButton, alertType === "price" && styles.alertTypeButtonActive]}
+                  onPress={() => setAlertType("price")}
+                  disabled={isClosing}
+                >
+                  {alertType === "price" ? (
+                    <LinearGradient colors={["#0099CC", "#006699"]} style={styles.gradientButton} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                      <Text style={[styles.alertTypeText, styles.alertTypeTextActive]}>Alert by Price</Text>
+                    </LinearGradient>
+                  ) : (
+                    <Text style={styles.alertTypeText}>Alert by Price</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.alertTypeButton, alertType === "percentage" && styles.alertTypeButtonActive]}
+                  onPress={() => setAlertType("percentage")}
+                  disabled={isClosing}
+                >
+                  {alertType === "percentage" ? (
+                    <LinearGradient colors={["#0099CC", "#006699"]} style={styles.gradientButton} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                      <Text style={[styles.alertTypeText, styles.alertTypeTextActive]}>Alert by %</Text>
+                    </LinearGradient>
+                  ) : (
+                    <Text style={styles.alertTypeText}>Alert by %</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* Price Input Section */}
+              <Text style={styles.inputLabel}>When price is under</Text>
+              <View style={styles.priceInputContainer}>
+                <TextInput style={styles.priceInput} value={priceValue} onChangeText={setPriceValue} keyboardType="numeric" editable={!isClosing} />
+              </View>
+
+              {/* Currency Selector */}
+              <View style={styles.currencySelector}>
+                <Text style={styles.currencyActive}>USD</Text>
+                <Text style={styles.currencyInactive}>BTC</Text>
+              </View>
+
+              {/* Current Price and Set Alert Button */}
+              <View style={styles.alertActionContainer}>
+                <View style={styles.currentPriceContainer}>
+                  <Text style={styles.currentPriceLabel}>Current Price</Text>
+                  <Text style={styles.currentPriceValue}>{currentPrice}</Text>
+                </View>
+
+                <TouchableOpacity onPress={handleSetAlert} disabled={isClosing}>
+                  <LinearGradient colors={["#0099CC", "#006699"]} style={styles.setPriceAlertButton} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                    <Text style={styles.setPriceAlertText}>Set Price Alert</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  container: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: wp(6),
+    borderTopRightRadius: wp(6),
+    padding: wp(5),
+    paddingTop: wp(2),
+    position: "relative",
+    maxHeight: "90%",
+  },
+  dragHandle: {
+    width: "100%",
+    alignItems: "center",
+    marginBottom: hp(1),
+  },
+  dragIndicator: {
+    width: wp(10),
+    height: hp(0.5),
+    backgroundColor: "#E0E0E0",
+    borderRadius: hp(0.25),
+  },
+  closeButton: {
+    position: "absolute",
+    right: wp(3),
+    top: wp(3),
+    zIndex: 10,
+    padding: wp(2),
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: hp(1.5),
+    marginTop: hp(1),
+  },
+  modalBitcoinIcon: {
+    width: wp(8),
+    height: wp(8),
+    borderRadius: wp(4),
+    marginRight: wp(2),
+  },
+  modalTitle: {
+    fontSize: hp(2.5),
+    fontFamily: FONTS.bold,
+    color: "#0077B6",
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: "#E0E0E0",
+    marginVertical: hp(1.5),
+  },
+  alertTypeContainer: {
+    flexDirection: "row",
+    backgroundColor: "#F5F5F5",
+    borderColor: COLORS.border.primary,
+    borderWidth: 1,
+    borderRadius: wp(10),
+    marginBottom: hp(2.5),
+    padding: wp(0.5),
+    overflow: "hidden",
+  },
+  alertTypeButton: {
+    flex: 1,
+    borderRadius: wp(10),
+    overflow: "hidden",
+  },
+  alertTypeButtonActive: {
+    backgroundColor: "transparent",
+  },
+  gradientButton: {
+    paddingVertical: hp(0.1),
+    alignItems: "center",
+    borderRadius: wp(10),
+  },
+  alertTypeText: {
+    fontSize: hp(1.8),
+    fontFamily: FONTS.semiBold,
+    color: "#666",
+    textAlign: "center",
+    paddingVertical: hp(1),
+  },
+  alertTypeTextActive: {
+    color: "#FFFFFF",
+  },
+  inputLabel: {
+    fontSize: hp(1.8),
+    fontFamily: FONTS.regular,
+    color: "#333",
+    textAlign: "center",
+    marginBottom: hp(1.5),
+  },
+  priceInputContainer: {
+    borderWidth: 1,
+    borderColor: COLORS.primary.text,
+    backgroundColor: COLORS.primary.oceanBlue50,
+    borderRadius: wp(2),
+    marginBottom: hp(1),
+  },
+  priceInput: {
+    fontSize: hp(2.2),
+    fontFamily: FONTS.semiBold,
+    color: "#333",
+    textAlign: "center",
+    paddingVertical: hp(1.5),
+  },
+  currencySelector: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginBottom: hp(3),
+  },
+  currencyActive: {
+    fontSize: hp(1.8),
+    fontFamily: FONTS.semiBold,
+    color: "#0077B6",
+    marginRight: wp(3),
+  },
+  currencyInactive: {
+    fontSize: hp(1.8),
+    fontFamily: FONTS.regular,
+    color: "#666",
+  },
+  alertActionContainer: {
+    backgroundColor: "#EBEBEB",
+    borderRadius: wp(4),
+    padding: wp(4),
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  currentPriceContainer: {
+    flex: 1,
+  },
+  currentPriceLabel: {
+    fontSize: hp(1.6),
+    fontFamily: FONTS.regular,
+    color: "#666",
+  },
+  currentPriceValue: {
+    fontSize: hp(1.8),
+    fontFamily: FONTS.semiBold,
+    color: "#333",
+  },
+  setPriceAlertButton: {
+    borderRadius: wp(2),
+    paddingVertical: hp(1.2),
+    paddingHorizontal: wp(4),
+  },
+  setPriceAlertText: {
+    fontSize: hp(2),
+    fontFamily: FONTS.semiBold,
+    color: "#FFFFFF",
+  },
+});
+
+export default PriceAlertModal;

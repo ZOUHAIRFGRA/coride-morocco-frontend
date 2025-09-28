@@ -1,0 +1,792 @@
+import React, { useState, useCallback } from "react";
+import { View, Text, Modal, TouchableOpacity, ScrollView, TextInput, Switch, StyleSheet, Alert } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS, FONTS } from "@/constants/theme";
+import { widthPercentageToDP as wp, heightPercentageToDP as hp } from "react-native-responsive-screen";
+import { GradientButton } from "@/components/ui/buttons/GradientButton";
+import { moderateScale, verticalScale, responsiveFontSize } from "@utils/responsive";
+import DatePicker from "react-native-date-picker";
+import { useAppSelector } from "@/redux/hooks";
+import { CreateAlpacaAccountInput } from "@/redux/investment/investmentTypes";
+import * as Haptics from "expo-haptics";
+import StateDropdown from "@/components/ui/StateDropdown";
+import { StateCode } from "@/constants/countries";
+
+/**
+ * Props for KycFormModal
+ */
+type KycFormModalProps = {
+  visible: boolean;
+  onClose: () => void;
+  onSubmit: (formData: CreateAlpacaAccountInput) => void;
+  isLoading?: boolean;
+};
+
+/**
+ * Form field component for reuse
+ */
+const FormField = ({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType = "default",
+  autoCapitalize = "none",
+  error,
+  required = true,
+  disabled = false,
+}: {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder: string;
+  keyboardType?: "default" | "email-address" | "numeric" | "phone-pad";
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  error?: string;
+  required?: boolean;
+  disabled?: boolean;
+}) => {
+  return (
+    <View style={styles.fieldContainer}>
+      <Text style={styles.fieldLabel}>
+        {label} {required && <Text style={styles.required}>*</Text>}
+      </Text>
+      <TextInput
+        style={[styles.textInput, error && styles.textInputError, disabled && styles.textInputDisabled]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        keyboardType={keyboardType}
+        autoCapitalize={autoCapitalize}
+        placeholderTextColor="#999"
+        editable={!disabled}
+      />
+      {error && <Text style={styles.errorText}>{error}</Text>}
+    </View>
+  );
+};
+
+/**
+ * Toggle field component
+ */
+const ToggleField = ({
+  label,
+  value,
+  onValueChange,
+  description,
+}: {
+  label: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+  description?: string;
+}) => {
+  return (
+    <View style={styles.fieldContainer}>
+      <View style={styles.toggleContainer}>
+        <Text style={styles.toggleLabel}>{label}</Text>
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          trackColor={{ false: "#D1D5DB", true: COLORS.primary.light }}
+          thumbColor={value ? COLORS.primary.dark : "#F3F4F6"}
+        />
+      </View>
+      {description && <Text style={styles.descriptionText}>{description}</Text>}
+    </View>
+  );
+};
+
+// Mapping of countries to their supported tax ID types (from Alpaca API)
+const COUNTRY_TAX_ID_MAP: { [key: string]: { tax_id_type: string; label: string; placeholder: string; format: string }[] } = {
+  USA: [{ tax_id_type: "USA_SSN", label: "Social Security Number", placeholder: "XXX-XX-XXXX", format: "ssn" }],
+  AR: [{ tax_id_type: "ARG_AR_CUIT", label: "CUIT", placeholder: "XX-XXXXXXXX-X", format: "other" }],
+  AU: [
+    { tax_id_type: "AUS_TFN", label: "Tax File Number", placeholder: "XXX XXX XXX", format: "other" },
+    { tax_id_type: "AUS_ABN", label: "Australian Business Number", placeholder: "XX XXX XXX XXX", format: "other" },
+  ],
+  BO: [{ tax_id_type: "BOL_NIT", label: "NIT", placeholder: "Enter NIT", format: "other" }],
+  BR: [{ tax_id_type: "BRA_CPF", label: "CPF", placeholder: "XXX.XXX.XXX-XX", format: "other" }],
+  CL: [{ tax_id_type: "CHL_RUT", label: "RUT", placeholder: "XX.XXX.XXX-X", format: "other" }],
+  CO: [{ tax_id_type: "COL_NIT", label: "NIT", placeholder: "Enter NIT", format: "other" }],
+  CR: [{ tax_id_type: "CRI_NITE", label: "NITE", placeholder: "Enter NITE", format: "other" }],
+  DE: [{ tax_id_type: "DEU_TAX_ID", label: "Tax ID", placeholder: "Enter Tax ID", format: "other" }],
+  DO: [{ tax_id_type: "DOM_RNC", label: "RNC", placeholder: "Enter RNC", format: "other" }],
+  EC: [{ tax_id_type: "ECU_RUC", label: "RUC", placeholder: "Enter RUC", format: "other" }],
+  FR: [{ tax_id_type: "FRA_SPI", label: "SPI", placeholder: "Enter SPI", format: "other" }],
+  GB: [
+    { tax_id_type: "GBR_UTR", label: "Unique Taxpayer Reference", placeholder: "1234567890", format: "other" },
+    { tax_id_type: "GBR_NINO", label: "National Insurance Number", placeholder: "AB123456C", format: "nino" },
+  ],
+  GT: [{ tax_id_type: "GTM_NIT", label: "NIT", placeholder: "Enter NIT", format: "other" }],
+  HN: [{ tax_id_type: "HND_RTN", label: "RTN", placeholder: "Enter RTN", format: "other" }],
+  HU: [{ tax_id_type: "HUN_TIN", label: "TIN", placeholder: "Enter TIN", format: "other" }],
+  ID: [{ tax_id_type: "IDN_KTP", label: "KTP", placeholder: "Enter KTP", format: "other" }],
+  IN: [{ tax_id_type: "IND_PAN", label: "PAN", placeholder: "AAAAA0000A", format: "other" }],
+  IL: [{ tax_id_type: "ISR_TAX_ID", label: "Tax ID", placeholder: "Enter Tax ID", format: "other" }],
+  IT: [{ tax_id_type: "ITA_TAX_ID", label: "Tax ID", placeholder: "Enter Tax ID", format: "other" }],
+  JP: [{ tax_id_type: "JPN_TAX_ID", label: "Tax ID", placeholder: "Enter Tax ID", format: "other" }],
+  MX: [{ tax_id_type: "MEX_RFC", label: "RFC", placeholder: "Enter RFC", format: "other" }],
+  NI: [{ tax_id_type: "NIC_RUC", label: "RUC", placeholder: "Enter RUC", format: "other" }],
+  NL: [{ tax_id_type: "NLD_TIN", label: "TIN", placeholder: "Enter TIN", format: "other" }],
+  PA: [{ tax_id_type: "PAN_RUC", label: "RUC", placeholder: "Enter RUC", format: "other" }],
+  PE: [{ tax_id_type: "PER_RUC", label: "RUC", placeholder: "Enter RUC", format: "other" }],
+  PY: [{ tax_id_type: "PRY_RUC", label: "RUC", placeholder: "Enter RUC", format: "other" }],
+  SG: [
+    { tax_id_type: "SGP_NRIC", label: "NRIC", placeholder: "Enter NRIC", format: "other" },
+    { tax_id_type: "SGP_FIN", label: "FIN", placeholder: "Enter FIN", format: "other" },
+    { tax_id_type: "SGP_ASGD", label: "ASGD", placeholder: "Enter ASGD", format: "other" },
+    { tax_id_type: "SGP_ITR", label: "ITR", placeholder: "Enter ITR", format: "other" },
+  ],
+  SV: [{ tax_id_type: "SLV_NIT", label: "NIT", placeholder: "Enter NIT", format: "other" }],
+  SE: [{ tax_id_type: "SWE_TAX_ID", label: "Tax ID", placeholder: "Enter Tax ID", format: "other" }],
+  UY: [{ tax_id_type: "URY_RUT", label: "RUT", placeholder: "Enter RUT", format: "other" }],
+  VE: [{ tax_id_type: "VEN_RIF", label: "RIF", placeholder: "Enter RIF", format: "other" }],
+};
+
+/**
+ * KYC Form Modal - Simplified version for FOMO flow
+ * Collects essential trading profile information
+ */
+const KycFormModal: React.FC<KycFormModalProps> = ({ visible, onClose, onSubmit, isLoading }) => {
+  const userState = useAppSelector((state) => state.user.user);
+
+  // Form state with pre-filled user data
+  const [formData, setFormData] = useState<CreateAlpacaAccountInput>({
+    emailAddress: userState?.email || "",
+    phoneNumber: "",
+    streetAddress: "", // Keep as string for API compatibility
+    city: "",
+    state: "",
+    postalCode: "",
+    country: "USA",
+    givenName: userState?.firstName || "",
+    familyName: userState?.lastName || "",
+    dateOfBirth: "",
+    taxId: "",
+    taxIdType: "USA_SSN",
+    citizenship: "USA",
+    countryOfBirth: "USA",
+    countryOfTaxResidence: "USA",
+    fundingSources: ["employment_income"],
+    isControlPerson: false,
+    isAffiliatedExchangeOrFinra: false,
+    isPoliticallyExposed: false,
+    immediateFamilyExposed: false,
+    ipAddress: "",
+  });
+
+  // Additional state for address lines (separate from formData)
+  const [addressLines, setAddressLines] = useState<string[]>(["", ""]);
+
+  // Additional required form state
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  // State for date picker
+  const [openDatePicker, setOpenDatePicker] = useState(false);
+  const [datePickerDate, setDatePickerDate] = useState(new Date(1990, 0, 1));
+
+  // State for form validation errors
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Check if selected country is US
+  const isUSCountry = formData.country === "USA";
+
+  // Get appropriate tax ID info based on country
+  const getTaxIdInfo = (countryCode: string) => {
+    const countryTaxIds = COUNTRY_TAX_ID_MAP[countryCode];
+
+    if (countryTaxIds && countryTaxIds.length > 0) {
+      // For now, use the first available tax ID type for the country
+      // In the future, you could add a dropdown to let users choose
+      return countryTaxIds[0];
+    }
+
+    // Fallback for unsupported countries
+    return {
+      tax_id_type: "NOT_SPECIFIED",
+      label: "Tax Identification Number",
+      placeholder: "Enter your tax ID",
+      format: "other",
+    };
+  };
+
+  const taxIdInfo = getTaxIdInfo(formData.country);
+
+  // Format tax ID based on country
+  const formatTaxId = (text: string, format: string) => {
+    switch (format) {
+      case "ssn":
+        // US SSN: XXX-XX-XXXX (numbers only)
+        const cleanedSSN = text.replace(/\D/g, "");
+        let formatted = cleanedSSN;
+        if (cleanedSSN.length >= 4) {
+          formatted = cleanedSSN.slice(0, 3) + "-" + cleanedSSN.slice(3);
+        }
+        if (cleanedSSN.length >= 6) {
+          formatted = cleanedSSN.slice(0, 3) + "-" + cleanedSSN.slice(3, 5) + "-" + cleanedSSN.slice(5, 9);
+        }
+        return formatted;
+      case "nino":
+        // UK National Insurance Number: AB123456C (letters and numbers)
+        const cleanedNINO = text.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+        return cleanedNINO.slice(0, 9); // Limit to 9 characters
+      default:
+        return text; // No formatting for other countries
+    }
+  };
+
+  // Handle form input changes
+  const handleInputChange = useCallback(
+    (field: keyof CreateAlpacaAccountInput, value: any) => {
+      setFormData((prev) => ({
+        ...prev,
+        [field]: value,
+      }));
+
+      // Clear error when user starts typing
+      if (errors[field]) {
+        setErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors[field];
+          return newErrors;
+        });
+      }
+    },
+    [errors]
+  );
+
+  // Handle street address array changes
+  const handleStreetAddressChange = useCallback(
+    (index: number, value: string) => {
+      const newAddressLines = [...addressLines];
+      newAddressLines[index] = value;
+      setAddressLines(newAddressLines);
+
+      // Combine address lines into a single string for the form data
+      const combinedAddress = newAddressLines.filter((line) => line.trim()).join(", ");
+      setFormData((prev) => ({
+        ...prev,
+        streetAddress: combinedAddress,
+      }));
+
+      // Clear error when user starts typing
+      if (errors[`streetAddress${index}`]) {
+        setErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors[`streetAddress${index}`];
+          return newErrors;
+        });
+      }
+    },
+    [addressLines, errors]
+  );
+
+  // Handle date picker confirmation
+  const handleDateConfirm = useCallback(
+    (selectedDate: Date) => {
+      setOpenDatePicker(false);
+      setDatePickerDate(selectedDate);
+      const formattedDate = selectedDate.toISOString().split("T")[0]; // Format as YYYY-MM-DD
+      handleInputChange("dateOfBirth", formattedDate);
+    },
+    [handleInputChange]
+  );
+
+  // Validation function
+  const validateForm = useCallback(() => {
+    const newErrors: Record<string, string> = {};
+
+    // Required fields
+    if (!formData.givenName) newErrors.givenName = "First name is required";
+    if (!formData.familyName) newErrors.familyName = "Last name is required";
+    if (!formData.emailAddress) newErrors.emailAddress = "Email is required";
+    if (!formData.phoneNumber) newErrors.phoneNumber = "Phone number is required";
+    if (!formData.streetAddress) newErrors.streetAddress = "Street address is required";
+    if (!formData.city) newErrors.city = "City is required";
+    if (!formData.state) {
+      newErrors.state = isUSCountry ? "State is required" : "Province/Region is required";
+    }
+    if (!formData.postalCode) newErrors.postalCode = "Postal code is required";
+    if (!formData.dateOfBirth) newErrors.dateOfBirth = "Date of birth is required";
+    if (!formData.taxId) newErrors.taxId = `${taxIdInfo.label} is required`;
+
+    // Email validation
+    if (formData.emailAddress && !/\S+@\S+\.\S+/.test(formData.emailAddress)) {
+      newErrors.emailAddress = "Invalid email format";
+    }
+
+    // Tax ID validation based on country
+    if (formData.taxId) {
+      switch (formData.country) {
+        case "USA":
+          if (!/^\d{3}-?\d{2}-?\d{4}$/.test(formData.taxId)) {
+            newErrors.taxId = "SSN must be in format XXX-XX-XXXX";
+          }
+          break;
+        case "GB":
+          // For UK, validate both UTR (numeric) and NINO (alphanumeric) formats
+          const cleanedTaxId = formData.taxId.replace(/\s/g, "");
+          const isUTR = /^\d{10}$/.test(cleanedTaxId);
+          const isNINO = /^[A-Z]{2}\d{6}[A-Z]$/.test(cleanedTaxId);
+          if (!isUTR && !isNINO) {
+            newErrors.taxId = "Must be valid UTR (10 digits) or NINO (AB123456C)";
+          }
+          break;
+        default:
+          // Basic validation for other countries - just check minimum length
+          if (formData.taxId.length < 3) {
+            newErrors.taxId = "Tax ID must be at least 3 characters";
+          }
+          break;
+      }
+    }
+
+    // Terms acceptance
+    if (!acceptedTerms) {
+      newErrors.acceptedTerms = "You must accept the terms and conditions";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, [formData, acceptedTerms, isUSCountry, taxIdInfo.label]);
+
+  // Handle form submission
+  const handleSubmit = useCallback(() => {
+    if (!validateForm()) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Validation Error", "Please fill in all required fields correctly.");
+      return;
+    }
+
+    // Prepare submission data like create-alpaca-profile.tsx does
+    const submissionData = {
+      ...formData,
+      // Country codes are already in correct format (USA, CA, etc.)
+      streetAddress: formData.streetAddress,
+      country: "CAN",
+      citizenship: formData.citizenship,
+      countryOfBirth: formData.countryOfBirth,
+      countryOfTaxResidence: formData.countryOfTaxResidence,
+      // Use the detected IP address or fallback
+      ipAddress: formData.ipAddress || "185.13.21.99",
+      // Ensure funding sources are lowercase strings
+      fundingSources: ["EMPLOYMENT_INCOME", "INVESTMENTS"],
+      // Explicitly include disclosure fields
+      isControlPerson: formData.isControlPerson,
+      isAffiliatedExchangeOrFinra: formData.isAffiliatedExchangeOrFinra,
+      isPoliticallyExposed: formData.isPoliticallyExposed,
+      immediateFamilyExposed: formData.immediateFamilyExposed,
+    };
+
+    console.log("KYC Form submissionData:", submissionData);
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onSubmit(submissionData);
+  }, [formData, validateForm, onSubmit]);
+
+  // Handle close
+  const handleClose = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <View style={styles.modalContent}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.title}>Complete Your Trading Profile</Text>
+            <TouchableOpacity style={styles.closeButton} onPress={handleClose}>
+              <Ionicons name="close" size={wp(6)} color="#666" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Content */}
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            <Text style={styles.subtitle}>To start trading, we need to collect some information to comply with financial regulations.</Text>
+
+            {/* Personal Information */}
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Personal Information</Text>
+
+              <FormField
+                label="First Name"
+                value={formData.givenName}
+                onChangeText={(text) => handleInputChange("givenName", text)}
+                placeholder="Enter your first name"
+                autoCapitalize="words"
+                error={errors.givenName}
+              />
+
+              <FormField
+                label="Last Name"
+                value={formData.familyName}
+                onChangeText={(text) => handleInputChange("familyName", text)}
+                placeholder="Enter your last name"
+                autoCapitalize="words"
+                error={errors.familyName}
+              />
+
+              <FormField
+                label="Email Address"
+                value={formData.emailAddress}
+                onChangeText={(text) => handleInputChange("emailAddress", text)}
+                placeholder="Enter your email"
+                keyboardType="email-address"
+                error={errors.emailAddress}
+              />
+
+              <FormField
+                label="Phone Number"
+                value={formData.phoneNumber}
+                onChangeText={(text) => handleInputChange("phoneNumber", text)}
+                placeholder="(555) 123-4567"
+                keyboardType="phone-pad"
+                error={errors.phoneNumber}
+              />
+
+              <View style={styles.fieldContainer}>
+                <Text style={styles.fieldLabel}>
+                  Date of Birth <Text style={styles.required}>*</Text>
+                </Text>
+                <TouchableOpacity style={[styles.textInput, errors.dateOfBirth && styles.textInputError]} onPress={() => setOpenDatePicker(true)}>
+                  <Text style={[styles.dateText, !formData.dateOfBirth && styles.placeholderText]}>
+                    {formData.dateOfBirth || "Select your date of birth"}
+                  </Text>
+                </TouchableOpacity>
+                {errors.dateOfBirth && <Text style={styles.errorText}>{errors.dateOfBirth}</Text>}
+              </View>
+
+              <FormField
+                label={taxIdInfo.label}
+                value={formData.taxId}
+                onChangeText={(text) => {
+                  // Auto-format based on country
+                  const formatted = formatTaxId(text, taxIdInfo.format);
+                  handleInputChange("taxId", formatted);
+                }}
+                placeholder={taxIdInfo.placeholder}
+                keyboardType={taxIdInfo.format === "nino" ? "default" : "numeric"}
+                autoCapitalize={taxIdInfo.format === "nino" ? "characters" : "none"}
+                error={errors.taxId}
+              />
+            </View>
+
+            {/* Address Information */}
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Address Information</Text>
+
+              <FormField
+                label="Street Address"
+                value={addressLines[0]}
+                onChangeText={(text) => handleStreetAddressChange(0, text)}
+                placeholder="Enter your street address"
+                autoCapitalize="words"
+                error={errors[`streetAddress0`]}
+              />
+
+              <FormField
+                label="Street Address Line 2"
+                value={addressLines[1]}
+                onChangeText={(text) => handleStreetAddressChange(1, text)}
+                placeholder="Apartment, suite, unit, building, floor, etc. (optional)"
+                autoCapitalize="words"
+                error={errors[`streetAddress1`]}
+                required={false}
+              />
+
+              <FormField
+                label="City"
+                value={formData.city}
+                onChangeText={(text) => handleInputChange("city", text)}
+                placeholder="Enter your city"
+                autoCapitalize="words"
+                error={errors.city}
+              />
+
+              <FormField
+                label="Country"
+                value="USA"
+                onChangeText={() => {}} // No-op since it's disabled
+                placeholder="USA"
+                error={errors.country}
+                disabled={true}
+              />
+
+              {/* Conditional State/Province field */}
+              {isUSCountry ? (
+                <StateDropdown
+                  label="State"
+                  value={formData.state as StateCode}
+                  onValueChange={(value) => handleInputChange("state", value)}
+                  error={errors.state}
+                />
+              ) : (
+                <FormField
+                  label="Province/Region"
+                  value={formData.state}
+                  onChangeText={(text) => handleInputChange("state", text)}
+                  placeholder="Enter your province or region"
+                  autoCapitalize="words"
+                  error={errors.state}
+                />
+              )}
+
+              <FormField
+                label="Postal Code"
+                value={formData.postalCode}
+                onChangeText={(text) => handleInputChange("postalCode", text)}
+                placeholder={isUSCountry ? "12345" : "Enter postal code"}
+                keyboardType={isUSCountry ? "numeric" : "default"}
+                autoCapitalize="characters"
+                error={errors.postalCode}
+              />
+            </View>
+
+            {/* Disclosures */}
+            <View style={styles.sectionContainer}>
+              <Text style={styles.sectionTitle}>Required Disclosures</Text>
+
+              <ToggleField
+                label="Are you a control person of a publicly traded company?"
+                value={formData.isControlPerson}
+                onValueChange={(value) => handleInputChange("isControlPerson", value)}
+                description="A control person is a director, officer, or 10% stockholder."
+              />
+
+              <ToggleField
+                label="Are you affiliated with a broker or exchange?"
+                value={formData.isAffiliatedExchangeOrFinra}
+                onValueChange={(value) => handleInputChange("isAffiliatedExchangeOrFinra", value)}
+              />
+
+              <ToggleField
+                label="Are you a politically exposed person?"
+                value={formData.isPoliticallyExposed}
+                onValueChange={(value) => handleInputChange("isPoliticallyExposed", value)}
+              />
+
+              <ToggleField
+                label="Is any immediate family member politically exposed?"
+                value={formData.immediateFamilyExposed}
+                onValueChange={(value) => handleInputChange("immediateFamilyExposed", value)}
+              />
+            </View>
+
+            {/* Terms and Conditions */}
+            <View style={styles.sectionContainer}>
+              <TouchableOpacity style={styles.checkboxContainer} onPress={() => setAcceptedTerms(!acceptedTerms)}>
+                <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+                  {acceptedTerms && <Ionicons name="checkmark" size={wp(3)} color="#FFF" />}
+                </View>
+                <Text style={styles.checkboxText}>I agree to the Terms and Conditions, Customer Agreement, and Privacy Policy</Text>
+              </TouchableOpacity>
+              {errors.acceptedTerms && <Text style={styles.errorText}>{errors.acceptedTerms}</Text>}
+            </View>
+
+            {/* Bottom spacing for scroll */}
+            <View style={{ height: verticalScale(24) }} />
+          </ScrollView>
+
+          {/* Fixed Submit Button at Bottom */}
+          <View style={styles.submitButtonContainer}>
+            <GradientButton
+              onPress={handleSubmit}
+              text={isLoading ? "Creating Profile..." : "Complete Trading Profile"}
+              colors={COLORS.primary.gradient}
+              style={styles.submitButton}
+              textStyle={styles.submitButtonText}
+              isLoading={isLoading}
+            />
+          </View>
+
+          {/* Date Picker */}
+          <DatePicker
+            modal
+            open={openDatePicker}
+            date={datePickerDate}
+            onConfirm={handleDateConfirm}
+            onCancel={() => setOpenDatePicker(false)}
+            mode="date"
+            minimumDate={new Date(1900, 0, 1)}
+            maximumDate={new Date()}
+            title="Select Date of Birth"
+            theme="auto"
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const styles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.4)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: COLORS.background.white,
+    borderTopLeftRadius: moderateScale(32),
+    borderTopRightRadius: moderateScale(32),
+    height: hp(90),
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: moderateScale(24),
+    paddingTop: moderateScale(24),
+    paddingBottom: moderateScale(16),
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
+  },
+  title: {
+    fontSize: responsiveFontSize(20),
+    fontFamily: FONTS.bold,
+    color: COLORS.text.primary,
+    textAlign: "center",
+    flex: 1,
+  },
+  closeButton: {
+    padding: moderateScale(8),
+  },
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: moderateScale(24),
+  },
+  subtitle: {
+    fontSize: responsiveFontSize(14),
+    fontFamily: FONTS.regular,
+    color: COLORS.text.secondary,
+    textAlign: "center",
+    marginVertical: verticalScale(16),
+    lineHeight: verticalScale(20),
+  },
+  sectionContainer: {
+    marginBottom: verticalScale(24),
+  },
+  sectionTitle: {
+    fontSize: responsiveFontSize(18),
+    fontFamily: FONTS.semiBold,
+    color: COLORS.primary.dark,
+    marginBottom: verticalScale(16),
+  },
+  fieldContainer: {
+    marginBottom: verticalScale(16),
+  },
+  fieldLabel: {
+    fontSize: responsiveFontSize(14),
+    fontFamily: FONTS.regular,
+    color: COLORS.text.primary,
+    marginBottom: verticalScale(6),
+  },
+  required: {
+    color: "#E53935",
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: moderateScale(8),
+    paddingHorizontal: moderateScale(12),
+    paddingVertical: moderateScale(12),
+    fontSize: responsiveFontSize(16),
+    fontFamily: FONTS.regular,
+    color: COLORS.text.primary,
+    backgroundColor: "#F9F9F9",
+  },
+  textInputError: {
+    borderColor: "#E53935",
+  },
+  textInputDisabled: {
+    backgroundColor: "#F0F0F0",
+    color: "#999",
+  },
+  dateText: {
+    fontSize: responsiveFontSize(16),
+    fontFamily: FONTS.regular,
+    color: COLORS.text.primary,
+  },
+  placeholderText: {
+    color: "#999",
+  },
+  errorText: {
+    fontSize: responsiveFontSize(12),
+    fontFamily: FONTS.regular,
+    color: "#E53935",
+    marginTop: verticalScale(4),
+  },
+  toggleContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  toggleLabel: {
+    fontSize: responsiveFontSize(14),
+    fontFamily: FONTS.regular,
+    color: COLORS.text.primary,
+    flex: 1,
+    marginRight: moderateScale(12),
+  },
+  descriptionText: {
+    fontSize: responsiveFontSize(12),
+    fontFamily: FONTS.regular,
+    color: COLORS.text.secondary,
+    marginTop: verticalScale(4),
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: verticalScale(8),
+  },
+  checkbox: {
+    width: moderateScale(20),
+    height: moderateScale(20),
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
+    borderRadius: moderateScale(4),
+    marginRight: moderateScale(12),
+    marginTop: verticalScale(2),
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F9F9F9",
+  },
+  checkboxChecked: {
+    backgroundColor: COLORS.primary.light,
+    borderColor: COLORS.primary.light,
+  },
+  checkboxText: {
+    fontSize: responsiveFontSize(14),
+    fontFamily: FONTS.regular,
+    color: COLORS.text.primary,
+    flex: 1,
+    lineHeight: verticalScale(20),
+  },
+  submitButtonContainer: {
+    paddingHorizontal: moderateScale(24),
+    paddingVertical: verticalScale(16),
+    marginBottom: verticalScale(18),
+    borderTopWidth: 1,
+    borderTopColor: "#E0E0E0",
+    backgroundColor: COLORS.background.white,
+  },
+  submitButton: {
+    shadowColor: COLORS.primary.light,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  submitButtonText: {
+    fontSize: responsiveFontSize(18),
+    fontWeight: "700",
+  },
+});
+
+export default KycFormModal;

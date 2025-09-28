@@ -1,0 +1,436 @@
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  Modal,
+  TouchableWithoutFeedback,
+  Keyboard,
+  ScrollView,
+  ActivityIndicator,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "@/constants/theme";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  runOnJS,
+  interpolate,
+  Extrapolate,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+
+interface NewsSource {
+  title: string;
+  url: string;
+}
+
+interface CreatePostModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSubmit: (postData: {
+    ticker: string;
+    action: string;
+    confidence: number;
+    analysis: string;
+    newsSources?: NewsSource[];
+    clientMutationId: string;
+  }) => Promise<void>;
+  userData: {
+    firstName?: string;
+    lastName?: string;
+    profileImage?: string;
+    email?: string;
+  };
+  isLoading?: boolean;
+}
+
+// Helper function to get gradient colors based on confidence
+const getConfidenceGradientColors = (confidence: number): [string, string] => {
+  if (confidence <= 33) {
+    // Red Gradient (Low Confidence)
+    return ["#fca5a5", COLORS.error.dark]; // Lighter red to darker red
+  } else if (confidence <= 66) {
+    // Orange/Yellow Gradient (Medium Confidence)
+    return ["#fbbf24", "#d97706"]; // Assuming Tailwind amber-400 and amber-600
+  } else {
+    // Green Gradient (High Confidence)
+    return [COLORS.success.light, COLORS.success.dark];
+  }
+};
+
+const CreatePostModal: React.FC<CreatePostModalProps> = ({ visible, onClose, onSubmit, userData, isLoading = false }) => {
+  // Form state
+  const [postTicker, setPostTicker] = useState("");
+  const [postAction, setPostAction] = useState("BUY");
+  const [postConfidence, setPostConfidence] = useState("70");
+  const [postAnalysis, setPostAnalysis] = useState("");
+  const [isClosingModal, setIsClosingModal] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  // News sources state
+  const [newsSources, setNewsSources] = useState<NewsSource[]>([{ title: "", url: "" }]);
+
+  // Animation values
+  const translateY = useSharedValue(1000);
+  const opacity = useSharedValue(0);
+
+  // Calculate confidence as a number
+  const confidenceValue = parseInt(postConfidence) || 0;
+
+  // Handle modal visibility changes
+  useEffect(() => {
+    if (visible && !modalVisible) {
+      setModalVisible(true);
+      // Start opening animation immediately
+      opacity.value = withTiming(1, { duration: 150 });
+      translateY.value = withSpring(0, {
+        damping: 22,
+        stiffness: 100,
+        mass: 1,
+        overshootClamping: false,
+        restDisplacementThreshold: 0.01,
+        restSpeedThreshold: 2,
+      });
+    } else if (!visible && modalVisible) {
+      closeModalWithAnimation();
+    }
+  }, [visible]);
+
+  // Create animated styles
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ translateY: translateY.value }],
+    };
+  });
+
+  const backdropStyle = useAnimatedStyle(() => {
+    return {
+      opacity: opacity.value,
+      backgroundColor: `rgba(0, 0, 0, ${interpolate(opacity.value, [0, 1], [0, 0.4], Extrapolate.CLAMP)})`,
+    };
+  });
+
+  // Function to close modal with animation
+  const closeModalWithAnimation = () => {
+    if (isClosingModal) return;
+    setIsClosingModal(true);
+    Keyboard.dismiss();
+
+    // Animate backdrop opacity
+    opacity.value = withTiming(0, { duration: 450 });
+
+    // Animate panel sliding down
+    translateY.value = withSpring(
+      1000,
+      {
+        damping: 20,
+        stiffness: 100,
+        mass: 1,
+        overshootClamping: false,
+        restDisplacementThreshold: 0.01,
+        restSpeedThreshold: 4,
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(finishClosingModal)();
+        }
+      }
+    );
+  };
+
+  // Function to add a new news source input
+  const addNewsSource = () => {
+    setNewsSources([...newsSources, { title: "", url: "" }]);
+  };
+
+  // Function to remove a news source input
+  const removeNewsSource = (index: number) => {
+    if (newsSources.length <= 1) return;
+    const updatedSources = [...newsSources];
+    updatedSources.splice(index, 1);
+    setNewsSources(updatedSources);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  // Function to update a news source
+  const updateNewsSource = (index: number, field: "title" | "url", value: string) => {
+    const updatedSources = [...newsSources];
+    updatedSources[index][field] = value;
+    setNewsSources(updatedSources);
+  };
+
+  // Reset function when closing modal
+  const finishClosingModal = () => {
+    setIsClosingModal(false);
+    setModalVisible(false);
+    // Reset form
+    setPostTicker("");
+    setPostAction("BUY");
+    setPostConfidence("70");
+    setPostAnalysis("");
+    setNewsSources([{ title: "", url: "" }]);
+    onClose();
+  };
+
+  // Configure the gesture handler for swipe gestures
+  const panGesture = Gesture.Pan()
+    .onUpdate((event) => {
+      // Only allow downward swipes
+      if (event.translationY > 0) {
+        translateY.value = event.translationY;
+        // Update backdrop opacity based on swipe position
+        opacity.value = interpolate(event.translationY, [0, 300], [1, 0.5], Extrapolate.CLAMP);
+      }
+    })
+    .onEnd((event) => {
+      // If the user swiped down more than 100 units, close the modal
+      if (event.translationY > 120 || (event.translationY > 50 && event.velocityY > 500)) {
+        runOnJS(closeModalWithAnimation)();
+      } else {
+        // Otherwise, reset the position with spring animation
+        opacity.value = withTiming(1, { duration: 150 });
+        translateY.value = withSpring(0, {
+          damping: 20,
+          stiffness: 200,
+        });
+      }
+    });
+
+  // Handle submit post
+  const handleSubmitPost = async () => {
+    if (isLoading || !postTicker || !postAnalysis) return;
+
+    // Filter out empty news sources
+    const filteredNewsSources = newsSources.filter((source) => source.title.trim() !== "" && source.url.trim() !== "");
+
+    // Store news sources in console for now
+    if (filteredNewsSources.length > 0) {
+      console.log("News sources for post (saved locally, not sent to API yet):", filteredNewsSources);
+    }
+
+    try {
+      // Don't include newsSources in API call until backend supports it
+      await onSubmit({
+        ticker: postTicker,
+        action: postAction,
+        confidence: confidenceValue,
+        analysis: postAnalysis,
+        // newsSources field removed until backend supports it
+        clientMutationId: Math.random().toString(36).substring(2, 15),
+      });
+
+      // Show success feedback
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      // Close modal
+      closeModalWithAnimation();
+    } catch (error) {
+      console.error("Error submitting post:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+  };
+
+  // Get profile image URL
+  const getProfileImageUrl = () => {
+    if (userData.profileImage) return userData.profileImage;
+
+    // Use pravatar.cc for dummy image based on email for consistency
+    const emailHash = userData.email ? encodeURIComponent(userData.email) : "default";
+    return `https://i.pravatar.cc/150?u=${emailHash}`;
+  };
+
+  if (!modalVisible) return null;
+
+  return (
+    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={closeModalWithAnimation}>
+      <TouchableWithoutFeedback>
+        <Animated.View className="flex-1 justify-end" style={backdropStyle}>
+          <TouchableWithoutFeedback onPress={(e) => e.stopPropagation()}>
+            <GestureDetector gesture={panGesture}>
+              <Animated.View className="bg-white rounded-t-3xl overflow-hidden" style={animatedStyle}>
+                {/* Drag indicator */}
+                <View className="w-full items-center pt-4">
+                  <View className="w-10 h-1 rounded-full bg-gray-300" />
+                </View>
+
+                {/* Modal Header */}
+                <View className="px-4 py-3 flex-row justify-between items-center">
+                  <TouchableOpacity onPress={closeModalWithAnimation} className="p-1">
+                    <Ionicons name="close-outline" size={28} color="#666" />
+                  </TouchableOpacity>
+                  <Text className="text-lg font-bold  text-typography-700">Create Post</Text>
+                  <TouchableOpacity
+                    onPress={handleSubmitPost}
+                    disabled={!postTicker || !postAnalysis || isLoading}
+                    className={`px-4 py-2 rounded-full ${!postTicker || !postAnalysis || isLoading ? "bg-gray-300" : "bg-primary-light"}`}
+                  >
+                    {isLoading ? <ActivityIndicator size="small" color="#FFF" /> : <Text className="text-white font-semiBold text-md">Post</Text>}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Post Form */}
+                <ScrollView className="px-4 pt-2 pb-6 max-h-[70vh]" contentContainerStyle={{ paddingBottom: 40 }}>
+                  {/* User Info */}
+                  <View className="px-4 pt-4 pb-3 flex-row items-center">
+                    <Image source={{ uri: getProfileImageUrl() }} className="w-14 h-14 rounded-full" />
+                    <View className="ml-3">
+                      <Text className="font-semiBold text-md text-typography-900">
+                        {userData.firstName || "Anonymous"} {userData.lastName || ""}
+                      </Text>
+                      <View className="flex-row items-center bg-primary-oceanBlue50 rounded-md px-2 py-0.5 mt-1">
+                        <Ionicons name="stats-chart-outline" size={12} color={COLORS.primary.oceanBlue700} />
+                        <Text className="text-xs text-primary-oceanBlue700 ml-1 font-medium">Investment Post</Text>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Stock Ticker Input */}
+                  <View className="mb-5">
+                    <Text className="text-md font-medium text-gray-600 mb-1.5 ml-1">Stock Ticker</Text>
+                    <View className="flex-row items-center bg-gray-100 rounded-xl px-3 border border-gray-200">
+                      <Ionicons name="search-outline" size={20} color={COLORS.text.secondary} className="mr-2" />
+                      <TextInput
+                        value={postTicker}
+                        onChangeText={setPostTicker}
+                        className="flex-1 py-3 text-md text-gray-700 font-medium"
+                        placeholder="e.g. AAPL, MSFT, TSLA"
+                        placeholderTextColor={COLORS.text.secondary}
+                        autoCapitalize="characters"
+                      />
+                    </View>
+                  </View>
+
+                  {/* Action Type Selection */}
+                  <View className="mb-5">
+                    <Text className="text-md font-medium text-gray-600 mb-2 ml-1">Recommendation</Text>
+                    <View className="flex-row gap-3">
+                      <TouchableOpacity
+                        onPress={() => setPostAction("BUY")}
+                        className={`flex-1 py-1 justify-center rounded-xl items-center border-2 ${postAction === "BUY" ? "bg-green-100 border-green-500" : "bg-gray-100 border-gray-200"}`}
+                      >
+                        <Ionicons name="trending-up-outline" size={25} color={postAction === "BUY" ? COLORS.success.dark : COLORS.text.secondary} />
+                        <Text className={`text-lg font-semiBold ${postAction === "BUY" ? "text-green-700" : "text-gray-700"}`}>BUY</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setPostAction("SELL")}
+                        className={`flex-1 justify-center rounded-xl items-center border-2 ${postAction === "SELL" ? "bg-red-100 border-red-500" : "bg-gray-100 border-gray-200"}`}
+                      >
+                        <Ionicons name="trending-down-outline" size={25} color={postAction === "SELL" ? COLORS.error.dark : COLORS.text.secondary} />
+                        <Text className={`text-lg font-semiBold ${postAction === "SELL" ? "text-red-700" : "text-gray-700"}`}>SELL</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Confidence Slider */}
+                  <View className="mb-5">
+                    <Text className="text-md font-medium text-gray-600 mb-2 ml-1">Your Confidence ({confidenceValue}%)</Text>
+                    <View className="flex-row items-center">
+                      <TouchableOpacity onPress={() => setPostConfidence(Math.max(confidenceValue - 10, 0).toString())} className="p-1">
+                        <Ionicons name="remove-circle-outline" size={26} color={COLORS.primary.oceanBlue700} />
+                      </TouchableOpacity>
+                      <View className="flex-1 mx-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <LinearGradient
+                          colors={getConfidenceGradientColors(confidenceValue)}
+                          start={{ x: 0, y: 0.5 }}
+                          end={{ x: 1, y: 0.5 }}
+                          style={{
+                            height: "100%",
+                            width: `${confidenceValue}%` as any,
+                            borderRadius: 9999,
+                          }}
+                        />
+                      </View>
+                      <TouchableOpacity onPress={() => setPostConfidence(Math.min(confidenceValue + 10, 100).toString())} className="p-1">
+                        <Ionicons name="add-circle-outline" size={26} color={COLORS.primary.oceanBlue700} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Analysis Text Area */}
+                  <View className="mb-4">
+                    <Text className="text-md font-medium text-gray-600 mb-1.5 ml-1">Your Analysis</Text>
+                    <TextInput
+                      value={postAnalysis}
+                      onChangeText={setPostAnalysis}
+                      className="border border-gray-200 bg-gray-50 rounded-xl px-4 py-3 text-md min-h-[140px] text-typography-800 font-regular"
+                      placeholder="Share your detailed analysis, reasoning, and any relevant news or data points..."
+                      placeholderTextColor={COLORS.text.secondary}
+                      multiline
+                      textAlignVertical="top"
+                      style={{ lineHeight: 22 }}
+                    />
+                  </View>
+
+                  {/* News Sources */}
+                  <View className="mb-4 pt-2">
+                    <Text className="text-lg font-semibold text-gray-700 mb-3 ml-1">News & Analysis Sources</Text>
+
+                    {newsSources.map((source, index) => (
+                      <View key={index} className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-3 shadow-sm">
+                        <View className="flex-row justify-between items-center mb-2">
+                          <Text className="text-md font-medium text-slate-600">Source #{index + 1}</Text>
+                          {newsSources.length > 1 && (
+                            <TouchableOpacity
+                              onPress={() => removeNewsSource(index)}
+                              className={`p-1.5 rounded-full bg-red-50 hover:bg-red-100 active:bg-red-200 ${newsSources.length <= 1 ? "opacity-0" : ""}`}
+                            >
+                              <Ionicons name="close-circle-outline" size={20} color={COLORS.error.dark} />
+                            </TouchableOpacity>
+                          )}
+                        </View>
+
+                        <View className="mb-3">
+                          <Text className="text-sm font-medium text-slate-500 mb-1 ml-0.5">Title or Source Name</Text>
+                          <TextInput
+                            value={source.title}
+                            onChangeText={(text) => updateNewsSource(index, "title", text)}
+                            className="border border-slate-300 bg-white rounded-md px-3 py-2.5 text-[15px] text-typography-800 focus:border-primary-light focus:ring-1 focus:ring-primary-light/50"
+                            placeholder="e.g., Bloomberg Article, Reuters Report"
+                            placeholderTextColor={COLORS.text.tertiary}
+                          />
+                        </View>
+
+                        <View>
+                          <Text className="text-sm font-medium text-slate-500 mb-1 ml-0.5">URL (Link to Source)</Text>
+                          <TextInput
+                            value={source.url}
+                            onChangeText={(text) => updateNewsSource(index, "url", text)}
+                            className="border border-slate-300 bg-white rounded-md px-3 py-2.5 text-[15px] text-typography-800 focus:border-primary-light focus:ring-1 focus:ring-primary-light/50"
+                            placeholder="https://www.example.com/article-link"
+                            placeholderTextColor={COLORS.text.tertiary}
+                            autoCapitalize="none"
+                            keyboardType="url"
+                          />
+                        </View>
+                      </View>
+                    ))}
+
+                    <TouchableOpacity
+                      onPress={addNewsSource}
+                      className="mt-2 flex-row items-center justify-center bg-primary-light/10 hover:bg-primary-light/20 active:bg-primary-light/30 py-2.5 px-4 rounded-lg border border-primary-light/30 shadow-xs"
+                    >
+                      <Ionicons name="add-circle-outline" size={20} color={COLORS.primary.light} />
+                      <Text className="text-primary-light font-semibold text-sm ml-2">Add Another Source</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Extra space for keyboard avoidance */}
+                  <View className="h-20" />
+                </ScrollView>
+              </Animated.View>
+            </GestureDetector>
+          </TouchableWithoutFeedback>
+        </Animated.View>
+      </TouchableWithoutFeedback>
+    </Modal>
+  );
+};
+
+export default CreatePostModal;

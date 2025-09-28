@@ -1,0 +1,94 @@
+{
+  "expo": {
+    "name": "VoxProfit",
+    "slug": "voxprofit-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/logo/voxprofit_blue_1024.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/splash/splash1.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#33B7E9"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.voxprofit.app",
+      "bitcode": false,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "This app uses the microphone to record voice messages for the AI assistant.",
+        "NSSpeechRecognitionUsageDescription": "This app uses speech recognition to transcribe voice messages for the AI assistant."
+      }
+    },
+    "android": {
+      "package": "com.voxprofit.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/images/logo/voxprofit_blue_1024.png"
+      },
+      "permissions": [
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WAKE_LOCK",
+        "android.permission.BLUETOOTH"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/logo/voxprofit_blue.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash/splash1.png",
+          "resizeMode": "cover",
+          "backgroundColor": "#33B7E9"
+        }
+      ],
+      "expo-secure-store",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone to record voice messages for the AI assistant."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone to record voice messages for the AI assistant."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your friends.",
+          "cameraPermission": "The app accesses your camera to let you share them with your friends."
+        }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "e23451b1-b44b-47ab-a199-539caabae7ec"
+      }
+    },
+    "owner": "yankz"
+  }
+}

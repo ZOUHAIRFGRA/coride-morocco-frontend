@@ -1,0 +1,52 @@
+import React from "react";
+
+// This component has been migrated to use schema-driven forms
+// Use FormModal with formName="createPost" instead
+
+interface CreatePostModalProps {
+  visible: boolean;
+  onClose: () => void;
+  onSubmit: (postData: {
+    ticker: string;
+    action: string;
+    confidence: number;
+    analysis: string;
+    newsSources?: any[];
+    clientMutationId: string;
+  }) => Promise<void>;
+  userData: {
+    firstName?: string;
+    lastName?: string;
+    profileImage?: string;
+    email?: string;
+  };
+  isLoading?: boolean;
+}
+
+/**
+ * CreatePostModal - Migrated to schema-driven form
+ * 
+ * This component has been replaced with the FormModal component using formName="createPost".
+ * The schema is defined in constants/formSchemas.ts and the form is rendered by FormModal.
+ * 
+ * To use the new schema-driven approach:
+ * import { FormModal } from "@/components/ui/FormModal";
+ * 
+ * <FormModal
+ *   visible={visible}
+ *   onClose={onClose}
+ *   formName="createPost"
+ * />
+ */
+const CreatePostModal: React.FC<CreatePostModalProps> = ({ visible, onClose }) => {
+  // This component is deprecated in favor of FormModal
+  console.warn("CreatePostModal is deprecated. Please use FormModal with formName='createPost'");
+  
+  if (visible) {
+    onClose(); // Auto-close if somehow still being used
+  }
+  
+  return null;
+};
+
+export default CreatePostModal;
