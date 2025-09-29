@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
 import { authService } from '../services/auth';
 import { ridesApiService } from '../services/ridesApi';
-import { userProfileApiService } from '../services/userProfileApi';
+import { userApiService } from '../services/userApi';
 import type { 
   UserResponse, 
   TokenResponse, 

@@ -8,7 +8,7 @@ export type { ApiConfig, ApiError, ApiResponse, TokenStorage } from './BaseApiSe
 // Authentication service
 import { authService } from './auth';
 import { ridesApiService } from './ridesApi';
-import { userProfileApiService } from './userProfileApi';
+import { userApiService } from './userApi';
 
 export type {
     PasswordChangeRequest, TokenResponse, UserLoginRequest, UserRegistrationRequest, UserResponse
@@ -21,12 +21,15 @@ export type {
 } from './ridesApi';
 export { ridesApiService };
 
-// User profile service
+// User API service (complete User Management API)
 export type {
-    RatingRequest, UpdatePreferencesRequest, UpdateProfileRequest,
-    UpdateVehicleRequest, UserPreferences, UserProfile, UserRatings, VehicleInfo, VerificationStatus
-} from './userProfileApi';
-export { userProfileApiService };
+    UserProfile, UpdateProfileRequest, UserPreferences, UpdatePreferencesRequest,
+    UserLocation, CreateLocationRequest, UserSearchResult, UserSearchParams,
+    PublicUserProfile, UserStats, ProfilePhotoUploadResponse, UserDocuments,
+    DocumentStatusResponse, UploadIdentityDocumentResponse, UploadDriverLicenseResponse,
+    DocumentType
+} from '../types/user';
+export { userApiService };
 
 // Service configuration helpers
 export const configureServices = (config: {
@@ -37,7 +40,7 @@ export const configureServices = (config: {
   // Update all services with new config
   authService.updateConfig(config);
   ridesApiService.updateConfig(config);
-  userProfileApiService.updateConfig(config);
+  userApiService.updateConfig(config);
 };
 
 // Service status checker

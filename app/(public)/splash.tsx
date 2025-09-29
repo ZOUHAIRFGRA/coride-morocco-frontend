@@ -43,7 +43,7 @@ export default function SplashPage() {
       <LinearGradient colors={["#006389", "#33B7E9"]} style={styles.gradient}>
         <View style={styles.content}>
           <Image source={require("@assets/images/logo/coride_white.png")} style={styles.logo} resizeMode="contain" />
-          <Text style={styles.title}>USE AI TO GET RICH</Text>
+          <Text style={styles.title}>Share the ride, Share the joy</Text>
         </View>
       </LinearGradient>
     </View>

@@ -30,17 +30,15 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
   const router = useRouter();
   const pathname = usePathname();
   const { logout, user } = useAuth();
+  const { profile } = useUser();
   const [imageError, setImageError] = useState(false);
 
-  // Get complete user profile from useUser hook
-  const { profile } = useUser();
-  
-  // Use profile data or fallback to auth user
+  // Use profile data (which extends UserResponse) or fallback to auth user
   const userData = profile || user;
 
-  // Use profile_photo_url from user profile with fallback
+  // Get profile image URL
   const getProfileImageUrl = () => {
-    // Check if user profile has a valid profile_photo_url
+    // Check if user has a profile picture
     if (profile?.profile_photo_url && profile.profile_photo_url.trim() !== "") {
       return profile.profile_photo_url;
     }
@@ -62,7 +60,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
     }
     return "User";
   };
-  
+
   // Get user role badge
   const getUserRoleBadge = () => {
     const role = userData?.role;
@@ -102,18 +100,6 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
     }
   };
 
-  const navigateToSection = (section: string) => {
-    // For now, just navigate to a placeholder - we'll update these routes later
-    const sectionRoutes: Record<string, string> = {
-      "investment": "/main",
-      "budgeting": "/main", 
-      "bookkeeping": "/main"
-    };
-    
-    const path = sectionRoutes[section] || "/main";
-    handleNavigation(path);
-  };
-
   const handleLogout = async () => {
     try {
       await logout();
@@ -138,94 +124,80 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
       <DrawerContent className="px-3">
         <SafeAreaView className="flex-1">
           <DrawerHeader>
-            <View className="items-center w-full ">
+            <View className="items-center w-full">
               <TouchableOpacity
                 className="w-16 h-16 rounded-full bg-primary-oceanBlue100/10 justify-center items-center mb-4 relative border-2 border-primary-oceanBlue100"
-                onPress={() => handleNavigation("/profile/profile")}
+                onPress={() => handleNavigation("/(main)/profile")}
               >
                 {!imageError ? (
                   <Image
                     source={{ uri: getProfileImageUrl() }}
-                    style={{ width: 64, height: 64, borderRadius: 32 }}                    contentFit="cover"
-                    transition={200}
-                    cachePolicy="memory-disk"
-                    onError={() => setImageError(true)} // 👈 force fallback
-                  />
-                ) : (
-                  <Image
-                    source={require("@assets/images/mix/user.jpg")} // 👈 local fallback
                     style={{ width: 64, height: 64, borderRadius: 32 }}
                     contentFit="cover"
+                    transition={200}
+                    cachePolicy="memory-disk"
+                    onError={() => setImageError(true)}
                   />
+                ) : (
+                  <View className="w-16 h-16 rounded-full bg-primary-oceanBlue100 justify-center items-center">
+                    <Ionicons name="person" size={wp(8)} color={COLORS.primary.oceanBlue700} />
+                  </View>
                 )}
                 <View className="absolute bottom-0 right-0 bg-primary-oceanBlue700 w-5 h-5 rounded-full justify-center items-center border-2 border-white">
-                  <Ionicons name="person" size={wp(3)} color="#FFFFFF" />
+                  <Ionicons name="checkmark" size={wp(3)} color="#FFFFFF" />
                 </View>
               </TouchableOpacity>
 
               <TouchableOpacity
-                onPress={() => handleNavigation("/profile/profile")}
+                onPress={() => handleNavigation("/(main)/profile")}
               >
                 <Text className="text-lg font-semiBold text-[#333] my-2 text-center">
                   {getFormattedName()}
                 </Text>
-                {userData?.phone && (
-                  <Text className="text-md font-medium text-primary-oceanBlue700 text-center mt-1">
-                    {userData.phone}
-                  </Text>
-                )}
                 <Text className="text-sm font-regular text-black/60 text-center mt-1">
                   {userData?.email || "No email"}
                 </Text>
 
-                {/* Role Badge */}
                 {getUserRoleBadge()}
 
-                {/* Verification Status */}
-                {userData?.is_verified && (
-                  <View className="flex-row items-center justify-center bg-emerald-500/15 px-2 py-1 rounded-lg mt-2 self-center">
+                {userData?.is_verified === true && (
+                  <View className="flex-row items-center justify-center bg-green-500/15 px-2 py-1 rounded-lg mt-2 self-center">
                     <Ionicons name="checkmark-circle" size={wp(3)} color="#10B981" />
-                    <Text className="text-sm font-semiBold text-emerald-600 ml-1">
+                    <Text className="text-sm font-semiBold text-green-600 ml-1">
                       Verified
+                    </Text>
+                  </View>
+                )}
+
+                {userData?.rating_average && userData?.rating_count && userData.rating_count > 0 && (
+                  <View className="flex-row items-center justify-center mt-2">
+                    <Ionicons name="star" size={wp(3)} color="#F59E0B" />
+                    <Text className="text-sm font-medium text-gray-600 ml-1">
+                      {userData.rating_average.toFixed(1)} ({userData.rating_count} reviews)
                     </Text>
                   </View>
                 )}
               </TouchableOpacity>
             </View>
-
-
-
-
-
-
-
-
-
-
-
-
-
           </DrawerHeader>
-
-
           
           <DrawerBody>
-            <View className="px-4 mt-12 mb-2">
+            <View className="px-4 mt-8 mb-2">
               <Text className="text-sm font-semiBold text-gray-500 uppercase">
-                Main Menu
+                CoRide Morocco
               </Text>
             </View>
 
-            {/* Find Rides */}
+            {/* My Rides */}
             <TouchableOpacity
-              className={`flex-row items-center py-2 px-4 my-2 ${isActive("/rides") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/rides/find")}
+              className={`flex-row items-center py-3 px-4 my-2 ${isActive("/rides") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
+              onPress={() => handleNavigation("/(main)/rides")}
             >
               <View
                 className={`w-10 h-10 rounded-full ${isActive("/rides") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
               >
                 <Ionicons
-                  name="search"
+                  name="car"
                   size={wp(5)}
                   color={
                     isActive("/rides")
@@ -237,64 +209,66 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
               <Text
                 className={`text-md ${isActive("/rides") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
               >
-                Find Rides
-              </Text>
-            </TouchableOpacity>
-
-            {/* Offer Ride */}
-            <TouchableOpacity
-              className={`flex-row items-center py-2 px-4 my-2 ${isActive("/offer") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/rides/offer")}
-            >
-              <View
-                className={`w-10 h-10 rounded-full ${isActive("/offer") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
-              >
-                <Ionicons
-                  name="car"
-                  size={wp(5)}
-                  color={
-                    isActive("/offer")
-                      ? "#FFFFFF"
-                      : COLORS.primary.oceanBlue700
-                  }
-                />
-              </View>
-              <Text
-                className={`text-md ${isActive("/offer") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
-              >
-                Offer Ride
-              </Text>
-            </TouchableOpacity>
-
-            {/* My Rides */}
-            <TouchableOpacity
-              className={`flex-row items-center py-2 px-4 my-2 ${isActive("/my-rides") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/rides/my-rides")}
-            >
-              <View
-                className={`w-10 h-10 rounded-full ${isActive("/my-rides") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
-              >
-                <Ionicons
-                  name="list"
-                  size={wp(5)}
-                  color={
-                    isActive("/my-rides")
-                      ? "#FFFFFF"
-                      : COLORS.primary.oceanBlue700
-                  }
-                />
-              </View>
-              <Text
-                className={`text-md ${isActive("/my-rides") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
-              >
                 My Rides
               </Text>
             </TouchableOpacity>
 
+            {/* Find a Ride */}
+            <TouchableOpacity
+              className={`flex-row items-center py-3 px-4 my-2 ${isActive("/search") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
+              onPress={() => handleNavigation("/(main)/search")}
+            >
+              <View
+                className={`w-10 h-10 rounded-full ${isActive("/search") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
+              >
+                <Ionicons
+                  name="search"
+                  size={wp(5)}
+                  color={
+                    isActive("/search")
+                      ? "#FFFFFF"
+                      : COLORS.primary.oceanBlue700
+                  }
+                />
+              </View>
+              <Text
+                className={`text-md ${isActive("/search") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
+              >
+                Find a Ride
+              </Text>
+            </TouchableOpacity>
+
+            {/* Offer a Ride (only for drivers) */}
+            {userData?.role === 'driver' && (
+              <TouchableOpacity
+                className={`flex-row items-center py-3 px-4 my-2 ${isActive("/offer") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
+                onPress={() => handleNavigation("/(main)/offer")}
+              >
+                <View
+                  className={`w-10 h-10 rounded-full ${isActive("/offer") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
+                >
+                  <Ionicons
+                    name="add-circle"
+                    size={wp(5)}
+                    color={
+                      isActive("/offer")
+                        ? "#FFFFFF"
+                        : COLORS.primary.oceanBlue700
+                    }
+                  />
+                </View>
+                <Text
+                  className={`text-md ${isActive("/offer") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
+                >
+                  Offer a Ride
+                </Text>
+              </TouchableOpacity>
+            )}
+
             {/* Messages */}
             <TouchableOpacity
-              className={`flex-row items-center py-2 px-4 my-2 ${isActive("/messages") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/messages")}
+              className={`flex-row items-center py-3 px-4 my-2 ${isActive("/messages") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
+              onPress={() => handleNavigation("/(main)/messages")}
             >
               <View
                 className={`w-10 h-10 rounded-full ${isActive("/messages") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
@@ -316,37 +290,12 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
               </Text>
             </TouchableOpacity>
 
-            {/* Bookings */}
-            <TouchableOpacity
-              className={`flex-row items-center py-2 px-4 my-2 ${isActive("/bookings") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/bookings")}
-            >
-              <View
-                className={`w-10 h-10 rounded-full ${isActive("/bookings") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
-              >
-                <Ionicons
-                  name="calendar"
-                  size={wp(5)}
-                  color={
-                    isActive("/bookings")
-                      ? "#FFFFFF"
-                      : COLORS.primary.oceanBlue700
-                  }
-                />
-              </View>
-              <Text
-                className={`text-md ${isActive("/bookings") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
-              >
-                Bookings
-              </Text>
-            </TouchableOpacity>
-
             <View className="h-px bg-black/10 my-4" />
 
             {/* Profile */}
             <TouchableOpacity
-              className={`flex-row items-center  px-4 my-2 ${isActive("/profile") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/profile/profile")}
+              className={`flex-row items-center py-3 px-4 my-2 ${isActive("/profile") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
+              onPress={() => handleNavigation("/(main)/profile")}
             >
               <View
                 className={`w-10 h-10 rounded-full ${isActive("/profile") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
@@ -355,48 +304,49 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   name="person"
                   size={wp(5)}
                   color={
-                    isActive("/profile/profile")
+                    isActive("/profile")
                       ? "#FFFFFF"
                       : COLORS.primary.oceanBlue700
                   }
                 />
               </View>
               <Text
-                className={`text-md ${isActive("/profile/profile") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
+                className={`text-md ${isActive("/profile") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
               >
-                Profile
+                Profile & Settings
               </Text>
             </TouchableOpacity>
 
-            {/* Settings */}
+            {/* Help & Support */}
             <TouchableOpacity
-              className={`flex-row  items-center  px-4 my-2 ${isActive("/settings") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/settings")}
+              className={`flex-row items-center py-3 px-4 my-2 ${isActive("/help") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
+              onPress={() => handleNavigation("/(main)/help")}
             >
               <View
-                className={`w-10 h-10 rounded-full ${isActive("/settings") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
+                className={`w-10 h-10 rounded-full ${isActive("/help") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
               >
                 <Ionicons
-                  name="settings"
+                  name="help-circle"
                   size={wp(5)}
                   color={
-                    isActive("/settings")
+                    isActive("/help")
                       ? "#FFFFFF"
                       : COLORS.primary.oceanBlue700
                   }
                 />
               </View>
               <Text
-                className={`text-md ${isActive("/settings") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
+                className={`text-md ${isActive("/help") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
               >
-                Settings
+                Help & Support
               </Text>
             </TouchableOpacity>
           </DrawerBody>
+          
           <DrawerFooter>
             <View className="w-full items-center">
               <TouchableOpacity
-                className="flex-row items-center py-3 px-5 bg-red-500 rounded-xl"
+                className="flex-row items-center py-3 px-5 bg-red-500 rounded-xl w-full justify-center"
                 onPress={handleLogout}
               >
                 <View className="mr-2">

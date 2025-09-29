@@ -2,6 +2,7 @@
 // Implements all 11 User API endpoints from the backend documentation
 
 import { BaseApiService, ApiResponse, defaultApiConfig } from './BaseApiService';
+import { authService } from './auth';
 import type {
   UserProfile,
   UpdateProfileRequest,
@@ -26,6 +27,22 @@ class UserApiService extends BaseApiService {
     super(defaultApiConfig);
   }
 
+  // Override getAccessToken to use authService's token storage
+  protected async getAccessToken(): Promise<string | null> {
+    return await authService.getStoredAccessToken();
+  }
+
+  // Override getRefreshToken to use authService's token storage  
+  protected async getRefreshToken(): Promise<string | null> {
+    return await authService.getStoredRefreshToken();
+  }
+
+  // Override refreshTokens to use authService's authentication check which handles refresh
+  protected async refreshTokens(): Promise<boolean> {
+    // Use authService's authentication check which handles token refresh internally
+    return await authService.isAuthenticated();
+  }
+
   // Request deduplication for getProfile
   private profileRequest: Promise<ApiResponse<UserProfile>> | null = null;
   private preferencesRequest: Promise<ApiResponse<UserPreferences>> | null = null;
@@ -35,7 +52,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 1. Get User Profile
-   * GET /api/users/profile
+   * GET /users/profile
    */
   async getProfile(): Promise<ApiResponse<UserProfile>> {
     // Request deduplication
@@ -55,7 +72,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 2. Update User Profile
-   * PUT /api/users/profile
+   * PUT /users/profile
    */
   async updateProfile(profileData: UpdateProfileRequest): Promise<ApiResponse<UserProfile>> {
     return this.put<UserProfile>('/users/profile', profileData);
@@ -63,7 +80,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 3. Upload Profile Photo
-   * POST /api/users/profile/photo
+   * POST /users/profile/photo
    */
   async uploadProfilePhoto(photoFile: File | Blob): Promise<ApiResponse<ProfilePhotoUploadResponse>> {
     const formData = new FormData();
@@ -82,7 +99,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 4. Get User Preferences
-   * GET /api/users/preferences
+   * GET /users/preferences
    */
   async getPreferences(): Promise<ApiResponse<UserPreferences>> {
     // Request deduplication
@@ -102,7 +119,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 5. Update User Preferences
-   * PUT /api/users/preferences
+   * PUT /users/preferences
    */
   async updatePreferences(preferences: UpdatePreferencesRequest): Promise<ApiResponse<UserPreferences>> {
     return this.put<UserPreferences>('/users/preferences', preferences);
@@ -110,7 +127,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 6. Get User Locations
-   * GET /api/users/locations
+   * GET /users/locations
    */
   async getLocations(): Promise<ApiResponse<UserLocation[]>> {
     // Request deduplication
@@ -130,7 +147,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 7. Create User Location
-   * POST /api/users/locations
+   * POST /users/locations
    */
   async createLocation(locationData: CreateLocationRequest): Promise<ApiResponse<UserLocation>> {
     return this.post<UserLocation>('/users/locations', locationData);
@@ -138,7 +155,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 8. Delete User Location
-   * DELETE /api/users/locations/{location_id}
+   * DELETE /users/locations/{location_id}
    */
   async deleteLocation(locationId: number): Promise<ApiResponse<{ message: string }>> {
     return this.delete<{ message: string }>(`/users/locations/${locationId}`);
@@ -146,7 +163,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 9. Search Users
-   * GET /api/users/search
+   * GET /users/search
    */
   async searchUsers(params: UserSearchParams = {}): Promise<ApiResponse<UserSearchResult[]>> {
     const queryParams = new URLSearchParams();
@@ -166,7 +183,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 10. Get Public User Profile
-   * GET /api/users/{user_id}/profile
+   * GET /users/{user_id}/profile
    */
   async getPublicProfile(userId: number): Promise<ApiResponse<PublicUserProfile>> {
     return this.get<PublicUserProfile>(`/users/${userId}/profile`);
@@ -174,7 +191,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 11. Get User Statistics
-   * GET /api/users/stats
+   * GET /users/stats
    */
   async getStats(): Promise<ApiResponse<UserStats>> {
     // Request deduplication
@@ -194,7 +211,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 12. Upload Identity Document
-   * POST /api/users/documents/identity
+   * POST /users/documents/identity
    */
   async uploadIdentityDocument(
     frontImage: File | Blob,
@@ -219,7 +236,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 13. Upload Driver License
-   * POST /api/users/documents/driver-license
+   * POST /users/documents/driver-license
    */
   async uploadDriverLicense(
     frontImage: File | Blob,
@@ -248,7 +265,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 14. Get User Documents
-   * GET /api/users/documents
+   * GET /users/documents
    */
   async getDocuments(): Promise<ApiResponse<UserDocuments>> {
     // Request deduplication
@@ -268,7 +285,7 @@ class UserApiService extends BaseApiService {
 
   /**
    * 15. Get Document Status
-   * GET /api/users/documents/{document_id}/status
+   * GET /users/documents/{document_id}/status
    */
   async getDocumentStatus(documentId: number): Promise<ApiResponse<DocumentStatusResponse>> {
     return this.get<DocumentStatusResponse>(`/users/documents/${documentId}/status`);

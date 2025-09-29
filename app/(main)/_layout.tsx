@@ -10,6 +10,13 @@ export default function MainLayout() {
           title: "Home" 
         }} 
       />
+      <Stack.Screen 
+        name="settings" 
+        options={{ 
+          headerShown: false,
+          title: "Settings" 
+        }} 
+      />
     </Stack>
   );
 }
