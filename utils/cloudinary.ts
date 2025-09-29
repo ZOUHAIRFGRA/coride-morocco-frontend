@@ -1,7 +1,7 @@
 import * as ImagePicker from "expo-image-picker";
 
 // Cloudinary upload preset and cloud name - replace with your actual values
-const CLOUDINARY_UPLOAD_PRESET = "user_profile";
+const CLOUDINARY_UPLOAD_PRESET = "coride_mobile_uploads";
 const CLOUDINARY_CLOUD_NAME = "dj2ynb4rg";
 const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 

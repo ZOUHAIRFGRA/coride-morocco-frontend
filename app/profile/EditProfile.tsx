@@ -36,7 +36,15 @@ export default function EditProfile({
 
   // Use CoRide user hooks
   const { updateProfile, isLoading: isUpdating } = useUser();
-  const [isUpdateError, setIsUpdateError] = useState(false);
+  
+  // Enhanced error handling states
+  const [errorState, setErrorState] = useState<{
+    hasError: boolean;
+    message: string;
+    type: 'validation' | 'network' | 'server' | 'phone_taken' | 'unknown';
+    field?: string;
+    canRetry: boolean;
+  }>({ hasError: false, message: '', type: 'unknown', canRetry: false });
 
   // State for uploading image
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -54,16 +62,99 @@ export default function EditProfile({
     }
   }, [userProfile]);
 
-  // Optimize input change handling to prevent focus loss
+  // Helper function to parse and categorize errors
+  const parseError = (error: any): typeof errorState => {
+    if (typeof error === 'string') {
+      if (error.toLowerCase().includes('phone number is already registered')) {
+        return {
+          hasError: true,
+          message: 'This phone number is already registered by another user. Please use a different phone number.',
+          type: 'phone_taken',
+          field: 'phone',
+          canRetry: false
+        };
+      }
+      if (error.toLowerCase().includes('network') || error.toLowerCase().includes('timeout')) {
+        return {
+          hasError: true,
+          message: 'Network error. Please check your connection and try again.',
+          type: 'network',
+          canRetry: true
+        };
+      }
+      if (error.toLowerCase().includes('validation')) {
+        return {
+          hasError: true,
+          message: 'Please check your information and try again.',
+          type: 'validation',
+          canRetry: false
+        };
+      }
+    }
+    
+    // Handle structured error objects
+    if (error && typeof error === 'object') {
+      if (error.message) {
+        const message = error.message.toLowerCase();
+        if (message.includes('phone number is already registered')) {
+          return {
+            hasError: true,
+            message: 'This phone number is already registered by another user. Please use a different phone number.',
+            type: 'phone_taken',
+            field: 'phone',
+            canRetry: false
+          };
+        }
+        if (message.includes('network') || message.includes('timeout') || message.includes('fetch')) {
+          return {
+            hasError: true,
+            message: 'Network error. Please check your connection and try again.',
+            type: 'network',
+            canRetry: true
+          };
+        }
+        if (error.statusCode >= 500) {
+          return {
+            hasError: true,
+            message: 'Server error. Please try again in a few moments.',
+            type: 'server',
+            canRetry: true
+          };
+        }
+      }
+    }
+    
+    return {
+      hasError: true,
+      message: 'An unexpected error occurred. Please try again.',
+      type: 'unknown',
+      canRetry: true
+    };
+  };
+
+  // Clear error when form data changes and retry function
   const handleInputChange = (field: keyof typeof formData, value: string) => {
+    // Clear error when user starts typing in the field that had an error
+    if (errorState.hasError && errorState.field === field) {
+      setErrorState({ hasError: false, message: '', type: 'unknown', canRetry: false });
+    }
     setFormData((prev) => ({
       ...prev,
       [field]: value,
     }));
   };
 
-  // Handle saving profile changes - using CoRide API
+  // Retry function for retryable errors
+  const handleRetry = () => {
+    setErrorState({ hasError: false, message: '', type: 'unknown', canRetry: false });
+    handleSaveChanges();
+  };
+
+  // Handle saving profile changes - using CoRide API with enhanced error handling
   const handleSaveChanges = async () => {
+    // Clear previous errors
+    setErrorState({ hasError: false, message: '', type: 'unknown', canRetry: false });
+    
     // Prepare input for the CoRide API
     const input: UpdateProfileRequest = {
       first_name: formData.first_name,
@@ -74,22 +165,31 @@ export default function EditProfile({
     };
 
     try {
-      setIsUpdateError(false);
       const response = await updateProfile(input);
       
       if (response.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert("Success", "Profile updated successfully", [{ text: "OK", onPress: () => toggleEditMode(false) }]);
       } else {
-        setIsUpdateError(true);
+        // Parse and set specific error
+        const errorInfo = parseError(response.error);
+        setErrorState(errorInfo);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert("Update Failed", response.error || "Unknown error occurred");
+        
+        // Show alert for critical errors that need immediate attention
+        if (errorInfo.type === 'phone_taken') {
+          Alert.alert(
+            "Phone Number Already Registered", 
+            errorInfo.message,
+            [{ text: "OK" }]
+          );
+        }
       }
     } catch (error) {
       console.error("Profile update error:", error);
-      setIsUpdateError(true);
+      const errorInfo = parseError(error);
+      setErrorState(errorInfo);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert("Error", "Failed to update profile. Please try again.");
     }
   };
 
@@ -177,10 +277,49 @@ export default function EditProfile({
   return (
     <Animated.View style={editViewStyle}>
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 40, paddingHorizontal: 16, paddingTop: 24 }} keyboardShouldPersistTaps="handled">
-        {/* Show error message if update failed */}
-        {isUpdateError && (
-          <View className="mb-4 p-3 bg-error-50 rounded-lg">
-            <Text className="text-error-600 text-md">Update failed. Please try again.</Text>
+        {/* Enhanced error display with specific messages and retry functionality */}
+        {errorState.hasError && (
+          <View className={`mb-4 p-4 rounded-xl border ${
+            errorState.type === 'phone_taken' ? 'bg-amber-50 border-amber-200' :
+            errorState.type === 'network' ? 'bg-blue-50 border-blue-200' :
+            errorState.type === 'validation' ? 'bg-orange-50 border-orange-200' :
+            'bg-red-50 border-red-200'
+          }`}>
+            <View className="flex-row items-start">
+              <View className={`w-5 h-5 rounded-full mr-3 mt-0.5 ${
+                errorState.type === 'phone_taken' ? 'bg-amber-400' :
+                errorState.type === 'network' ? 'bg-blue-400' :
+                errorState.type === 'validation' ? 'bg-orange-400' :
+                'bg-red-400'
+              }`} />
+              <View className="flex-1">
+                <Text className={`text-md font-semibold ${
+                  errorState.type === 'phone_taken' ? 'text-amber-800' :
+                  errorState.type === 'network' ? 'text-blue-800' :
+                  errorState.type === 'validation' ? 'text-orange-800' :
+                  'text-red-800'
+                }`}>Error Updating Profile</Text>
+                <Text className={`text-sm mt-1 ${
+                  errorState.type === 'phone_taken' ? 'text-amber-700' :
+                  errorState.type === 'network' ? 'text-blue-700' :
+                  errorState.type === 'validation' ? 'text-orange-700' :
+                  'text-red-700'
+                }`}>{errorState.message}</Text>
+                
+                {errorState.canRetry && (
+                  <TouchableOpacity 
+                    className={`mt-3 py-2 px-4 rounded-lg ${
+                      errorState.type === 'network' ? 'bg-blue-600' : 'bg-gray-600'
+                    }`}
+                    onPress={handleRetry}
+                  >
+                    <Text className="text-white text-sm font-medium text-center">
+                      {errorState.type === 'network' ? 'Retry Connection' : 'Try Again'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
           </View>
         )}
 
@@ -240,7 +379,11 @@ export default function EditProfile({
 
         <View className="mb-6">
           <Text className="text-sm font-semiBold text-gray-700 mb-2">Phone Number</Text>
-          <View className="flex-row items-center bg-gray-50 rounded-xl px-4 py-4 border border-gray-200">
+          <View className={`flex-row items-center rounded-xl px-4 py-4 border ${
+            errorState.hasError && errorState.field === 'phone' 
+              ? 'bg-red-50 border-red-300' 
+              : 'bg-gray-50 border-gray-200'
+          }`}>
             <TextInput
               className="flex-1 text-md text-gray-900"
               value={formData.phone}
@@ -253,6 +396,11 @@ export default function EditProfile({
               blurOnSubmit={false}
             />
           </View>
+          {errorState.hasError && errorState.field === 'phone' && (
+            <Text className="text-red-600 text-xs mt-1 ml-1">
+              {errorState.type === 'phone_taken' ? 'This phone number is already in use' : 'Please check your phone number'}
+            </Text>
+          )}
         </View>
 
         <View className="mb-6">

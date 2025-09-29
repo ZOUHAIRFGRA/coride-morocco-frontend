@@ -25,7 +25,7 @@ export default function Profile() {
   const { logout, user } = useAuth();
 
   // Use the CoRide useUser hook
-  const { profile, isLoading: isUserProfileLoading, error: userProfileError } = useUser();
+  const { profile, isLoading: isUserProfileLoading, error: userProfileError, clearError, getProfile } = useUser();
   
   // Use profile data or fallback to auth user
   const userProfile = profile || user;
@@ -51,13 +51,17 @@ export default function Profile() {
     }
   }, [userProfile]);
 
-  // Log the results for testing
+  // Log the results for testing and clear error if we have valid profile data
   useEffect(() => {
     // console.log("User Profile Data:", userProfile);
     if (isUserProfileError) {
       console.error("User Profile Error:", userProfileError);
+      // Clear error if we actually have profile data from auth
+      if (userProfile && (profile || user)) {
+        clearError();
+      }
     }
-  }, [userProfile, isUserProfileError, userProfileError]);
+  }, [userProfile, isUserProfileError, userProfileError, profile, user, clearError]);
 
   // Animate between view and edit modes
   const toggleEditMode = (edit: boolean) => {
@@ -252,11 +256,6 @@ export default function Profile() {
             <ActivityIndicator size="large" color="#33B7E9" />
             <Text className="mt-4 text-gray-500">Loading profile...</Text>
           </View>
-        ) : isUserProfileError ? (
-          <View className="mt-4 p-5 bg-error-50 rounded-xl border border-error-100 mx-4">
-            <Text className="text-error-600 text-md font-medium">Error loading profile data</Text>
-            <Text className="text-error-400 mt-1">Please try again later</Text>
-          </View>
         ) : userProfile ? (
           <>
             {/* Profile View (Animated) */}
@@ -321,18 +320,39 @@ export default function Profile() {
             />
           </>
         ) : (
-          // No Profile Data View
+          // Error or No Profile Data View
           <View className="items-center justify-center py-20 px-4">
-            <Ionicons name="person-circle-outline" size={60} color="#9CA3AF" />
-            <Text className="text-gray-500 mt-4 text-center text-md">No profile data available or failed to load.</Text>
-            <TouchableOpacity
-              className="mt-6 bg-primary-light py-2.5 px-5 rounded-full"
-              onPress={() => {
-                /* Add refresh logic here if needed */
-              }}
-            >
-              <Text className="text-white font-medium">Try Refresh</Text>
-            </TouchableOpacity>
+            {isUserProfileError ? (
+              <>
+                <Ionicons name="alert-circle-outline" size={60} color="#DC1C13" />
+                <Text className="text-red-600 mt-4 text-center text-lg font-semibold">Error Loading Profile</Text>
+                <Text className="text-gray-500 mt-2 text-center text-md">
+                  {userProfileError || "Failed to load profile data. Please check your connection and try again."}
+                </Text>
+                <TouchableOpacity
+                  className="mt-6 bg-red-500 py-3 px-6 rounded-full"
+                  onPress={async () => {
+                    clearError();
+                    await getProfile(true);
+                  }}
+                >
+                  <Text className="text-white font-medium">Retry</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Ionicons name="person-circle-outline" size={60} color="#9CA3AF" />
+                <Text className="text-gray-500 mt-4 text-center text-md">No profile data available.</Text>
+                <TouchableOpacity
+                  className="mt-6 bg-primary-light py-2.5 px-5 rounded-full"
+                  onPress={async () => {
+                    await getProfile(true);
+                  }}
+                >
+                  <Text className="text-white font-medium">Load Profile</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         )}
       </View>
