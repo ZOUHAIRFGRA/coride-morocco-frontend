@@ -1,8 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable unused-imports/no-unused-vars */
-/* eslint-disable no-duplicate-case */
-import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View,
   Text,
@@ -12,7 +8,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
   StyleSheet,
   Animated,
   Easing,
@@ -22,55 +17,69 @@ import { COLORS, FONTS } from "@/constants/theme";
 import { getFormSchema, validateFormData } from "@/constants/formSchemas";
 import { FormFieldRenderer } from "@/components/schema-forms/FormFieldRenderer";
 import { GradientButton } from "@/components/ui/buttons/GradientButton";
-import { useAppSelector } from "@/redux/hooks";
-import {
-  useCreateAlpacaAccountMutation,
-  useCreateBankTransferMutation,
-  useCreatePostMutation,
-} from "@/redux/investment/investmentEndpoints";
-import {
-  useEntityCreateMutation,
-  useEntityUpdateMutation,
-  useCustomerCreateMutation,
-  useCreateJournalEntryMutation,
-  useUpdateJournalEntryMutation,
-  useGetAllEntitiesQuery,
-  useGetAllAccountsQuery,
-} from "@/redux/bookkeeping/bookkeepingEndpoints";
-import {
-  useCreateRecordMutation,
-  useUpdateRecordMutation,
-  useCreateCategoryMutation,
-  useUpdateCategoryMutation,
-  useCreateBudgetMutation,
-  useUpdateBudgetMutation,
-  useCreateAccountMutation,
-
-  useGetOrCreateCashAccountMutation,
-  useGetAllRecordsQuery,
-} from "@/redux/budgeting/budgetingEndpoints";
 import * as Haptics from "expo-haptics";
 import { heightPercentageToDP as hp } from "react-native-responsive-screen";
-import { useGetCategoriesWithRecordsQuery } from "@/redux/budgeting/budgetingEndpoints";
-import { getAccountDisplayBalance } from "@/utils/budgetingBalanceCalculator";
-import { useLedgerBankAccounts } from "@/hooks/useLedgerBankAccounts";
+import { userApiService } from "@/services/userApi";
 
-// Mock contact form submission function
-const mockSubmitContactForm = async (data: any) => {
-  // Simulate API delay
+// Mock API functions for CoRide Morocco forms
+const mockContactSupport = async (data: any) => {
   await new Promise((resolve) => setTimeout(resolve, 1500));
-
-  // Simulate success/failure
-  const success = Math.random() > 0.1; // 90% success rate
-
+  const success = Math.random() > 0.1;
   if (success) {
-    return {
-      success: true,
-      message: "Your message has been sent successfully!",
-      data: { id: `contact_${Date.now()}`, ...data },
-    };
+    return { success: true, message: "Your message has been sent successfully!" };
   } else {
     throw new Error("Failed to send message. Please try again.");
+  }
+};
+
+const mockCreateRideRequest = async (data: any) => {
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  return { success: true, message: "Your ride request has been posted!" };
+};
+
+const mockCreateRideOffer = async (data: any) => {
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  return { success: true, message: "Your ride offer has been posted!" };
+};
+
+const mockSubmitFeedback = async (data: any) => {
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  return { success: true, message: "Thank you for your feedback!" };
+};
+
+const mockReportIssue = async (data: any) => {
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  return { success: true, message: "Your report has been submitted." };
+};
+
+const mockAddLocation = async (data: any) => {
+  return { success: true, message: "Location saved successfully!" };
+};
+
+// Real API function for adding location
+const addLocation = async (data: any) => {
+  try {
+    // Transform form data to match CreateLocationRequest interface
+    const locationData = {
+      name: data.locationName,
+      address: data.address,
+      latitude: data.latitude || 33.5731, // Default to Casablanca
+      longitude: data.longitude || -7.5898,
+      location_type: data.locationType
+    };
+
+    const response = await userApiService.createLocation(locationData);
+    return {
+      success: true,
+      message: "Location saved successfully!",
+      data: response.data
+    };
+  } catch (error: any) {
+    // Handle API errors
+    if (error.message?.includes('already have a home location')) {
+      throw new Error("You already have a location of this type saved");
+    }
+    throw new Error(error.message || "Failed to save location");
   }
 };
 
@@ -82,37 +91,26 @@ interface FormModalProps {
   initialData?: Record<string, any>;
 }
 
-/**
- * Generic Form Modal Component
- * Can render any form from the schema registry as a modal
- * Handles validation, submission, and API integration generically
- *
- * Enhanced to support entity management:
- * - Supports entityCreate and entityUpdate mutations
- * - Automatically detects edit mode when initialData contains UUID
- * - Handles proper data transformation for both create and update operations
- */
 export const FormModal: React.FC<FormModalProps> = ({
   visible,
   formName,
   onClose,
   onSuccess,
-  initialData = {},
+  initialData,
 }) => {
-  // Get user data for form pre-population
-  const userState = useAppSelector((state) => state.user.user);
-  
-  // Ref for ScrollView to handle iOS auto-scroll to textarea
   const scrollViewRef = useRef<ScrollView>(null);
-  
-  // Animation values for slide-up and fade-in effects
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Handle animation when modal becomes visible
+  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const formDefinition = getFormSchema(formName);
+
+  // Animation when modal becomes visible
   useEffect(() => {
     if (visible) {
-      // Parallel animations: fade in backdrop and slide up modal
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -128,662 +126,65 @@ export const FormModal: React.FC<FormModalProps> = ({
         })
       ]).start();
     } else {
-      // Animate out before resetting
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-          easing: Easing.in(Easing.cubic),
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-          easing: Easing.in(Easing.cubic),
-        })
-      ]).start(() => {
-        // Reset values after animation completes
-        fadeAnim.setValue(0);
-        slideAnim.setValue(0);
-      });
+      fadeAnim.setValue(0);
+      slideAnim.setValue(0);
     }
   }, [visible, slideAnim, fadeAnim]);
 
-  // Get bank accounts for budgeting forms
-  const { accounts: bankAccountsData, refetch: refetchBankAccounts } = useLedgerBankAccounts();
-
-  // Fetch categories for budgeting forms
-  const { data: categoriesData } = useGetCategoriesWithRecordsQuery();
-
-  // Fetch all records for balance calculation
-  const { data: allRecordsData } = useGetAllRecordsQuery();
-
-  // State for form data and validation
-  const [formData, setFormData] = useState<Record<string, any>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isContactFormLoading, setIsContactFormLoading] = useState(false);
-
-  // Memoize initial data to prevent unnecessary re-renders
-  const memoizedInitialData = useMemo(
-    () => initialData,
-    [JSON.stringify(initialData)]
-  );
-
-  // Get selected entity slug from initial data
-  const selectedEntitySlug = memoizedInitialData?.selectedEntity?.slug;
-
-  // Fetch accounts for journal entry creation when entity is selected
-  const { data: allAccountsData, isLoading: accountsLoading } =
-    useGetAllAccountsQuery(
-      { entitySlug: selectedEntitySlug },
-      {
-        skip:
-          !selectedEntitySlug ||
-          (formName !== "createJournalEntry" &&
-            formName !== "editSingleTransaction" &&
-            formName !== "updateJournalEntry"),
-      }
-    );
-
-  // Get form definition from schema registry and make it dynamic for journal entries and budgeting forms
-  const baseFormDefinition = getFormSchema(formName);
-  const formDefinition = useMemo(() => {
-    // Handle journal entry forms
-    if (
-      (formName === "createJournalEntry" ||
-        formName === "editSingleTransaction" ||
-        formName === "updateJournalEntry") &&
-      allAccountsData &&
-      baseFormDefinition
-    ) {
-      // Extract accounts from response
-      const allAccounts =
-        allAccountsData?.edges?.map((edge: any) => edge.node) || [];
-
-      // Filter accounts based on the account type context if available
-      let filteredAccounts = allAccounts;
-      const accountTypeFromInitialData = memoizedInitialData?.accountType;
-
-      if (accountTypeFromInitialData) {
-        // Map UI account types to account properties and roles
-        const getAccountFilter = (uiAccountType: string) => {
-          return () => true; // Show all accounts - no filtering
-        };
-
-        const accountFilter = getAccountFilter(accountTypeFromInitialData);
-        filteredAccounts = allAccounts.filter(accountFilter);
-
-        // If no accounts match the filter, show a warning but still allow all accounts
-        if (filteredAccounts.length === 0) {
-          console.warn(
-            "⚠️ FormModal - No accounts found for type",
-            accountTypeFromInitialData,
-            "- showing all accounts"
-          );
-          filteredAccounts = allAccounts;
-        }
-      }
-
-      if (filteredAccounts.length > 0) {
-        // Helper function to get account type display name
-        const getAccountTypeDisplay = (account: any): string => {
-          if (
-            account.isExpense ||
-            (account.role && account.role.includes("expense"))
-          )
-            return "Expense";
-          if (
-            account.isAsset ||
-            (account.role && account.role.includes("asset"))
-          )
-            return "Asset";
-          if (
-            account.isLiability ||
-            (account.role && account.role.includes("liability")) ||
-            (account.role && account.role.includes("lia_"))
-          )
-            return "Liability";
-          if (
-            account.isIncome ||
-            (account.role && account.role.includes("income")) ||
-            (account.role && account.role.includes("revenue"))
-          )
-            return "Income";
-          if (
-            account.isCapital ||
-            (account.role && account.role.includes("capital"))
-          )
-            return "Capital";
-          if (account.isCogs || (account.role && account.role.includes("cogs")))
-            return "COGS";
-          return "Other"; // fallback
-        };
-
-        // Create dynamic schema with filtered account options
-        const updatedSchema = {
-          ...baseFormDefinition.schema,
-          properties: {
-            ...baseFormDefinition.schema.properties,
-            transactions: {
-              ...baseFormDefinition.schema.properties.transactions,
-              items: {
-                ...baseFormDefinition.schema.properties.transactions.items,
-                properties: {
-                  ...baseFormDefinition.schema.properties.transactions.items
-                    .properties,
-                  accountUuid: {
-                    type: "string",
-                    title: "Account",
-                    enum: filteredAccounts.map((account: any) => account.uuid),
-                    enumNames: filteredAccounts.map(
-                      (account: any) =>
-                        `${account.name} • ${getAccountTypeDisplay(account)}`
-                    ),
-                    description: accountTypeFromInitialData
-                      ? `Select the ${accountTypeFromInitialData.toLowerCase()} account for this transaction`
-                      : "Select the account for this transaction",
-                  },
-                },
-              },
-            },
-          },
-        };
-
-        const updatedUiSchema = {
-          ...baseFormDefinition.uiSchema,
-          transactions: {
-            ...(baseFormDefinition.uiSchema as any).transactions,
-            items: {
-              ...(baseFormDefinition.uiSchema as any).transactions?.items,
-              accountUuid: {
-                "ui:widget": "select",
-                "ui:placeholder": accountTypeFromInitialData
-                  ? `Select ${accountTypeFromInitialData.toLowerCase()} account`
-                  : "Select account",
-                "ui:options": {
-                  searchable: true,
-                },
-              },
-            },
-          },
-        };
-
-        return {
-          ...baseFormDefinition,
-          schema: updatedSchema,
-          uiSchema: updatedUiSchema,
-        };
-      }
-    }
-    
-    // Handle budgeting forms (createBudgetRecord, editBudgetRecord, createBudget, editBudget)
-    if (
-      (formName === "createBudgetRecord" || formName === "editBudgetRecord" || formName === "createBudget" || formName === "editBudget") &&
-      baseFormDefinition
-    ) {
-      
-      // Extract categories from response
-      const categories = categoriesData?.budgetCategories || [];
-      
-      // Create dynamic schema with category options
-      const updatedSchema = {
-        ...baseFormDefinition.schema,
-        properties: {
-          ...baseFormDefinition.schema.properties,
-        }
-      };
-      
-      // Add category options if categoryUuid field exists
-      if (baseFormDefinition.schema.properties.categoryUuid && categories.length > 0) {
-        updatedSchema.properties.categoryUuid = {
-          type: "string",
-          title: "Category",
-          enum: categories.map((category: any) => category.uuid),
-          enumNames: categories.map((category: any) => `${category.name} (${category.categoryType})`),
-          description: "Select a category"
-        };
-      } 
-      
-      // Add bank account options for record forms
-      if ((formName === "createBudgetRecord" || formName === "editBudgetRecord") && bankAccountsData) {
-        
-        // Extract bank accounts from response
-        // Filter accounts to show only cash accounts (both BUDGETING_CASH and LEDGER_CASH)
-        const bankAccounts = bankAccountsData?.filter(acc => 
-          acc.accountType === "BUDGETING_CASH" || acc.accountType === "LEDGER_CASH"
-        ) || [];
-        
-        // Add "Cash" option if no cash account exists
-        const hasCashAccount = bankAccounts.some((account: any) => account.accountType === "BUDGETING_CASH");
-        const allAccountOptions = [...bankAccounts];
-        
-        if (!hasCashAccount) {
-          // Add placeholder cash option that will trigger cash account creation
-          allAccountOptions.unshift({
-            id: "cash-placeholder",
-            uuid: "cash-placeholder",
-            name: "Cash",
-            accountType: "CASH",
-            balance: "0",
-            icon: "cash",
-            moduleKeys: []
-          });
-        }
-        
-        if (allAccountOptions.length > 0) {
-          updatedSchema.properties.bankAccountUuid = {
-            type: "string",
-            title: "Account",
-            enum: allAccountOptions.map((account: any) => account.uuid),
-            enumNames: allAccountOptions.map((account: any) => {
-              // Format balance properly - show actual balance value
-              const balance = parseFloat(account.balance || "0");
-              
-              // Use calculated balance from records instead of backend balance
-              // This fixes the $50,000 discrepancy issue
-              const calculatedBalance = getAccountDisplayBalance(allRecordsData?.budgetRecords || []);
-              
-              return `${account.name} (${calculatedBalance})`;
-            }),
-            description: "Select an account for this transaction"
-          };
-        }
-      }
-      
-      // Create updated UI schema with searchable dropdowns
-      const updatedUiSchema = {
-        ...baseFormDefinition.uiSchema,
-      };
-      
-      // Add searchable dropdown for categories
-      if (baseFormDefinition.schema.properties.categoryUuid) {
-        updatedUiSchema.categoryUuid = {
-          "ui:widget": "select",
-          "ui:placeholder": "Select category",
-          "ui:options": {
-            searchable: true,
-          }
-        };
-      }
-      
-      // Add searchable dropdown for bank accounts
-      if (baseFormDefinition.schema.properties.bankAccountUuid) {
-        updatedUiSchema.bankAccountUuid = {
-          "ui:widget": "select",
-          "ui:placeholder": "Select account",
-          "ui:options": {
-            searchable: true,
-          }
-        };
-      }
-      
-      return {
-        ...baseFormDefinition,
-        schema: updatedSchema,
-        uiSchema: updatedUiSchema,
-      };
-    }
-    
-    return baseFormDefinition;
-  }, [formName, baseFormDefinition, allAccountsData, bankAccountsData, categoriesData, refetchBankAccounts]);
-
-  // API mutation hooks
-  const [createAlpacaAccount, { isLoading: isCreatingAlpacaAccount }] =
-    useCreateAlpacaAccountMutation();
-  const [createBankTransfer, { isLoading: isCreatingBankTransfer }] =
-    useCreateBankTransferMutation();
-  const [createPost, { isLoading: isCreatingPost }] = useCreatePostMutation();
-  const [createEntity, { isLoading: isCreatingEntity }] =
-    useEntityCreateMutation();
-  const [updateEntity, { isLoading: isUpdatingEntity }] =
-    useEntityUpdateMutation();
-  const [createCustomer, { isLoading: isCreatingCustomer }] =
-    useCustomerCreateMutation();
-  const [createJournalEntry, { isLoading: isCreatingJournalEntry }] =
-    useCreateJournalEntryMutation();
-  const [updateJournalEntry, { isLoading: isUpdatingJournalEntry }] =
-    useUpdateJournalEntryMutation();
-
-  // Budgeting mutation hooks
-  const [createRecord, { isLoading: isCreatingRecord }] = useCreateRecordMutation();
-  const [updateRecord, { isLoading: isUpdatingRecord }] = useUpdateRecordMutation();
-  const [createCategory, { isLoading: isCreatingCategory }] = useCreateCategoryMutation();
-  const [updateCategory, { isLoading: isUpdatingCategory }] = useUpdateCategoryMutation();
-  const [createBudget, { isLoading: isCreatingBudget }] = useCreateBudgetMutation();
-  const [updateBudget, { isLoading: isUpdatingBudget }] = useUpdateBudgetMutation();
-  const [createAccount, { isLoading: isCreatingAccount }] = useCreateAccountMutation();
-  const [getOrCreateCashAccount] = useGetOrCreateCashAccountMutation();
-
-
-
-  // Fetch entities for journal entry creation (to get ledgerUuid)
-  const { data: allEntitiesData } = useGetAllEntitiesQuery();
-
-  // Pre-populate form with user data and initial data
+  // Pre-populate form with initial data when modal becomes visible
   useEffect(() => {
-    if (!formDefinition) return;
-
-    const populatedData: Record<string, any> = { ...memoizedInitialData };
-
-    // Skip auto-population for entity forms and budgeting forms - they should use initialData only
-    if (formName !== "createEntity" && !formName.includes("Budget")) {
-      // Pre-populate common fields from user state for non-entity forms
-      const schemaProps = formDefinition.schema.properties as any;
-      if (schemaProps?.emailAddress && userState?.email) {
-        populatedData.emailAddress = userState.email;
-      }
-      if (schemaProps?.email && userState?.email) {
-        populatedData.email = userState.email;
-      }
-      if (schemaProps?.name && userState?.firstName && userState?.lastName) {
-        populatedData.name = `${userState.firstName} ${userState.lastName}`;
-      }
-      if (schemaProps?.givenName && userState?.firstName) {
-        populatedData.givenName = userState.firstName;
-      }
-      if (schemaProps?.familyName && userState?.lastName) {
-        populatedData.familyName = userState.lastName;
-      }
-    }
-
-    // Set default values for specific form types
-    switch (formName) {
-      case "createPost":
-        populatedData.action = populatedData.action || "BUY";
-        populatedData.confidence = populatedData.confidence || 70;
-        populatedData.clientMutationId =
-          populatedData.clientMutationId || `post_${Date.now()}`;
-        break;
-
-      case "createBankTransfer":
-        populatedData.direction = populatedData.direction || "INCOMING";
-        populatedData.timing = populatedData.timing || "Immediate";
-        populatedData.transferType = populatedData.transferType || "ACH";
-        break;
-
-      case "contactForm":
-        populatedData.priority = populatedData.priority || "medium";
-        populatedData.preferredContact =
-          populatedData.preferredContact || "email";
-        populatedData.allowMarketing = populatedData.allowMarketing || false;
-        break;
-
-      case "createBudgetRecord":
-        break;
-
-      case "createJournalEntry":
-        // Initialize with default transactions if not provided
-        if (
-          !populatedData.transactions ||
-          populatedData.transactions.length === 0
-        ) {
-          populatedData.transactions = [
-            {
-              accountUuid: "",
-              description: "",
-              transactionType: "",
-              amount: "",
-            },
-            {
-              accountUuid: "",
-              description: "",
-              transactionType: "",
-              amount: "",
-            },
-          ];
-        }
-        // Set default date to today if not provided
-        if (!populatedData.date) {
-          populatedData.date = new Date().toISOString().split("T")[0];
-        }
-        break;
-
-      case "updateJournalEntry":
-        // For updates, transactions should already be populated from initialData
-        // Just ensure we have the required structure
-        if (!populatedData.transactions) {
-          populatedData.transactions = [];
-        }
-
-        // Process transactions with robust account matching (like old edit modal)
-        if (allAccountsData?.edges && populatedData.transactions.length > 0) {
-          const allAccounts = allAccountsData.edges.map((edge: any) => ({
-            uuid: edge.node.uuid,
-            name: edge.node.name,
-            code: edge.node.code,
-            role: edge.node.role,
-            // Add account type properties for type detection
-            isExpense: edge.node.isExpense,
-            isAsset: edge.node.isAsset,
-            isLiability: edge.node.isLiability,
-            isIncome: edge.node.isIncome,
-            isCapital: edge.node.isCapital,
-            isCogs: edge.node.isCogs,
-          }));
-
-          // Apply robust account matching logic (same as old edit modal)
-          populatedData.transactions = populatedData.transactions.map(
-            (transaction: any, index: number) => {
-              // Try to find account by name or code first (most reliable)
-              const matchingAccount = allAccounts.find(
-                (account: any) =>
-                  account.name === transaction.accountName ||
-                  account.code === transaction.accountCode
-              );
-
-              let resolvedAccountUuid = transaction.accountUuid || "";
-
-              if (matchingAccount) {
-                resolvedAccountUuid = matchingAccount.uuid;
-              } 
-
-              return {
-                ...transaction,
-                // Keep existing transaction data but ensure required fields exist
-                accountUuid: resolvedAccountUuid,
-                description: transaction.description || "",
-                transactionType:
-                  transaction.txType || transaction.transactionType || "",
-                amount: transaction.amount?.toString() || "",
-                // Keep additional metadata for debugging
-                _resolvedByMatching: !!matchingAccount,
-                _originalAccountName: transaction.accountName,
-                _originalAccountCode: transaction.accountCode,
-              };
-            }
-          );
-        } else {
-          // Fallback when accounts not loaded - use basic mapping
-          populatedData.transactions = populatedData.transactions.map(
-            (tx: any) => ({
-              ...tx,
-              accountUuid: tx.accountUuid || "",
-              description: tx.description || "",
-              transactionType: tx.txType || tx.transactionType || "",
-              amount: tx.amount?.toString() || "",
-            })
-          );
-        }
-        break;
-    }
-
-    setFormData(populatedData);
-   
-    
-  }, [
-    formDefinition,
-    userState?.email,
-    userState?.firstName,
-    userState?.lastName,
-    formName,
-    memoizedInitialData,
-    allAccountsData,
-    categoriesData,
-    bankAccountsData,
-  ]);
+    if (!visible || !formDefinition) return;
+    setFormData({ ...(initialData ?? {}) });
+  }, [visible, formDefinition]);
 
   // Handle field value changes
-  const handleFieldChange = useCallback(
-    (fieldName: string, value: any) => {
-      setFormData((prev) => ({
-        ...prev,
-        [fieldName]: value,
-      }));
-
-      // Clear error when user starts typing
-      if (errors[fieldName]) {
-        setErrors((prev) => {
-          const newErrors = { ...prev };
-          delete newErrors[fieldName];
-          return newErrors;
-        });
-      }
-    },
-    [errors]
-  );
-
-  // Function to auto-scroll to textarea on iOS when focused
-  const scrollToTextarea = useCallback(() => {
-    if (Platform.OS === "ios" && scrollViewRef.current) {
-      // Small delay to ensure keyboard animation starts
-      setTimeout(() => {
-        // Single smooth scroll to show the label above the textarea
-        scrollViewRef.current?.scrollTo({ y: 250, animated: true });
-      }, 300);
+  const handleFieldChange = useCallback((fieldName: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [fieldName]: value }));
+    
+    if (errors[fieldName]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
+      });
     }
-  }, []);
+  }, [errors]);
 
-  // Get the appropriate mutation hook based on form type
-  const getMutationHook = useCallback(() => {
-    // Detect if we're editing an entity (has UUID in initialData)
-    const isEditingEntity =
-      formName === "createEntity" && memoizedInitialData?.uuid;
-
+  // Get API function based on form type
+  const getApiFunction = useCallback(() => {
     switch (formDefinition?.mutation) {
-      case "createAlpacaAccount":
-        return {
-          mutate: createAlpacaAccount as any,
-          isLoading: isCreatingAlpacaAccount,
-        };
-      case "createBankTransfer":
-        return {
-          mutate: createBankTransfer as any,
-          isLoading: isCreatingBankTransfer,
-        };
-      case "createPost":
-        return { mutate: createPost as any, isLoading: isCreatingPost };
-      case "entityCreate":
-        // Use update mutation if we're editing (has UUID), otherwise use create
-        return isEditingEntity
-          ? { mutate: updateEntity as any, isLoading: isUpdatingEntity }
-          : { mutate: createEntity as any, isLoading: isCreatingEntity };
-      case "entityUpdate":
-        return { mutate: updateEntity as any, isLoading: isUpdatingEntity };
-      case "customerCreate":
-        return { mutate: createCustomer as any, isLoading: isCreatingCustomer };
-      case "createJournalEntry":
-        return {
-          mutate: createJournalEntry as any,
-          isLoading: isCreatingJournalEntry,
-        };
-      case "updateJournalEntry":
-        return {
-          mutate: updateJournalEntry as any,
-          isLoading: isUpdatingJournalEntry,
-        };
-      case "editSingleTransaction":
-        return {
-          mutate: updateJournalEntry as any,
-          isLoading: isUpdatingJournalEntry,
-        };
-      case "submitContactForm":
-        return {
-          mutate: mockSubmitContactForm,
-          isLoading: isContactFormLoading,
-        };
-      case "createRecord":
-        return { mutate: createRecord as any, isLoading: isCreatingRecord };
-      case "updateRecord":
-        return { mutate: updateRecord as any, isLoading: isUpdatingRecord };
-      case "createCategory":
-        return { mutate: createCategory as any, isLoading: isCreatingCategory };
-      case "updateCategory":
-        return { mutate: updateCategory as any, isLoading: isUpdatingCategory };
-      case "createBudget":
-        return { mutate: createBudget as any, isLoading: isCreatingBudget };
-      case "updateBudget":
-        return { mutate: updateBudget as any, isLoading: isUpdatingBudget };
-      case "createAccount":
-        return { mutate: createAccount as any, isLoading: isCreatingAccount };
-      case "fundCash":
-        return { mutate: getOrCreateCashAccount as any, isLoading: false };
+      case "contactSupport":
+        return mockContactSupport;
+      case "createRideRequest":
+        return mockCreateRideRequest;
+      case "createRideOffer":
+        return mockCreateRideOffer;
+      case "submitFeedback":
+        return mockSubmitFeedback;
+      case "reportIssue":
+        return mockReportIssue;
+      case "addLocation":
+        return addLocation;
       default:
-        return { mutate: null, isLoading: false };
+        return null;
     }
-  }, [
-    formDefinition?.mutation,
-    formName,
-    memoizedInitialData?.uuid,
-    createAlpacaAccount,
-    isCreatingAlpacaAccount,
-    createBankTransfer,
-    isCreatingBankTransfer,
-    createPost,
-    isCreatingPost,
-    createEntity,
-    isCreatingEntity,
-    updateEntity,
-    isUpdatingEntity,
-    createCustomer,
-    isCreatingCustomer,
-    createJournalEntry,
-    isCreatingJournalEntry,
-    isContactFormLoading,
-    createRecord,
-    isCreatingRecord,
-    updateRecord,
-    isUpdatingRecord,
-    createCategory,
-    isCreatingCategory,
-    updateCategory,
-    isUpdatingCategory,
-    createBudget,
-    isCreatingBudget,
-    updateBudget,
-    isUpdatingBudget,
-    createAccount,
-    isCreatingAccount,
-  ]);
+  }, [formDefinition?.mutation]);
 
   // Handle form submission
   const handleSubmit = useCallback(async () => {
     if (!formDefinition) return;
 
-    console.log("🔍 FormModal - Starting form submission for:", formName);
-    console.log("🔍 FormModal - Form data:", formData);
-
-    // Validate form data
     const validation = validateFormData(formName, formData);
     if (!validation.isValid) {
-      console.log("🔍 FormModal - Validation failed:", validation.errors);
       setErrors(validation.errors);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        "Validation Error",
-        "Please fix the errors below and try again."
-      );
+      Alert.alert("Validation Error", "Please fix the errors below and try again.");
       return;
     }
 
-    console.log("🔍 FormModal - Validation passed, getting mutation hook");
-
-    const { mutate, isLoading } = getMutationHook();
-    console.log("🔍 FormModal - Mutation hook result:", { mutate: !!mutate, isLoading });
-    
-    if (!mutate || isLoading) {
-      console.log("🔍 FormModal - No mutation available or already loading");
+    const apiFunction = getApiFunction();
+    if (!apiFunction) {
+      Alert.alert("Error", "Form submission not configured.");
       return;
     }
 
@@ -791,823 +192,94 @@ export const FormModal: React.FC<FormModalProps> = ({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      // Transform data if needed based on form type
       let submissionData = { ...formData };
-      console.log("🔍 FormModal - Original submission data:", submissionData);
 
-      // Check for duplicate category name BEFORE any other processing
-      if (formName === "createBudgetCategory") {
-        const categoryName = submissionData.name?.trim();
-        
-        if (categoryName && categoriesData?.budgetCategories) {
-          const existingCategory = categoriesData.budgetCategories.find(
-            (cat: any) => cat.name.toLowerCase() === categoryName.toLowerCase()
-          );
-          
-          
-          if (existingCategory) {
-            Alert.alert(
-              "Category Already Exists",
-              `A category named "${categoryName}" already exists. Please choose a different name.`,
-              [{ text: "OK", style: "default" }]
-            );
-            return; // Exit the entire function
-          }
-        }
-      }
-
-      // Debug logging for updateRecord
-      if (formName === "editBudgetRecord") {
-        
-        // Transform recordType to lowercase for backend compatibility
-        if (submissionData.recordType) {
-          submissionData.recordType = submissionData.recordType.toLowerCase();
-        }
-      }
-
-      // Refetch bank accounts after successful record creation/update
-      if (formName === "createBudgetRecord" || formName === "editBudgetRecord") {
-        refetchBankAccounts();
-      }
-
-      // Handle cash account creation for createBudgetRecord
-      if (formName === "createBudgetRecord" && submissionData.bankAccountUuid === "cash-placeholder") {
-        try {
-          const cashAccountResult = await getOrCreateCashAccount({}).unwrap();
-          
-          // Replace the placeholder with the real cash account UUID
-          submissionData.bankAccountUuid = cashAccountResult.data?.budgetGetOrCreateCashAccount?.cashAccount?.uuid;
-        } catch (error) {
-          console.error("🔍 FormModal - Error creating cash account:", error);
-          Alert.alert("Error", "Failed to create cash account. Please try again.");
-          return;
-        }
-      }
-
-      // Debug: Log what we're sending to backend for record creation
-      if (formName === "createBudgetRecord" || formName === "editBudgetRecord") {
-        // Find the current account balance before sending
-        const currentAccount = bankAccountsData?.find(
-          (acc: any) => acc.uuid === submissionData.bankAccountUuid
-        );
-        
-        console.log("currentAccount from", currentAccount);
-        
-      }
-
-      // Specific transformations for different forms
+      // Transform data based on form type
       switch (formName) {
-        case "createAlpacaAccount":
-        case "createKycAlpacaAccount":
-          console.log("🔍 FormModal - Processing KYC/Alpaca account form");
-          // Remove fields that backend doesn't expect
-          const { 
-            acceptedTerms, 
-            acceptedPrivacyPolicy, 
-            acceptedDataSharing,
-            investmentExperience,
-            annualIncome,
-            netWorth,
-            riskTolerance,
-            ...alpacaData 
-          } = submissionData;
-          submissionData = alpacaData;
-          submissionData.streetAddress = [submissionData.streetAddress, submissionData.streetAddress2]
-          console.log("🔍 FormModal - KYC DATA IS: ", submissionData);
-          
-          break;
-        case "createPost":
-          // Remove newsSources and userProfile before sending to API (not supported by backend yet)
-          const { newsSources, userProfile, ...postData } = submissionData;
-          submissionData = postData;
-
-          
-          break;
-        case "createEntity":
-          // Detect if we're editing (has UUID) or creating
-          const isEditingEntity = memoizedInitialData?.uuid;
-          if (isEditingEntity) {
-            // Entity update - filter to only include schema fields + UUID
-            const allowedFields = [
-              "name",
-              "fyStartMonth",
-              "address1",
-              "address2",
-              "city",
-              "state",
-              "zipCode",
-              "country",
-              "email",
-            ];
-            const filteredData = Object.keys(submissionData)
-              .filter((key) => allowedFields.includes(key))
-              .reduce((obj: any, key) => {
-                obj[key] = submissionData[key];
-                return obj;
-              }, {});
-            // Add UUID and wrap in input for the endpoint
-            submissionData = {
-              input: { ...filteredData, uuid: memoizedInitialData.uuid },
-            };
-          } else {
-            // Entity create expects input wrapper
-            submissionData = { input: submissionData };
+        case "createRideRequest":
+          if (submissionData.passengers) {
+            submissionData.passengers = parseInt(submissionData.passengers, 10);
+          }
+          if (submissionData.departureTime) {
+            submissionData.departureTime = new Date(submissionData.departureTime).toISOString();
           }
           break;
-        case "updateEntity":
-          // Entity update expects variables with UUID from initialData
-          if (memoizedInitialData?.uuid) {
-            submissionData = {
-              input: { ...submissionData, uuid: memoizedInitialData.uuid },
-            };
-          } else {
-            submissionData = { input: submissionData };
+        case "createRideOffer":
+          if (submissionData.availableSeats) {
+            submissionData.availableSeats = parseInt(submissionData.availableSeats, 10);
+          }
+          if (submissionData.departureTime) {
+            submissionData.departureTime = new Date(submissionData.departureTime).toISOString();
           }
           break;
-        case "createCustomer":
-          // Customer create expects input wrapper
-          submissionData = { input: submissionData };
+        case "submitFeedback":
+          if (submissionData.rating) {
+            submissionData.rating = parseInt(submissionData.rating, 10);
+          }
           break;
-        case "fundCash":
-          // Transform data for the fundCash mutation
-          // The GET_OR_CREATE_CASH_ACCOUNT query expects amount as Decimal type
-          // Format as decimal string with 2 decimal places (e.g., "1000.00")
-          const fundAmount = parseFloat(submissionData.fundAmount) || 0;
-          const accountType = submissionData.accountType || undefined;
-          submissionData = { 
-            amount: fundAmount.toFixed(2),
-            accountType
-          };
-          break;
-        case "createJournalEntry":
-          // Validate journal entry follows double-entry accounting rules
-          const transactions = submissionData.transactions || [];
-
-          // Rule 1: Must have at least 2 transactions
-          if (transactions.length < 2) {
-            Alert.alert(
-              "Invalid Transaction",
-              "When creating a journal entry, transactions must have at least 2 items and total debits must equal total credits. If you are not sure how to do that, use the AI assistant to create it for you."
-            );
-            return;
+        case "reportIssue":
+          if (submissionData.occurred) {
+            submissionData.occurred = new Date(submissionData.occurred).toISOString();
           }
-
-          // Rule 2: Total debits must equal total credits
-          let totalDebits = 0;
-          let totalCredits = 0;
-
-          transactions.forEach((transaction: any) => {
-            if (transaction.transactionType === "debit" && transaction.amount) {
-              totalDebits += parseFloat(transaction.amount) || 0;
-            }
-            if (
-              transaction.transactionType === "credit" &&
-              transaction.amount
-            ) {
-              totalCredits += parseFloat(transaction.amount) || 0;
-            }
-          });
-
-          if (Math.abs(totalDebits - totalCredits) > 0.01) {
-            Alert.alert(
-              "Unbalanced Transaction",
-              `Total debits ($${totalDebits.toFixed(2)}) must equal total credits ($${totalCredits.toFixed(2)}). Please adjust the amounts to balance the transaction.`
-            );
-            return;
-          }
-
-          // Rule 3: Each transaction must have both transaction type and amount
-          for (const transaction of transactions) {
-            if (!transaction.transactionType) {
-              Alert.alert(
-                "Missing Transaction Type",
-                "Please select either 'Debit' or 'Credit' for each transaction."
-              );
-              return;
-            }
-
-            if (!transaction.amount || parseFloat(transaction.amount) <= 0) {
-              Alert.alert(
-                "Invalid Amount",
-                "Each transaction must have a valid amount greater than zero."
-              );
-              return;
-            }
-
-            if (!transaction.accountUuid) {
-              Alert.alert(
-                "Missing Account",
-                "Please select an account for each transaction."
-              );
-              return;
-            }
-          }
-
-          // Transform journal entry data to match backend expectations
-          const { date, reference, selectedEntity, ...journalData } =
-            submissionData;
-
-          // Get entityUuid from selectedEntity (either from submissionData or initialData)
-          const entityUuid =
-            selectedEntity?.uuid || memoizedInitialData?.selectedEntity?.uuid;
-
-          if (!entityUuid) {
-            throw new Error("Entity is required for journal entry creation");
-          }
-
-          // Transform transactions from form format to backend format
-          const transformedTransactions = (
-            submissionData.transactions || []
-          ).map((transaction: any) => {
-            const { accountUuid, transactionType, amount } = transaction;
-
-            if (!accountUuid) {
-              throw new Error(
-                "Account selection is required for each transaction"
-              );
-            }
-
-            // Backend requires: amount, txType, accountUuid, description
-            // Use journal entry description for all transactions to maintain consistency
-            const transformedTransaction = {
-              amount: parseFloat(amount),
-              txType: transactionType, // "debit" or "credit"
-              accountUuid, // Use accountUuid directly (not accountId)
-              description: journalData.description, // Use journal entry description for all transactions
-            };
-
-            return transformedTransaction;
-          });
-
-          submissionData = {
-            description: journalData.description,
-            transactions: transformedTransactions,
-            timestamp: date
-              ? new Date(date).toISOString()
-              : new Date().toISOString(),
-            entityUuid, // Add the required entityUuid parameter
-          };
-
-          break;
-        case "createBudgetRecord":
-        case "editBudgetRecord":
-          // Budgeting records expect input wrapper
-          // No need to wrap - RTK Query will handle the input wrapper
-          break;
-        case "createBudgetCategory":
-        case "editBudgetCategory":
-          // Budgeting categories expect input wrapper
-          // No need to wrap - RTK Query will handle the input wrapper
-          break;
-        case "createBudget":
-        case "editBudget":
-          // Budgeting budgets expect input wrapper
-          // No need to wrap - RTK Query will handle the input wrapper
-          break;
-        case "editSingleTransaction":
-          // For editing a single transaction, we only validate the individual transaction
-          // and don't check double-entry rules since it's part of an already balanced journal entry
-          const singleTransactions = submissionData.transactions || [];
-
-          if (singleTransactions.length !== 1) {
-            Alert.alert(
-              "Invalid Request",
-              "This form is designed to edit exactly one transaction."
-            );
-            return;
-          }
-
-          const singleTransaction = singleTransactions[0];
-
-          // Validate the single transaction
-          if (!singleTransaction.transactionType) {
-            Alert.alert(
-              "Missing Transaction Type",
-              "Please select either 'Debit' or 'Credit' for the transaction."
-            );
-            return;
-          }
-
-          if (
-            !singleTransaction.amount ||
-            parseFloat(singleTransaction.amount) <= 0
-          ) {
-            Alert.alert(
-              "Invalid Amount",
-              "Transaction must have a valid amount greater than zero."
-            );
-            return;
-          }
-
-          if (!singleTransaction.accountUuid) {
-            Alert.alert(
-              "Missing Account",
-              "Please select an account for the transaction."
-            );
-            return;
-          }
-
-          if (!singleTransaction.description?.trim()) {
-            Alert.alert(
-              "Missing Description",
-              "Please provide a description for the transaction."
-            );
-            return;
-          }
-
-          // Get the journal entry UUID from initialData
-          const singleJournalEntryUuid =
-            memoizedInitialData?.journalEntryUuid || memoizedInitialData?.uuid;
-          if (!singleJournalEntryUuid) {
-            throw new Error(
-              "Journal entry UUID is required for updating transaction"
-            );
-          }
-
-          // Transform transaction from form format to backend format
-          const { accountUuid, transactionType, amount, description } =
-            singleTransaction;
-          const txUuid =
-            singleTransaction.txUuid ||
-            memoizedInitialData?.transactions?.[0]?.txUuid;
-
-          if (!txUuid) {
-            throw new Error("Transaction UUID is required for updates");
-          }
-
-          const singleTransformedTransaction = {
-            txUuid: txUuid, // Required for updates to identify which transaction
-            amount: parseFloat(amount),
-            txType: transactionType, // "debit" or "credit"
-            accountUuid, // Use accountUuid directly
-            description: description?.trim() || "",
-          };
-
-          submissionData = {
-            uuid: singleJournalEntryUuid, // Journal entry UUID
-            description:
-              memoizedInitialData?.description || "Updated transaction", // Keep original journal entry description
-            transactions: [singleTransformedTransaction], // Single transaction update
-          };
-
-          break;
-        case "updateJournalEntry":
-          // Validate journal entry follows double-entry accounting rules (same validation as create)
-          const updateTransactions = submissionData.transactions || [];
-
-          // Rule 1: Must have at least 2 transactions
-          if (updateTransactions.length < 2) {
-            Alert.alert(
-              "Invalid Transaction",
-              "When creating a journal entry, transactions must have at least 2 items and total debits must equal total credits. If you are not sure how to do that, use the AI assistant to create it for you."
-            );
-            return;
-          }
-
-          // Rule 2: Total debits must equal total credits
-          let updateTotalDebits = 0;
-          let updateTotalCredits = 0;
-
-          updateTransactions.forEach((transaction: any) => {
-            const isDebit =
-              transaction.transactionType === "debit" ||
-              (transaction.txType &&
-                transaction.txType.toLowerCase() === "debit");
-
-            const isCredit =
-              transaction.transactionType === "credit" ||
-              (transaction.txType &&
-                transaction.txType.toLowerCase() === "credit");
-
-            if (
-              transaction.debitAmount !== undefined &&
-              transaction.debitAmount !== null
-            ) {
-              updateTotalDebits += parseFloat(transaction.debitAmount) || 0;
-            } else if (isDebit && transaction.amount) {
-              updateTotalDebits += parseFloat(transaction.amount) || 0;
-            }
-
-            if (
-              transaction.creditAmount !== undefined &&
-              transaction.creditAmount !== null
-            ) {
-              updateTotalCredits += parseFloat(transaction.creditAmount) || 0;
-            } else if (isCredit && transaction.amount) {
-              updateTotalCredits += parseFloat(transaction.amount) || 0;
-            }
-          });
-
-          if (Math.abs(updateTotalDebits - updateTotalCredits) > 0.01) {
-            Alert.alert(
-              "Unbalanced Transaction",
-              `Total debits ($${updateTotalDebits.toFixed(2)}) must equal total credits ($${updateTotalCredits.toFixed(2)}). Please adjust the amounts to balance the transaction.`
-            );
-            return;
-          }
-
-          // Rule 3: Each transaction must have both transaction type and amount
-          for (const transaction of updateTransactions) {
-            if (!transaction.transactionType) {
-              Alert.alert(
-                "Missing Transaction Type",
-                "Please select either 'Debit' or 'Credit' for each transaction."
-              );
-              return;
-            }
-
-            if (!transaction.amount || parseFloat(transaction.amount) <= 0) {
-              Alert.alert(
-                "Invalid Amount",
-                "Each transaction must have a valid amount greater than zero."
-              );
-              return;
-            }
-
-            if (!transaction.accountUuid) {
-              Alert.alert(
-                "Missing Account",
-                "Please select an account for each transaction."
-              );
-              return;
-            }
-          }
-
-          // Transform journal entry data for update
-          const {
-            date: updateDate,
-            reference: updateReference,
-            selectedEntity: updateSelectedEntity,
-            ...updateJournalData
-          } = submissionData;
-
-          // Get the journal entry UUID from initialData
-          const journalEntryUuid = memoizedInitialData?.uuid;
-          if (!journalEntryUuid) {
-            throw new Error("Journal entry UUID is required for update");
-          }
-
-          // Transform transactions from form format to backend format for UPDATE
-          const updateTransformedTransactions = updateTransactions.map(
-            (transaction: any) => {
-              const {
-                accountUuid,
-                transactionType,
-                amount,
-                uuid: txUuid,
-              } = transaction;
-
-              if (!accountUuid) {
-                throw new Error(
-                  "Account selection is required for each transaction"
-                );
-              }
-
-              // Backend UPDATE requires: txUuid, amount, txType, accountUuid, description
-              // Use journal entry description for all transactions to maintain consistency
-              const transformedTransaction = {
-                amount: parseFloat(amount),
-                txType: transactionType.toLowerCase(), // "debit" or "credit"
-                accountUuid, // Use accountUuid directly
-                description: updateJournalData.description, // Use journal entry description for all transactions
-                txUuid: txUuid, // Required for updates to identify which transaction
-              };
-
-              return transformedTransaction;
-            }
-          );
-
-          submissionData = {
-            uuid: journalEntryUuid, // Journal entry UUID
-            description: updateJournalData.description,
-            transactions: updateTransformedTransactions,
-            // entityUnitUuid: updateSelectedEntity?.uuid || memoizedInitialData?.selectedEntity?.uuid || submissionData.selectedEntity?.uuid,
-          };
-
-          break;
-        case "contactForm":
-          // For contact form, set loading state manually
-          setIsContactFormLoading(true);
-          break;
-        case "createBudgetCategory":
           break;
       }
 
-      // Debug logging for final submission data
+      const result = await apiFunction(submissionData);
 
-      console.log("🔍 FormModal - About to call mutation with data:", submissionData);
-      const result = await mutate(submissionData);
-      console.log("🔍 FormModal - Mutation result:", result);
-
-      // Handle different response formats
-      let resultData;
-
-      // For RTK Query mutations, check if unwrap method exists
-      if (result?.unwrap) {
-        console.log("🔍 FormModal - RTK Query mutation, unwrapping result");
-        // RTK Query mutations - if this doesn't throw, it's successful
-        resultData = await result.unwrap();
-        console.log("🔍 FormModal - Unwrapped result data:", resultData);
-
-        // RTK Query mutations are successful if they don't throw
+      if (result?.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-        // Special handling for fundCash mutation
-        if (formName === "fundCash") {
-          // Extract the success message and cash account info from the response
-          const cashAccountResponse = resultData?.data?.budgetGetOrCreateCashAccount;
-          const successMessage = cashAccountResponse?.userMessage || 
-                                cashAccountResponse?.message || 
-                                "Funds added successfully!";
-          const cashAccount = cashAccountResponse?.cashAccount;
-          
-          console.log("🔍 FormModal - FundCash success:", { 
-            successMessage, 
-            cashAccount, 
-            resultData 
-          });
-
-          if (onSuccess) {
-            console.log("🔍 FormModal - Calling onSuccess with fundCash data:", { resultData, formData });
-            onSuccess(resultData, formData);
-          } else {
-            Alert.alert("Success", successMessage);
-          }
+        
+        if (onSuccess) {
+          onSuccess(result, formData);
         } else {
-          // Default handling for other RTK Query mutations
-          if (onSuccess) {
-            console.log("🔍 FormModal - Calling onSuccess with:", { resultData, formData });
-            onSuccess(resultData, formData);
-          } else {
-            Alert.alert("Success", formDefinition.successMessage);
-          }
+          Alert.alert("Success", result.message || formDefinition.successMessage);
         }
 
         onClose();
       } else {
-        console.log("🔍 FormModal - Non-RTK mutation, checking success field");
-        // Non-RTK mutations (like mock functions)
-        resultData = result;
-
-        // Check for success field for non-RTK mutations
-        // Handle nested data structure for GraphQL responses
-        const isSuccess =
-          resultData?.success === true || 
-          resultData?.data?.success === true ||
-          resultData?.data?.budgetCreateCategory?.success === true ||
-          resultData?.data?.budgetUpdateCategory?.success === true ||
-          resultData?.data?.budgetCreateRecord?.success === true ||
-          resultData?.data?.budgetUpdateRecord?.success === true ||
-          resultData?.data?.budgetCreateBudget?.success === true ||
-          resultData?.data?.budgetUpdateBudget?.success === true ||
-          resultData?.data?.budgetDeleteBudget?.success === true ||
-          resultData?.data?.budgetGetOrCreateCashAccount?.success === true;
-        const successMessage = 
-          resultData?.message || 
-          resultData?.data?.message ||
-          resultData?.data?.budgetCreateCategory?.message ||
-          resultData?.data?.budgetUpdateCategory?.message ||
-          resultData?.data?.budgetCreateRecord?.message ||
-          resultData?.data?.budgetUpdateRecord?.message ||
-          resultData?.data?.budgetCreateBudget?.message ||
-          resultData?.data?.budgetUpdateBudget?.message ||
-          resultData?.data?.budgetDeleteBudget?.message ||
-          resultData?.data?.budgetGetOrCreateCashAccount?.userMessage ||
-          resultData?.data?.budgetGetOrCreateCashAccount?.message;
-
-        if (isSuccess) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-          // Special handling for fundCash mutation in non-RTK branch
-          if (formName === "fundCash") {
-            const cashAccountResponse = resultData?.data?.budgetGetOrCreateCashAccount;
-            const fundCashSuccessMessage = cashAccountResponse?.userMessage || 
-                                        cashAccountResponse?.message || 
-                                        successMessage || 
-                                        "Funds added successfully!";
-            
-            console.log("🔍 FormModal - FundCash success (non-RTK):", { 
-              fundCashSuccessMessage, 
-              cashAccountResponse, 
-              resultData 
-            });
-
-            if (onSuccess) {
-              console.log("🔍 FormModal - Calling onSuccess with fundCash data (non-RTK):", { resultData, formData });
-              onSuccess(resultData, formData);
-            } else {
-              Alert.alert("Success", fundCashSuccessMessage);
-            }
-          } else {
-            // Default handling for other mutations
-            if (onSuccess) {
-              onSuccess(resultData, formData);
-            } else {
-              Alert.alert(
-                "Success",
-                successMessage || formDefinition.successMessage
-              );
-            }
-          }
-
-          onClose();
-        } else {
-          
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-          Alert.alert(
-            "Error",
-            successMessage ||
-              formDefinition.errorMessage ||
-              "There was an error submitting the form."
-          );
-        }
+        throw new Error(result?.message || "Submission failed");
       }
     } catch (error: any) {
-      console.error("🔍 FormModal - Form submission error for", formName, ":", error);
-      console.error("🔍 FormModal - Error details:", {
-        message: error.message,
-        status: error.status,
-        data: error.data
-      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(
-        "Error",
-        error.message ||
-          formDefinition.errorMessage ||
-          "There was an error submitting the form."
-      );
+      Alert.alert("Error", error.message || "There was an error submitting the form.");
     } finally {
       setIsSubmitting(false);
-      setIsContactFormLoading(false);
     }
-  }, [formDefinition, formName, formData, getMutationHook, onSuccess, onClose]);
+  }, [formDefinition, formName, formData, getApiFunction, onSuccess, onClose]);
 
-  // Don't render if form not found
-  if (!formDefinition) {
-    // console.warn(`FormModal: No form definition found for formName: ${formName}`);
-    return null;
-  }
-
-  if (!visible) {
-    return null;
-  }
-
-  // For journal entry edit mode, wait for accounts to load before rendering
-  const isJournalEntryEditMode =
-    (formName === "updateJournalEntry" || formName === "createJournalEntry") &&
-    memoizedInitialData?.transactions &&
-    memoizedInitialData.transactions.length > 0;
-
-  if (
-    isJournalEntryEditMode &&
-    (!allAccountsData || allAccountsData?.edges?.length === 0)
-  ) {
-    
-    // Show loading indicator instead of returning null
-    if (!visible) return null;
-    
-    return (
-      <View style={styles.overlay} pointerEvents="box-none">
-        {/* Background overlay */}
-        <Animated.View 
-          style={[
-            styles.backdrop,
-            {
-              opacity: fadeAnim
-            }
-          ]}
-        />
-        
-        <Animated.View 
-          style={[
-            styles.loadingContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{
-                scale: fadeAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.8, 1], // Slight scale effect
-                })
-              }]
-            }
-          ]}
-        >
-          <View style={styles.loadingContent}>
-            <ActivityIndicator size="large" color={COLORS.primary.light} />
-            <Text
-              style={{
-                marginTop: 16,
-                fontSize: 16,
-                color: COLORS.text.primary,
-                fontFamily: FONTS.regular,
-              }}
-            >
-              Loading accounts...
-            </Text>
-          </View>
-        </Animated.View>
-      </View>
-    );
-  }
-  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
-
-  const { mutate, isLoading } = getMutationHook();
-  const isFormLoading = isLoading || isSubmitting;
-
-  // Don't render if not visible
-  if (!visible) {
+  if (!formDefinition || !visible) {
     return null;
   }
 
   return (
-    <View style={styles.overlay} pointerEvents="box-none">
-      {/* Background overlay */}
-      <Animated.View 
-        style={[
-          styles.backdrop,
-          {
-            opacity: fadeAnim
-          }
-        ]}
-      />
+    <View style={styles.overlay}>
+      <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
       
-      {/* Modal content */}
       <View style={styles.modalContainer}>
         <Animated.View 
           style={[
             styles.modalContent,
             {
-              transform: [
-                {
-                  translateY: slideAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [400, 0], // Slide up from 400px below to 0
-                  })
-                },
-                {
-                  scale: slideAnim.interpolate({
-                    inputRange: [0, 0.8, 1],
-                    outputRange: [0.95, 1.02, 1], // Slight bounce effect
-                  })
-                }
-              ]
+              transform: [{
+                translateY: slideAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [400, 0],
+                })
+              }]
             }
           ]}
         >
           {/* Header */}
-          <View
-            className="px-6 py-6 border-b border-outline-100"
-            style={{ backgroundColor: "#FFFFFF" }}
-          >
-            <View className="flex-row items-center justify-between">
-              {/* Close button on left */}
-              <TouchableOpacity onPress={onClose} className="p-2">
-                <Ionicons name="close" size={24} color={COLORS.text.primary} />
-              </TouchableOpacity>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color={COLORS.text.primary} />
+            </TouchableOpacity>
 
-              {/* Title in center */}
-              <Text
-                style={{
-                  fontSize: 20,
-                  fontFamily: FONTS.bold,
-                  color: COLORS.text.primary,
-                  textAlign: "center",
-                  flex: 1,
-                }}
-              >
-                {formName === "createEntity" && memoizedInitialData?.uuid
-                  ? "Edit Entity"
-                  : formDefinition.schema.title}
-              </Text>
+            <Text style={styles.title}>{formDefinition.schema.title}</Text>
+            <View style={{ width: 40 }} />
 
-              {/* Action button for createPost, spacer for others */}
-              {formName === "createPost" ? (
-                <TouchableOpacity
-                  onPress={handleSubmit}
-                  disabled={
-                    !formData.ticker || !formData.analysis || isFormLoading
-                  }
-                  className={`px-4 py-2 rounded-full ${!formData.ticker || !formData.analysis || isFormLoading ? "bg-gray-300" : "bg-primary-light"}`}
-                >
-                  {isFormLoading ? (
-                    <ActivityIndicator size="small" color="#FFF" />
-                  ) : (
-                    <Text className="text-white font-semiBold text-md">
-                      Post
-                    </Text>
-                  )}
-                </TouchableOpacity>
-              ) : (
-                <View style={{ width: 40 }} /> // Spacer for alignment
-              )}
-            </View>
-
-            {/* Form Description */}
-            {formDefinition.schema.description && formName !== "createPost" && (
-              <Text
-                className="text-typography-600 mt-4 text-center leading-5"
-                style={{ fontFamily: FONTS.regular, fontSize: 14 }}
-              >
+            {formDefinition.schema.description && (
+              <Text style={styles.description}>
                 {formDefinition.schema.description}
               </Text>
             )}
@@ -1615,89 +287,47 @@ export const FormModal: React.FC<FormModalProps> = ({
 
           {/* Form Content */}
           <KeyboardAvoidingView
-            className="flex-1"
+            style={{ flex: 1 }}
             behavior={Platform.OS === "ios" ? "padding" : "height"}
-            keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
-            enabled={Platform.OS === "ios"}
           >
-            {/* Generic form renderer for all forms */}
             <ScrollView
               ref={scrollViewRef}
-              className="flex-1 px-6"
-              contentContainerStyle={{ 
-                paddingVertical: 16, 
-                paddingBottom: 80 
-              }}
+              style={{ flex: 1, paddingHorizontal: 24 }}
+              contentContainerStyle={{ paddingVertical: 16, paddingBottom: 80 }}
               showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
             >
-              {/* Form Fields */}
-              <View className="space-y-4">
-                {Object.entries(formDefinition.schema.properties).map(
-                  ([fieldName, fieldDef]) => (
-                    <FormFieldRenderer
-                      key={fieldName}
-                      fieldName={fieldName}
-                      fieldDef={fieldDef}
-                      uiDef={(formDefinition.uiSchema as any)[fieldName]}
-                      value={formData[fieldName]}
-                      error={errors[fieldName]}
-                      onChange={(value) => handleFieldChange(fieldName, value)}
-                      disabled={isFormLoading}
-                      required={
-                        formDefinition.schema.required?.includes(fieldName) ||
-                        false
-                      }
-                      onTextareaFocus={scrollToTextarea}
-                    />
-                  )
-                )}
-              </View>
+              {Object.entries(formDefinition.schema.properties).map(([fieldName, fieldDef]) => (
+                <FormFieldRenderer
+                  key={fieldName}
+                  fieldName={fieldName}
+                  fieldDef={fieldDef}
+                  uiDef={(formDefinition.uiSchema as any)[fieldName]}
+                  value={formData[fieldName]}
+                  error={errors[fieldName]}
+                  onChange={(value) => handleFieldChange(fieldName, value)}
+                  disabled={isSubmitting}
+                  required={formDefinition.schema.required?.includes(fieldName) || false}
+                />
+              ))}
             </ScrollView>
           </KeyboardAvoidingView>
 
-          {/* Submit Button - Show for non-createPost forms */}
-          {formName !== "createPost" && (
-            <View
-              className="px-6 py-4 border-t border-outline-100"
-              style={{ 
-                backgroundColor: "#FFFFFF",
-                paddingBottom: Platform.OS === 'ios' ? 60 : 16,
-              }}
-            >
-              <GradientButton
-                onPress={!mutate ? () => {} : handleSubmit}
-                text={
-                  isFormLoading
-                    ? "Submitting..."
-                    : !mutate
-                      ? "Configuration Error"
-                      : "Submit"
-                }
-                colors={
-                  !mutate ? ["#9CA3AF", "#6B7280"] : COLORS.primary.gradient
-                }
-                isLoading={isFormLoading}
-                style={{
-                  shadowColor: COLORS.primary.light,
-                  shadowOffset: { width: 0, height: 4 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 8,
-                  elevation: 4,
-                }}
-                textStyle={{
-                  fontSize: 18,
-                  fontWeight: "700",
-                }}
-              />
-            </View>
-          )}
+          {/* Submit Button */}
+          <View style={styles.footer}>
+            <GradientButton
+              onPress={handleSubmit}
+              text={isSubmitting ? "Submitting..." : "Submit"}
+              colors={COLORS.primary.gradient}
+              isLoading={isSubmitting}
+              style={styles.submitButton}
+              textStyle={styles.submitButtonText}
+            />
+          </View>
         </Animated.View>
       </View>
     </View>
   );
 };
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   overlay: {
@@ -1706,10 +336,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    width: screenWidth,
-    height: screenHeight,
-    zIndex: Platform.OS === 'ios' ? 999999999 : 9999,
-    elevation: Platform.OS === 'android' ? 9999 : undefined,
+    zIndex: 9999,
+    elevation: 9999,
   },
   backdrop: {
     position: "absolute",
@@ -1723,7 +351,6 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
     pointerEvents: "box-none",
-    zIndex: Platform.OS === 'ios' ? 999999999 : 9999,
   },
   modalContent: {
     backgroundColor: "#FFFFFF",
@@ -1734,25 +361,54 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
-    elevation: Platform.OS === 'android' ? 9999 : undefined,
-    zIndex: Platform.OS === 'ios' ? 999999999 : 9999,
+    elevation: 8,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    pointerEvents: "box-none",
-    zIndex: Platform.OS === 'ios' ? 999999999 : 9999,
-  },
-  loadingContent: {
+  header: {
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
     backgroundColor: "#FFFFFF",
-    padding: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+  },
+  closeButton: {
+    padding: 8,
+    position: "absolute",
+    left: 16,
+    top: 16,
+    zIndex: 1,
+  },
+  title: {
+    fontSize: 20,
+    fontFamily: FONTS.bold,
+    color: COLORS.text.primary,
+    textAlign: "center",
+    marginTop: 8,
+  },
+  description: {
+    fontFamily: FONTS.regular,
+    fontSize: 14,
+    color: "#6B7280",
+    textAlign: "center",
+    marginTop: 16,
+    lineHeight: 20,
+  },
+  footer: {
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 16,
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+  },
+  submitButton: {
+    shadowColor: COLORS.primary.light,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: Platform.OS === 'android' ? 8 : undefined,
+    elevation: 4,
+  },
+  submitButtonText: {
+    fontSize: 18,
+    fontWeight: "700",
   },
 });

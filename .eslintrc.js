@@ -5,6 +5,8 @@ module.exports = {
 
   rules: {
     "unused-imports/no-unused-imports": "error",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
     "unused-imports/no-unused-vars": [
       "warn",
       {

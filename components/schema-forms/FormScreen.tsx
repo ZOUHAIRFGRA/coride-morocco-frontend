@@ -15,28 +15,47 @@ import { COLORS, FONTS } from "@/constants/theme";
 import { getFormSchema, validateFormData } from "@/constants/formSchemas";
 import { FormFieldRenderer } from "./FormFieldRenderer";
 import { GradientButton } from "@/components/ui/buttons/GradientButton";
-import { useAppSelector } from "@/redux/hooks";
-import { 
-  useCreateAlpacaAccountMutation,
-  useCreateBankTransferMutation,
-  useCreatePostMutation 
-} from "@/redux/investment/investmentEndpoints";
 import { widthPercentageToDP as wp } from "react-native-responsive-screen";
 import * as Haptics from "expo-haptics";
 import SafeAreaWrapper from "../ui/SafeAreaWrapper";
 
+// Mock API functions for CoRide Morocco forms
+const mockSubmitForm = async (formName: string, data: any) => {
+  // Simulate API delay
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+  
+  // Simulate success/failure
+  const success = Math.random() > 0.1; // 90% success rate
+  
+  if (success) {
+    switch (formName) {
+      case "contactSupport":
+        return { success: true, message: "Your message has been sent successfully!" };
+      case "createRideRequest":
+        return { success: true, message: "Your ride request has been posted! Drivers will be notified." };
+      case "createRideOffer":
+        return { success: true, message: "Your ride offer has been posted! Passengers can now book seats." };
+      case "submitFeedback":
+        return { success: true, message: "Thank you for your feedback! It helps us improve the app." };
+      case "reportIssue":
+        return { success: true, message: "Your report has been submitted. We'll investigate and take appropriate action." };
+      default:
+        return { success: true, message: "Form submitted successfully!" };
+    }
+  } else {
+    throw new Error("Submission failed. Please try again.");
+  }
+};
+
 /**
- * Generic Form Screen Component
- * Renders any form based on the schema registry
- * Handles validation, submission, and API integration generically
+ * Generic Form Screen Component for CoRide Morocco
+ * Renders any form based on the schema registry as a full screen
+ * Handles validation, submission, and API integration
  */
 const FormScreen: React.FC = () => {
   const router = useRouter();
   const params = useLocalSearchParams();
   const formName = params.formName as string;
-  
-  // Get user data for form pre-population
-  const userState = useAppSelector((state) => state.user.user);
 
   // State for form data and validation
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -45,11 +64,6 @@ const FormScreen: React.FC = () => {
 
   // Get form definition from schema registry
   const formDefinition = getFormSchema(formName);
-
-  // API mutation hooks
-  const [createAlpacaAccount, { isLoading: isCreatingAlpacaAccount }] = useCreateAlpacaAccountMutation();
-  const [createBankTransfer, { isLoading: isCreatingBankTransfer }] = useCreateBankTransferMutation();
-  const [createPost, { isLoading: isCreatingPost }] = useCreatePostMutation();
 
   // Check if form exists
   useEffect(() => {
@@ -62,54 +76,43 @@ const FormScreen: React.FC = () => {
     }
   }, [formDefinition, formName, router]);
 
-  // Pre-populate form with user data where applicable
+  // Pre-populate form with default values
   useEffect(() => {
-    if (!formDefinition || !userState) return;
+    if (!formDefinition) return;
 
     const initialData: Record<string, any> = {};
 
-    // Pre-populate common fields from user state
-    if (formDefinition.schema.properties.emailAddress && userState.email) {
-      initialData.emailAddress = userState.email;
-    }
-    if (formDefinition.schema.properties.givenName && userState.firstName) {
-      initialData.givenName = userState.firstName;
-    }
-    if (formDefinition.schema.properties.familyName && userState.lastName) {
-      initialData.familyName = userState.lastName;
-    }
-
     // Set default values for specific form types
     switch (formName) {
-      case "createAlpacaAccount":
-        initialData.country = "United States";
-        initialData.citizenship = "United States";
-        initialData.countryOfBirth = "United States";
-        initialData.countryOfTaxResidence = "United States";
-        initialData.taxIdType = "USA_SSN";
-        initialData.fundingSources = ["EMPLOYMENT_INCOME"];
-        initialData.isControlPerson = false;
-        initialData.isAffiliatedExchangeOrFinra = false;
-        initialData.isPoliticallyExposed = false;
-        initialData.immediateFamilyExposed = false;
-        initialData.ipAddress = "185.13.21.99"; // Default IP
+      case "createRideRequest":
+        // Set default departure time to current time + 1 hour
+        const defaultDeparture = new Date();
+        defaultDeparture.setHours(defaultDeparture.getHours() + 1);
+        initialData.departureTime = defaultDeparture.toISOString().slice(0, 16);
+        initialData.passengers = 1;
         break;
 
-      case "createBankTransfer":
-        initialData.direction = "INCOMING";
-        initialData.timing = "Immediate";
-        initialData.transferType = "ACH";
+      case "createRideOffer":
+        // Set default departure time to current time + 1 hour
+        const defaultOfferDeparture = new Date();
+        defaultOfferDeparture.setHours(defaultOfferDeparture.getHours() + 1);
+        initialData.departureTime = defaultOfferDeparture.toISOString().slice(0, 16);
+        initialData.availableSeats = 3;
         break;
 
-      case "createPost":
-        initialData.action = "BUY";
-        initialData.confidence = 70;
-        initialData.clientMutationId = `post_${Date.now()}`;
+      case "submitFeedback":
+        initialData.rating = 5;
+        break;
+
+      case "reportIssue":
+        // Set default occurred time to current time
+        initialData.occurred = new Date().toISOString().slice(0, 16);
+        initialData.severity = "moderate";
         break;
     }
 
     setFormData(initialData);
-  }, [formDefinition, userState, formName]);
+  }, [formDefinition, formName]);
 
   // Handle field value changes
   const handleFieldChange = useCallback((fieldName: string, value: any) => {
@@ -128,106 +131,84 @@ const FormScreen: React.FC = () => {
     }
   }, [errors]);
 
-  // Get the appropriate mutation hook based on form type
-  const getMutationHook = useCallback(() => {
-    switch (formDefinition?.mutation) {
-      case "createAlpacaAccount":
-        return { mutate: createAlpacaAccount, isLoading: isCreatingAlpacaAccount };
-      case "createBankTransfer":
-        return { mutate: createBankTransfer, isLoading: isCreatingBankTransfer };
-      case "createPost":
-        return { mutate: createPost, isLoading: isCreatingPost };
-      default:
-        return { mutate: null, isLoading: false };
-    }
-  }, [
-    formDefinition?.mutation,
-    createAlpacaAccount,
-    isCreatingAlpacaAccount,
-    createBankTransfer,
-    isCreatingBankTransfer,
-    createPost,
-    isCreatingPost
-  ]);
-
   // Handle form submission
   const handleSubmit = useCallback(async () => {
     if (!formDefinition) return;
 
+    console.log("🚗 FormScreen - Starting submission for:", formName);
+    console.log("🚗 FormScreen - Form data:", formData);
+
     // Validate form data
     const validation = validateFormData(formName, formData);
     if (!validation.isValid) {
+      console.log("🚗 FormScreen - Validation failed:", validation.errors);
       setErrors(validation.errors);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert("Validation Error", "Please fix the errors below and try again.");
       return;
     }
 
-    const { mutate, isLoading } = getMutationHook();
-    if (!mutate || isLoading) return;
-
     setIsSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     try {
-      // Transform data if needed based on form type
+      // Transform data based on form type
       let submissionData = { ...formData };
 
-      // Specific transformations for different forms
       switch (formName) {
-        case "createAlpacaAccount":
-          // Convert country names to codes if needed
-          const countryCodeMap: Record<string, string> = {
-            "United States": "USA",
-            "Canada": "CA",
-            "United Kingdom": "GB",
-            "Germany": "DE",
-            "France": "FR",
-            "Italy": "IT",
-            "Spain": "ES",
-            "Netherlands": "NL",
-            "Sweden": "SE",
-            "Norway": "NO",
-            "Finland": "FI",
-            "Denmark": "DK"
-          };
-          
-          submissionData = {
-            ...submissionData,
-            country: countryCodeMap[submissionData.country] || submissionData.country,
-            citizenship: countryCodeMap[submissionData.citizenship] || submissionData.citizenship,
-            countryOfBirth: countryCodeMap[submissionData.countryOfBirth] || submissionData.countryOfBirth,
-            countryOfTaxResidence: countryCodeMap[submissionData.countryOfTaxResidence] || submissionData.countryOfTaxResidence,
-          };
+        case "createRideRequest":
+          // Ensure passengers is a number
+          if (submissionData.passengers) {
+            submissionData.passengers = parseInt(submissionData.passengers, 10);
+          }
+          // Convert departure time to ISO string
+          if (submissionData.departureTime) {
+            submissionData.departureTime = new Date(submissionData.departureTime).toISOString();
+          }
           break;
 
-        case "createPost":
-          // Ensure confidence is between 0-10 for backend
-          submissionData = {
-            ...submissionData,
-            confidence: submissionData.confidence / 10, // Convert percentage to 0-10 scale
-          };
+        case "createRideOffer":
+          // Ensure availableSeats is a number
+          if (submissionData.availableSeats) {
+            submissionData.availableSeats = parseInt(submissionData.availableSeats, 10);
+          }
+          // Convert departure time to ISO string
+          if (submissionData.departureTime) {
+            submissionData.departureTime = new Date(submissionData.departureTime).toISOString();
+          }
+          break;
+
+        case "submitFeedback":
+          // Ensure rating is a number
+          if (submissionData.rating) {
+            submissionData.rating = parseInt(submissionData.rating, 10);
+          }
+          break;
+
+        case "reportIssue":
+          // Convert occurred time to ISO string
+          if (submissionData.occurred) {
+            submissionData.occurred = new Date(submissionData.occurred).toISOString();
+          }
           break;
       }
 
-      const result = await mutate(submissionData as any).unwrap();
+      console.log("🚗 FormScreen - Submitting transformed data:", submissionData);
+      const result = await mockSubmitForm(formName, submissionData);
+      console.log("🚗 FormScreen - API result:", result);
 
       if (result.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
           "Success",
-          formDefinition.successMessage,
+          result.message || formDefinition.successMessage,
           [{ text: "OK", onPress: () => router.back() }]
         );
       } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert(
-          "Error",
-          result.message || formDefinition.errorMessage || "There was an error submitting the form."
-        );
+        throw new Error(result.message || "Submission failed");
       }
     } catch (error: any) {
-      console.error("Form submission error:", error);
+      console.error("🚗 FormScreen - Submission error:", error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(
         "Error",
@@ -236,102 +217,100 @@ const FormScreen: React.FC = () => {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formDefinition, formName, formData, getMutationHook, router]);
+  }, [formDefinition, formName, formData, router]);
 
   // Don't render if form not found
   if (!formDefinition) {
     return null;
   }
 
-  const { mutate, isLoading } = getMutationHook();
-  const isFormLoading = isLoading || isSubmitting;
-
   return (
     <SafeAreaWrapper>
-    <SafeAreaView className="flex-1 bg-background-0">
-      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView className="flex-1 bg-background-0">
+        <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-4 border-b border-outline-100">
-        <TouchableOpacity
-          className="p-2"
-          onPress={() => router.back()}
-          accessible={true}
-          accessibilityLabel="Go back"
-        >
-          <Ionicons name="chevron-back" size={wp(6)} color={COLORS.text.primary} />
-        </TouchableOpacity>
-        <Text
-          className="text-center flex-1"
-          style={{
-            fontSize: 18,
-            fontFamily: FONTS.semiBold,
-            color: COLORS.text.primary,
-          }}
-        >
-          {formDefinition.schema.title}
-        </Text>
-        <View style={{ width: wp(10) }} />
-      </View>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
-      >
-        <ScrollView
-          className="flex-1 px-4"
-          contentContainerStyle={{ paddingBottom: 100 }}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Form Description */}
-          {formDefinition.schema.description && (
-            <Text
-              className="text-typography-600 my-4"
-              style={{ fontFamily: FONTS.regular }}
-            >
-              {formDefinition.schema.description}
-            </Text>
-          )}
-
-          {/* Form Fields */}
-          <View className="space-y-4">
-            {Object.entries(formDefinition.schema.properties).map(([fieldName, fieldDef]) => (
-              <FormFieldRenderer
-                key={fieldName}
-                fieldName={fieldName}
-                fieldDef={fieldDef}
-                uiDef={formDefinition.uiSchema[fieldName]}
-                value={formData[fieldName]}
-                error={errors[fieldName]}
-                onChange={(value) => handleFieldChange(fieldName, value)}
-                disabled={isFormLoading}
-              />
-            ))}
-          </View>
-        </ScrollView>
-
-        {/* Submit Button */}
-        <View className="px-4 py-4 border-t border-outline-100 bg-background-0">
-          <GradientButton
-            onPress={handleSubmit}
-            text={isFormLoading ? "Submitting..." : "Submit"}
-            colors={COLORS.primary.gradient}
-            isLoading={isFormLoading || !mutate}
+        {/* Header */}
+        <View className="flex-row items-center justify-between px-4 py-4 border-b border-outline-100">
+          <TouchableOpacity
+            className="p-2"
+            onPress={() => router.back()}
+            accessible={true}
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="chevron-back" size={wp(6)} color={COLORS.text.primary} />
+          </TouchableOpacity>
+          <Text
+            className="text-center flex-1"
             style={{
-              shadowColor: COLORS.primary.light,
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.2,
-              shadowRadius: 8,
-              elevation: 4,
+              fontSize: 18,
+              fontFamily: FONTS.semiBold,
+              color: COLORS.text.primary,
             }}
-            textStyle={{
-              fontSize: 16,
-              fontWeight: "700",
-            }}
-          />
+          >
+            {formDefinition.schema.title}
+          </Text>
+          <View style={{ width: wp(10) }} />
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
+        >
+          <ScrollView
+            className="flex-1 px-4"
+            contentContainerStyle={{ paddingBottom: 100 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Form Description */}
+            {formDefinition.schema.description && (
+              <Text
+                className="text-typography-600 my-4"
+                style={{ fontFamily: FONTS.regular }}
+              >
+                {formDefinition.schema.description}
+              </Text>
+            )}
+
+            {/* Form Fields */}
+            <View className="space-y-4">
+              {Object.entries(formDefinition.schema.properties).map(([fieldName, fieldDef]) => (
+                <FormFieldRenderer
+                  key={fieldName}
+                  fieldName={fieldName}
+                  fieldDef={fieldDef}
+                  uiDef={formDefinition.uiSchema[fieldName]}
+                  value={formData[fieldName]}
+                  error={errors[fieldName]}
+                  onChange={(value) => handleFieldChange(fieldName, value)}
+                  disabled={isSubmitting}
+                  required={formDefinition.schema.required?.includes(fieldName) || false}
+                />
+              ))}
+            </View>
+          </ScrollView>
+
+          {/* Submit Button */}
+          <View className="px-4 py-4 border-t border-outline-100 bg-background-0">
+            <GradientButton
+              onPress={handleSubmit}
+              text={isSubmitting ? "Submitting..." : "Submit"}
+              colors={COLORS.primary.gradient}
+              isLoading={isSubmitting}
+              style={{
+                shadowColor: COLORS.primary.light,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+              textStyle={{
+                fontSize: 16,
+                fontWeight: "700",
+              }}
+            />
+          </View>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </SafeAreaWrapper>
   );
 };

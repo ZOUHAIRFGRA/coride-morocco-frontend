@@ -1,0 +1,334 @@
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  View,
+  Text,
+  SafeAreaView,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
+import { Stack, useRouter, useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS, FONTS } from "@/constants/theme";
+import { getFormSchema, validateFormData } from "@/constants/formSchemas";
+import { FormFieldRenderer } from "./FormFieldRenderer";
+import { GradientButton } from "@/components/ui/buttons/GradientButton";
+// CoRide Morocco form screen - no external API hooks needed for demo
+import { widthPercentageToDP as wp } from "react-native-responsive-screen";
+import * as Haptics from "expo-haptics";
+import SafeAreaWrapper from "../ui/SafeAreaWrapper";
+
+/**
+ * Generic Form Screen Component
+ * Renders any form based on the schema registry
+ * Handles validation, submission, and API integration generically
+ */
+const FormScreen: React.FC = () => {
+  const router = useRouter();
+  const params = useLocalSearchParams();
+  const formName = params.formName as string;
+  
+  // Get user data for form pre-population
+  const userState = useAppSelector((state) => state.user.user);
+
+  // State for form data and validation
+  const [formData, setFormData] = useState<Record<string, any>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Get form definition from schema registry
+  const formDefinition = getFormSchema(formName);
+
+  // API mutation hooks
+  const [createAlpacaAccount, { isLoading: isCreatingAlpacaAccount }] = useCreateAlpacaAccountMutation();
+  const [createBankTransfer, { isLoading: isCreatingBankTransfer }] = useCreateBankTransferMutation();
+  const [createPost, { isLoading: isCreatingPost }] = useCreatePostMutation();
+
+  // Check if form exists
+  useEffect(() => {
+    if (!formDefinition) {
+      Alert.alert(
+        "Form Not Found",
+        `The form "${formName}" could not be found. Please check the form name.`,
+        [{ text: "Go Back", onPress: () => router.back() }]
+      );
+    }
+  }, [formDefinition, formName, router]);
+
+  // Pre-populate form with user data where applicable
+  useEffect(() => {
+    if (!formDefinition || !userState) return;
+
+    const initialData: Record<string, any> = {};
+
+    // Pre-populate common fields from user state
+    if (formDefinition.schema.properties.emailAddress && userState.email) {
+      initialData.emailAddress = userState.email;
+    }
+    if (formDefinition.schema.properties.givenName && userState.firstName) {
+      initialData.givenName = userState.firstName;
+    }
+    if (formDefinition.schema.properties.familyName && userState.lastName) {
+      initialData.familyName = userState.lastName;
+    }
+
+    // Set default values for specific form types
+    switch (formName) {
+      case "createAlpacaAccount":
+        initialData.country = "United States";
+        initialData.citizenship = "United States";
+        initialData.countryOfBirth = "United States";
+        initialData.countryOfTaxResidence = "United States";
+        initialData.taxIdType = "USA_SSN";
+        initialData.fundingSources = ["EMPLOYMENT_INCOME"];
+        initialData.isControlPerson = false;
+        initialData.isAffiliatedExchangeOrFinra = false;
+        initialData.isPoliticallyExposed = false;
+        initialData.immediateFamilyExposed = false;
+        initialData.ipAddress = "185.13.21.99"; // Default IP
+        break;
+
+      case "createBankTransfer":
+        initialData.direction = "INCOMING";
+        initialData.timing = "Immediate";
+        initialData.transferType = "ACH";
+        break;
+
+      case "createPost":
+        initialData.action = "BUY";
+        initialData.confidence = 70;
+        initialData.clientMutationId = `post_${Date.now()}`;
+        break;
+    }
+
+    setFormData(initialData);
+  }, [formDefinition, userState, formName]);
+
+  // Handle field value changes
+  const handleFieldChange = useCallback((fieldName: string, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+
+    // Clear error when user starts typing
+    if (errors[fieldName]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
+      });
+    }
+  }, [errors]);
+
+  // Get the appropriate mutation hook based on form type
+  const getMutationHook = useCallback(() => {
+    switch (formDefinition?.mutation) {
+      case "createAlpacaAccount":
+        return { mutate: createAlpacaAccount, isLoading: isCreatingAlpacaAccount };
+      case "createBankTransfer":
+        return { mutate: createBankTransfer, isLoading: isCreatingBankTransfer };
+      case "createPost":
+        return { mutate: createPost, isLoading: isCreatingPost };
+      default:
+        return { mutate: null, isLoading: false };
+    }
+  }, [
+    formDefinition?.mutation,
+    createAlpacaAccount,
+    isCreatingAlpacaAccount,
+    createBankTransfer,
+    isCreatingBankTransfer,
+    createPost,
+    isCreatingPost
+  ]);
+
+  // Handle form submission
+  const handleSubmit = useCallback(async () => {
+    if (!formDefinition) return;
+
+    // Validate form data
+    const validation = validateFormData(formName, formData);
+    if (!validation.isValid) {
+      setErrors(validation.errors);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert("Validation Error", "Please fix the errors below and try again.");
+      return;
+    }
+
+    const { mutate, isLoading } = getMutationHook();
+    if (!mutate || isLoading) return;
+
+    setIsSubmitting(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    try {
+      // Transform data if needed based on form type
+      let submissionData = { ...formData };
+
+      // Specific transformations for different forms
+      switch (formName) {
+        case "createAlpacaAccount":
+          // Convert country names to codes if needed
+          const countryCodeMap: Record<string, string> = {
+            "United States": "USA",
+            "Canada": "CA",
+            "United Kingdom": "GB",
+            "Germany": "DE",
+            "France": "FR",
+            "Italy": "IT",
+            "Spain": "ES",
+            "Netherlands": "NL",
+            "Sweden": "SE",
+            "Norway": "NO",
+            "Finland": "FI",
+            "Denmark": "DK"
+          };
+          
+          submissionData = {
+            ...submissionData,
+            country: countryCodeMap[submissionData.country] || submissionData.country,
+            citizenship: countryCodeMap[submissionData.citizenship] || submissionData.citizenship,
+            countryOfBirth: countryCodeMap[submissionData.countryOfBirth] || submissionData.countryOfBirth,
+            countryOfTaxResidence: countryCodeMap[submissionData.countryOfTaxResidence] || submissionData.countryOfTaxResidence,
+          };
+          break;
+
+        case "createPost":
+          // Ensure confidence is between 0-10 for backend
+          submissionData = {
+            ...submissionData,
+            confidence: submissionData.confidence / 10, // Convert percentage to 0-10 scale
+          };
+          break;
+      }
+
+      const result = await mutate(submissionData as any).unwrap();
+
+      if (result.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          "Success",
+          formDefinition.successMessage,
+          [{ text: "OK", onPress: () => router.back() }]
+        );
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        Alert.alert(
+          "Error",
+          result.message || formDefinition.errorMessage || "There was an error submitting the form."
+        );
+      }
+    } catch (error: any) {
+      console.error("Form submission error:", error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert(
+        "Error",
+        error.message || formDefinition.errorMessage || "There was an error submitting the form."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [formDefinition, formName, formData, getMutationHook, router]);
+
+  // Don't render if form not found
+  if (!formDefinition) {
+    return null;
+  }
+
+  const { mutate, isLoading } = getMutationHook();
+  const isFormLoading = isLoading || isSubmitting;
+
+  return (
+    <SafeAreaWrapper>
+    <SafeAreaView className="flex-1 bg-background-0">
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-4 py-4 border-b border-outline-100">
+        <TouchableOpacity
+          className="p-2"
+          onPress={() => router.back()}
+          accessible={true}
+          accessibilityLabel="Go back"
+        >
+          <Ionicons name="chevron-back" size={wp(6)} color={COLORS.text.primary} />
+        </TouchableOpacity>
+        <Text
+          className="text-center flex-1"
+          style={{
+            fontSize: 18,
+            fontFamily: FONTS.semiBold,
+            color: COLORS.text.primary,
+          }}
+        >
+          {formDefinition.schema.title}
+        </Text>
+        <View style={{ width: wp(10) }} />
+      </View>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        className="flex-1"
+      >
+        <ScrollView
+          className="flex-1 px-4"
+          contentContainerStyle={{ paddingBottom: 100 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Form Description */}
+          {formDefinition.schema.description && (
+            <Text
+              className="text-typography-600 my-4"
+              style={{ fontFamily: FONTS.regular }}
+            >
+              {formDefinition.schema.description}
+            </Text>
+          )}
+
+          {/* Form Fields */}
+          <View className="space-y-4">
+            {Object.entries(formDefinition.schema.properties).map(([fieldName, fieldDef]) => (
+              <FormFieldRenderer
+                key={fieldName}
+                fieldName={fieldName}
+                fieldDef={fieldDef}
+                uiDef={formDefinition.uiSchema[fieldName]}
+                value={formData[fieldName]}
+                error={errors[fieldName]}
+                onChange={(value) => handleFieldChange(fieldName, value)}
+                disabled={isFormLoading}
+              />
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Submit Button */}
+        <View className="px-4 py-4 border-t border-outline-100 bg-background-0">
+          <GradientButton
+            onPress={handleSubmit}
+            text={isFormLoading ? "Submitting..." : "Submit"}
+            colors={COLORS.primary.gradient}
+            isLoading={isFormLoading || !mutate}
+            style={{
+              shadowColor: COLORS.primary.light,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.2,
+              shadowRadius: 8,
+              elevation: 4,
+            }}
+            textStyle={{
+              fontSize: 16,
+              fontWeight: "700",
+            }}
+          />
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+    </SafeAreaWrapper>
+  );
+};
+
+export default FormScreen;

@@ -20,7 +20,8 @@ import SimpleDatePicker from "@/components/ui/SimpleDatePicker";
 import StateDropdown from "@/components/ui/StateDropdown";
 import { StateCode } from "@/constants/countries"
 import { LinearGradient } from "expo-linear-gradient";
-import { useAppSelector } from "@/redux/hooks";
+import LocationField from "@/components/ui/LocationField";
+import { useAuth } from "@/contexts/AppStateContext";
 
 interface FormFieldRendererProps {
   fieldName: string;
@@ -1104,17 +1105,16 @@ export const FormFieldRenderer: React.FC<FormFieldRendererProps> = React.memo(({
         );
 
       case "user_profile_header":
-        const userState = useAppSelector((state) => state.user.user);
+        const { user } = useAuth();
 
         // Helper function to get profile image URL
         const getProfileImageUrl = () => {
-          if (userState?.profileImage) return userState.profileImage;
-
-          // Use pravatar.cc for dummy image based on email for consistency
-          const emailHash = userState?.email
-            ? encodeURIComponent(userState.email)
-            : "default";
-          return `https://i.pravatar.cc/150?u=${emailHash}`;
+          // Use initials-based avatar service for consistency
+          const fullName = user?.first_name && user?.last_name 
+            ? `${user.first_name} ${user.last_name}`
+            : user?.first_name || user?.email || "User";
+          
+          return `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=0F4C75&color=fff&size=128`;
         };
 
         return (
@@ -1130,8 +1130,8 @@ export const FormFieldRenderer: React.FC<FormFieldRendererProps> = React.memo(({
             />
             <View className="ml-3">
               <Text className="font-semiBold text-md text-typography-900">
-                {userState?.firstName || "Anonymous"}{" "}
-                {userState?.lastName || ""}
+                {user?.first_name || "Anonymous"}{" "}
+                {user?.last_name || ""}
               </Text>
               <View className="flex-row items-center bg-primary-oceanBlue50 rounded-md px-2 py-0.5 mt-1">
                 <Ionicons
@@ -1145,6 +1145,19 @@ export const FormFieldRenderer: React.FC<FormFieldRendererProps> = React.memo(({
               </View>
             </View>
           </View>
+        );
+
+      case "location":
+        return (
+          <LocationField
+            value={value}
+            onLocationSelect={onChange}
+            placeholder={placeholder}
+            title={fieldDef.title}
+            required={required}
+            error={error}
+            disabled={isFieldDisabled}
+          />
         );
 
       default:
