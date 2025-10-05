@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   ScrollView, 
   TouchableOpacity, 
-  Switch 
+  Switch,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,16 +14,42 @@ import { useRouter } from 'expo-router';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { COLORS } from '@/constants/theme';
 import { useAuth } from '@/contexts/AppStateContext';
+import { useUser } from '@/hooks/useUserProfile';
+import type { UserStats } from '@/types/user';
 
 const Settings = () => {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { profile, getStats, isLoading } = useUser();
+  
+  // User statistics state
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
   
   // Settings state
   const [notifications, setNotifications] = useState(true);
   const [locationServices, setLocationServices] = useState(true);
   const [rideReminders, setRideReminders] = useState(true);
   const [chatNotifications, setChatNotifications] = useState(true);
+  
+  // Load user statistics on mount
+  useEffect(() => {
+    loadUserStats();
+  }, []);
+  
+  const loadUserStats = async () => {
+    try {
+      setIsLoadingStats(true);
+      const response = await getStats();
+      if (response.success && response.data) {
+        setUserStats(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to load user stats:', error);
+    } finally {
+      setIsLoadingStats(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -109,29 +137,85 @@ const Settings = () => {
       </View>
 
       <ScrollView className="flex-1">
-        {/* Account Section */}
+        {/* User Statistics Dashboard */}
+        {userStats && (
+          <View className="mt-6 mx-4">
+            <View className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-xl" style={{backgroundColor: '#3B82F6'}}>
+              <Text className="text-white text-lg font-bold mb-2">Profile Overview</Text>
+              <View className="flex-row justify-between">
+                <View className="items-center">
+                  <Text className="text-white text-2xl font-bold">{userStats.profile_completion.toFixed(0)}%</Text>
+                  <Text className="text-blue-100 text-xs">Complete</Text>
+                </View>
+                <View className="items-center">
+                  <Text className="text-white text-2xl font-bold">{userStats.rating_average?.toFixed(1) || '0.0'}</Text>
+                  <Text className="text-blue-100 text-xs">Rating</Text>
+                </View>
+                <View className="items-center">
+                  <Text className="text-white text-2xl font-bold">{userStats.saved_locations}</Text>
+                  <Text className="text-blue-100 text-xs">Locations</Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Profile & Account Section */}
         <View className="mt-6">
           <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-2">
-            Account
+            Profile & Account
           </Text>
           <View className="bg-white">
             <SettingItem
               icon="person"
               title="Edit Profile"
-              subtitle="Update your personal information"
-              onPress={() => router.push('/profile/EditProfile')}
+              subtitle="Update personal information"
+              onPress={() => router.push('/profile/profile')}
+            />
+            <SettingItem
+              icon="musical-notes"
+              title="Ride Preferences"
+              subtitle="Music, conversation, pets & more"
+              onPress={() => router.push('/settings/ride-preferences')}
+            />
+            <SettingItem
+              icon="location"
+              title="Saved Locations"
+              subtitle="Home, work, and favorite places"
+              onPress={() => router.push('/settings/locations')}
             />
             <SettingItem
               icon="shield-checkmark"
-              title="Privacy & Security"
-              subtitle="Manage your privacy settings"
-              onPress={() => console.log('Privacy settings')}
+              title="Document Verification"
+              subtitle="Verify identity & driver license"
+              onPress={() => router.push('/settings/verification')}
+            />
+          </View>
+        </View>
+
+        {/* Discovery & Social Section */}
+        <View className="mt-6">
+          <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-2">
+            Discovery & Social
+          </Text>
+          <View className="bg-white">
+            <SettingItem
+              icon="search"
+              title="Find Users"
+              subtitle="Discover drivers and passengers"
+              onPress={() => router.push('/settings/user-search')}
             />
             <SettingItem
-              icon="card"
-              title="Payment Methods"
-              subtitle="Manage cards and payment options"
-              onPress={() => console.log('Payment methods')}
+              icon="stats-chart"
+              title="My Statistics"
+              subtitle="View detailed analytics"
+              onPress={() => router.push('/settings/statistics')}
+            />
+            <SettingItem
+              icon="people"
+              title="Public Profile"
+              subtitle="How others see you"
+              onPress={() => router.push('/settings/public-profile')}
             />
           </View>
         </View>
@@ -166,14 +250,14 @@ const Settings = () => {
           </View>
         </View>
 
-        {/* Preferences Section */}
+        {/* App Preferences Section */}
         <View className="mt-6">
           <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-2">
-            Preferences
+            App Preferences
           </Text>
           <View className="bg-white">
             <ToggleSettingItem
-              icon="location"
+              icon="location-outline"
               title="Location Services"
               subtitle="Allow location access for better ride matching"
               value={locationServices}
@@ -182,14 +266,14 @@ const Settings = () => {
             <SettingItem
               icon="globe"
               title="Language"
-              subtitle="العربية"
-              onPress={() => console.log('Language settings')}
+              subtitle={profile?.preferred_language === 'ar' ? 'العربية' : profile?.preferred_language === 'fr' ? 'Français' : 'English'}
+              onPress={() => router.push('/settings/language')}
             />
             <SettingItem
               icon="moon"
               title="Dark Mode"
               subtitle="Coming soon"
-              onPress={() => console.log('Dark mode')}
+              onPress={() => Alert.alert('Coming Soon', 'Dark mode will be available in a future update')}
             />
           </View>
         </View>
@@ -204,19 +288,19 @@ const Settings = () => {
               icon="help-circle"
               title="Help Center"
               subtitle="Get help with common questions"
-              onPress={() => console.log('Help center')}
+              onPress={() => router.push('./settings/help')}
             />
             <SettingItem
               icon="mail"
               title="Contact Support"
               subtitle="Get in touch with our team"
-              onPress={() => console.log('Contact support')}
+              onPress={() => Alert.alert('Contact Support', 'Email: support@coridemorocco.com\\nPhone: +212 5XX XXX XXX')}
             />
             <SettingItem
               icon="document-text"
               title="Terms & Privacy"
               subtitle="Read our terms and privacy policy"
-              onPress={() => console.log('Terms and privacy')}
+              onPress={() => router.push('./settings/legal')}
             />
           </View>
         </View>
@@ -230,14 +314,21 @@ const Settings = () => {
             <SettingItem
               icon="information-circle"
               title="App Version"
-              subtitle="1.0.0"
+              subtitle="CoRide Morocco 1.0.0"
               showArrow={false}
             />
             <SettingItem
               icon="star"
               title="Rate CoRide"
               subtitle="Help us improve the app"
-              onPress={() => console.log('Rate app')}
+              onPress={() => Alert.alert('Rate App', 'Thank you for using CoRide Morocco!')}
+            />
+            <SettingItem
+              icon="refresh"
+              title="Refresh Stats"
+              subtitle="Update your statistics"
+              onPress={loadUserStats}
+              rightComponent={isLoadingStats ? <ActivityIndicator size="small" color={COLORS.primary.oceanBlue700} /> : null}
             />
           </View>
         </View>
