@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS } from '@/constants/theme';
 import { LocationPickerModal } from './LocationPickerModal';
 import { MapLocation } from './MapView';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 interface LocationFieldProps {
   value?: {
@@ -36,6 +37,7 @@ export const LocationField: React.FC<LocationFieldProps> = ({
   error,
   disabled = false,
 }) => {
+  const { colors, isDarkMode } = useAppTheme();
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   const handleLocationSelect = (location: MapLocation & { address: string }) => {
@@ -54,33 +56,53 @@ export const LocationField: React.FC<LocationFieldProps> = ({
   };
 
   return (
-    <View className="mb-4">
+    <View style={{ marginBottom: 16 }}>
       {/* Field Label */}
       <Text 
-        className="text-sm font-semibold text-gray-700 mb-2"
-        style={{ fontFamily: FONTS.semiBold }}
+        style={{
+          fontSize: 14,
+          fontWeight: '600',
+          color: colors.text.primary,
+          marginBottom: 8,
+          fontFamily: FONTS.semiBold
+        }}
       >
-        {title}{required && <Text className="text-red-500"> *</Text>}
+        {title}{required && <Text style={{ color: '#EF4444' }}> *</Text>}
       </Text>
 
       {/* Location Picker Button */}
       <TouchableOpacity
         onPress={handlePress}
         disabled={disabled}
-        className={`border rounded-xl p-4 ${
-          error 
-            ? 'border-red-300 bg-red-50' 
+        style={{
+          borderWidth: 1,
+          borderRadius: 12,
+          padding: 16,
+          borderColor: error 
+            ? '#FCA5A5' 
             : value 
-              ? 'border-primary-oceanBlue300 bg-primary-oceanBlue50' 
-              : 'border-gray-300 bg-gray-50'
-        } ${disabled ? 'opacity-50' : ''}`}
+              ? COLORS.primary.oceanBlue200 
+              : (isDarkMode ? colors.border.primary : '#D1D5DB'),
+          backgroundColor: error 
+            ? (isDarkMode ? colors.background.secondary : '#FEF2F2') 
+            : value 
+              ? (isDarkMode ? colors.background.tertiary : COLORS.primary.oceanBlue50) 
+              : (isDarkMode ? colors.background.secondary : '#F9FAFB'),
+          opacity: disabled ? 0.5 : 1
+        }}
       >
-        <View className="flex-row items-center">
-          <View className={`w-8 h-8 rounded-full items-center justify-center mr-3 ${
-            value 
-              ? 'bg-primary-oceanBlue600' 
-              : 'bg-gray-400'
-          }`}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 12,
+            backgroundColor: value 
+              ? COLORS.primary.oceanBlue600 
+              : (isDarkMode ? colors.text.tertiary : '#9CA3AF')
+          }}>
             <Ionicons 
               name={value ? "location" : "location-outline"} 
               size={18} 
@@ -88,27 +110,36 @@ export const LocationField: React.FC<LocationFieldProps> = ({
             />
           </View>
           
-          <View className="flex-1">
+          <View style={{ flex: 1 }}>
             {value ? (
               <View>
                 <Text 
-                  className="text-gray-900 font-medium"
-                  style={{ fontFamily: FONTS.semiBold }}
+                  style={{
+                    color: colors.text.primary,
+                    fontWeight: '500',
+                    fontFamily: FONTS.semiBold
+                  }}
                   numberOfLines={2}
                 >
                   {value.address}
                 </Text>
                 <Text 
-                  className="text-gray-500 text-xs mt-1"
-                  style={{ fontFamily: FONTS.regular }}
+                  style={{
+                    color: colors.text.secondary,
+                    fontSize: 12,
+                    marginTop: 4,
+                    fontFamily: FONTS.regular
+                  }}
                 >
                   {value.latitude.toFixed(6)}, {value.longitude.toFixed(6)}
                 </Text>
               </View>
             ) : (
               <Text 
-                className="text-gray-500"
-                style={{ fontFamily: FONTS.regular }}
+                style={{
+                  color: colors.text.secondary,
+                  fontFamily: FONTS.regular
+                }}
               >
                 {placeholder}
               </Text>
@@ -118,7 +149,7 @@ export const LocationField: React.FC<LocationFieldProps> = ({
           <Ionicons 
             name="chevron-forward" 
             size={20} 
-            color="#9CA3AF" 
+            color={colors.text.tertiary} 
           />
         </View>
       </TouchableOpacity>
@@ -126,8 +157,12 @@ export const LocationField: React.FC<LocationFieldProps> = ({
       {/* Error Message */}
       {error && (
         <Text 
-          className="text-red-500 text-sm mt-1"
-          style={{ fontFamily: FONTS.regular }}
+          style={{
+            color: '#EF4444',
+            fontSize: 14,
+            marginTop: 4,
+            fontFamily: FONTS.regular
+          }}
         >
           {error}
         </Text>
@@ -136,8 +171,12 @@ export const LocationField: React.FC<LocationFieldProps> = ({
       {/* Help Text */}
       {!error && (
         <Text 
-          className="text-gray-500 text-xs mt-1"
-          style={{ fontFamily: FONTS.regular }}
+          style={{
+            color: colors.text.secondary,
+            fontSize: 12,
+            marginTop: 4,
+            fontFamily: FONTS.regular
+          }}
         >
           Tap to open map and select your exact location
         </Text>

@@ -9,13 +9,12 @@ import {
   Animated,
   PanResponder,
   BackHandler,
-  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, FONTS } from "@constants/theme";
 import { widthPercentageToDP as wp, heightPercentageToDP as hp } from "react-native-responsive-screen";
-import PaymentMethodModal from "./PaymentMethodModal";
 import { LinearGradient } from "expo-linear-gradient";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 type PremiumModalProps = {
   visible: boolean;
@@ -23,6 +22,8 @@ type PremiumModalProps = {
 };
 
 const PremiumModal: React.FC<PremiumModalProps> = ({ visible, onClose }) => {
+  const { colors, isDarkMode } = useAppTheme();
+  
   // State to track if modal is currently closing
   const [isClosing, setIsClosing] = useState(false);
 
@@ -32,8 +33,11 @@ const PremiumModal: React.FC<PremiumModalProps> = ({ visible, onClose }) => {
   // State for payment method modal
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
 
-  // Animation for swipe to dismiss
+  // Animations for better modal experience
   const panY = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  
   const translateY = panY.interpolate({
     inputRange: [-1, 0, 1],
     outputRange: [0, 0, 1],
@@ -42,15 +46,32 @@ const PremiumModal: React.FC<PremiumModalProps> = ({ visible, onClose }) => {
   // Timer for countdown
   const [timeRemaining, setTimeRemaining] = useState("19:15:21");
 
-  // Reset closing state when modal opens
+  // Reset closing state when modal opens and add entrance animation
   useEffect(() => {
     if (visible && !isMounted) {
       setIsMounted(true);
       setIsClosing(false);
-      // Reset animation value
+      // Reset animation values
       panY.setValue(0);
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.8);
+      
+      // Entrance animation
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        })
+      ]).start();
     }
-  }, [visible, isMounted]);
+  }, [visible, isMounted, fadeAnim, scaleAnim]);
 
   // Handle back button press on Android
   useEffect(() => {
@@ -84,31 +105,59 @@ const PremiumModal: React.FC<PremiumModalProps> = ({ visible, onClose }) => {
         }
       },
       onPanResponderRelease: (_, gestureState) => {
-        // If the user swiped down more than 100 units, close the modal
-        if (gestureState.dy > 100) {
+        // If the user swiped down more than 100 units or with sufficient velocity, close the modal
+        if (gestureState.dy > 100 || gestureState.vy > 0.5) {
           closeModal();
         } else {
-          // Otherwise, reset the position
-          Animated.spring(panY, {
-            toValue: 0,
-            useNativeDriver: true,
-          }).start();
+          // Otherwise, spring back to original position with better animation
+          Animated.parallel([
+            Animated.spring(panY, {
+              toValue: 0,
+              tension: 100,
+              friction: 8,
+              useNativeDriver: true,
+            }),
+            Animated.spring(scaleAnim, {
+              toValue: 1,
+              tension: 100,
+              friction: 8,
+              useNativeDriver: true,
+            })
+          ]).start();
         }
       },
     })
   ).current;
 
-  // Function to close the modal with animation
+  // Function to close the modal with enhanced animation
   const closeModal = () => {
     if (isClosing) return; // Prevent multiple close attempts
 
     setIsClosing(true);
 
-    Animated.timing(panY, {
-      toValue: 500, // Move the modal down by 500 units
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => {
+    // Enhanced exit animation with fade, scale, and slide
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 0.8,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(panY, {
+        toValue: 400,
+        duration: 300,
+        useNativeDriver: true,
+      })
+    ]).start(() => {
+      // Reset animation values for next time
+      fadeAnim.setValue(0);
+      scaleAnim.setValue(0.8);
+      panY.setValue(0);
+      
       // Unmount the modal completely
       setIsMounted(false);
 
@@ -138,52 +187,75 @@ const PremiumModal: React.FC<PremiumModalProps> = ({ visible, onClose }) => {
 
   return (
     <Modal visible={true} transparent animationType="none" onRequestClose={closeModal} statusBarTranslucent>
-      <TouchableWithoutFeedback onPress={closeModal}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <Animated.View style={[styles.modalContent, { transform: [{ translateY }] }]} {...panResponder.panHandlers}>
+      <Animated.View style={[styles.overlay, { opacity: fadeAnim }]}>
+        <TouchableWithoutFeedback onPress={closeModal}>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <TouchableWithoutFeedback>
+              <Animated.View 
+                style={[
+                  styles.modalContent, 
+                  { 
+                    transform: [
+                      { translateY },
+                      { scale: scaleAnim }
+                    ],
+                    backgroundColor: colors.background.secondary,
+                    shadowColor: isDarkMode ? '#000' : '#000',
+                    shadowOpacity: isDarkMode ? 0.3 : 0.1,
+                    opacity: fadeAnim,
+                  }
+                ]} 
+                {...panResponder.panHandlers}
+              >
               {/* Close button */}
-              <TouchableOpacity style={styles.closeButton} onPress={closeModal} activeOpacity={0.7} disabled={isClosing}>
-                <Ionicons name="close" size={wp(6)} color="#666" />
+              <TouchableOpacity style={[styles.closeButton, { backgroundColor: colors.background.tertiary }]} onPress={closeModal} activeOpacity={0.7} disabled={isClosing}>
+                <Ionicons name="close" size={wp(6)} color={colors.text.secondary} />
               </TouchableOpacity>
 
-              {/* Gift icon */}
-
-              <Image source={require("@assets/images/icons/upgrade.png")} style={styles.giftIcon} />
+              {/* Premium icon */}
+              <View style={styles.iconContainer}>
+                <View style={styles.iconBackground3}>
+                  <View style={styles.iconBackground2}>
+                    <View style={styles.iconBackground1}>
+                      <Ionicons name="diamond" size={wp(8)} color={COLORS.primary.oceanBlue700} />
+                    </View>
+                  </View>
+                </View>
+              </View>
 
               {/* Title */}
-              <Text style={styles.title}>Intelligent budgeting{"\n"}with AI</Text>
+              <Text style={[styles.title, { color: colors.primary.dark }]}>Unlock Premium Features{"\n"}for CoRide Morocco</Text>
 
               {/* Features list */}
               <View style={styles.featuresList}>
                 <View style={styles.featureItem}>
-                  <Ionicons name="lock-open-outline" size={wp(5)} color="#0077B6" />
-                  <Text style={styles.featureText}>Unlock premium features</Text>
+                  <Ionicons name="lock-open-outline" size={wp(5)} color={COLORS.primary.oceanBlue700} />
+                  <Text style={[styles.featureText, { color: colors.text.primary }]}>Priority ride matching</Text>
                 </View>
 
                 <View style={styles.featureItem}>
-                  <Ionicons name="pricetags-outline" size={wp(5)} color="#0077B6" />
-                  <Text style={styles.featureText}>Create your own categories</Text>
+                  <Ionicons name="car-outline" size={wp(5)} color={COLORS.primary.oceanBlue700} />
+                  <Text style={[styles.featureText, { color: colors.text.primary }]}>Unlimited ride requests</Text>
                 </View>
 
                 <View style={styles.featureItem}>
-                  <Ionicons name="sync-outline" size={wp(5)} color="#0077B6" />
-                  <Text style={styles.featureText}>Sync to multiple devices</Text>
+                  <Ionicons name="shield-checkmark-outline" size={wp(5)} color={COLORS.primary.oceanBlue700} />
+                  <Text style={[styles.featureText, { color: colors.text.primary }]}>Advanced safety features</Text>
                 </View>
 
                 <View style={styles.featureItem}>
-                  <Ionicons name="close-circle-outline" size={wp(5)} color="#0077B6" />
-                  <Text style={styles.featureText}>Remove all ads</Text>
+                  <Ionicons name="chatbubbles-outline" size={wp(5)} color={COLORS.primary.oceanBlue700} />
+                  <Text style={[styles.featureText, { color: colors.text.primary }]}>Premium support 24/7</Text>
                 </View>
               </View>
 
               {/* Divider */}
-              <View style={styles.divider} />
+              <View style={[styles.divider, { backgroundColor: colors.border.primary }]} />
 
               {/* Timer */}
               <View style={styles.timerContainer}>
-                <Ionicons name="hourglass-outline" size={wp(5)} color="#0077B6" />
-                <Text style={styles.timerText}>Offer ends in {timeRemaining}</Text>
+                <Ionicons name="time-outline" size={wp(5)} color={COLORS.primary.oceanBlue700} />
+                <Text style={[styles.timerText, { color: colors.text.primary }]}>Limited time offer ends in {timeRemaining}</Text>
               </View>
 
               {/* Rating */}
@@ -195,29 +267,30 @@ const PremiumModal: React.FC<PremiumModalProps> = ({ visible, onClose }) => {
                   <Ionicons name="star" size={wp(5)} color="#FFD700" />
                   <Ionicons name="star-half" size={wp(5)} color="#FFD700" />
                 </View>
-                <Text style={styles.ratingText}>4.8 ( 12K+ reviews )</Text>
+                <Text style={[styles.ratingText, { color: colors.text.secondary }]}>4.9 ( 25K+ CoRide users )</Text>
               </View>
 
               {/* Upgrade button */}
               <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade} activeOpacity={0.8}>
                 <LinearGradient
-                  colors={[COLORS.primary.light, COLORS.primary.dark]}
+                  colors={[COLORS.primary.oceanBlue600, COLORS.primary.oceanBlue700]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.gradientButton}
                 >
-                  <Text style={styles.upgradeButtonText}>Upgrade</Text>
+                  <Text style={styles.upgradeButtonText}>Upgrade to Premium - 99 MAD/month</Text>
                 </LinearGradient>
               </TouchableOpacity>
-            </Animated.View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+              </Animated.View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Animated.View>
 
-      {/* Payment Method Modal */}
+      {/* Payment Method Modal
       {paymentModalVisible && (
         <PaymentMethodModal visible={paymentModalVisible} onClose={() => setPaymentModalVisible(false)} onSelect={handlePaymentMethodSelect} />
-      )}
+      )} */}
     </Modal>
   );
 };
@@ -230,15 +303,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalContent: {
-    backgroundColor: COLORS.background.white,
     borderRadius: wp(5),
     width: wp(80),
     padding: wp(5),
     alignItems: "center",
     elevation: 5,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
     shadowRadius: 5,
     position: "relative",
   },
@@ -248,6 +318,7 @@ const styles = StyleSheet.create({
     right: wp(2),
     zIndex: 10,
     padding: wp(2),
+    borderRadius: wp(4),
   },
   iconContainer: {
     marginTop: hp(2),
@@ -280,7 +351,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: hp(2.8),
     fontFamily: FONTS.bold,
-    color: "#0077B6",
     textAlign: "center",
     marginBottom: hp(2),
   },
@@ -296,13 +366,11 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: hp(1.9),
     fontFamily: FONTS.regular,
-    color: "#333",
     marginLeft: wp(3),
   },
   divider: {
     width: "100%",
     height: 1,
-    backgroundColor: "#E0E0E0",
     marginBottom: hp(2),
   },
   timerContainer: {
@@ -313,7 +381,6 @@ const styles = StyleSheet.create({
   timerText: {
     fontSize: hp(1.8),
     fontFamily: FONTS.regular,
-    color: "#333",
     marginLeft: wp(2),
   },
   ratingContainer: {
@@ -328,7 +395,6 @@ const styles = StyleSheet.create({
   ratingText: {
     fontSize: hp(1.8),
     fontFamily: FONTS.regular,
-    color: "#333",
   },
   upgradeButton: {
     width: "100%",
@@ -348,11 +414,6 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.semiBold,
     color: "#FFFFFF",
     textAlign: "center",
-  },
-  giftIcon: {
-    width: wp(35),
-    height: wp(35),
-    marginBottom: hp(2),
   },
 });
 

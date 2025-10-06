@@ -15,12 +15,16 @@ import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { COLORS } from '@/constants/theme';
 import { useAuth } from '@/contexts/AppStateContext';
 import { useUser } from '@/hooks/useUserProfile';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import type { UserStats } from '@/types/user';
+import type { ThemeMode } from '@/contexts/ThemeContext';
+import PremiumModal from '@/components/modals/PremiumModal';
 
 const Settings = () => {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { profile, getStats, isLoading } = useUser();
+  const { isDarkMode, themeMode, setThemeMode, colors } = useAppTheme();
   
   // User statistics state
   const [userStats, setUserStats] = useState<UserStats | null>(null);
@@ -32,6 +36,7 @@ const Settings = () => {
   const [rideReminders, setRideReminders] = useState(true);
   const [chatNotifications, setChatNotifications] = useState(true);
   
+  const [isPremiumModalVisible, setIsPremiumModalVisible] = useState(false);
   // Load user statistics on mount
   useEffect(() => {
     loadUserStats();
@@ -60,6 +65,50 @@ const Settings = () => {
     }
   };
 
+  const handleThemeSelection = () => {
+    const getThemeDisplayName = (mode: ThemeMode) => {
+      switch (mode) {
+        case 'light': return 'Light';
+        case 'dark': return 'Dark';
+        case 'system': return 'System Default';
+      }
+    };
+
+    Alert.alert(
+      'Choose Theme',
+      'Select your preferred theme for the app',
+      [
+        {
+          text: 'Light',
+          onPress: () => setThemeMode('light'),
+          style: themeMode === 'light' ? 'default' : 'default'
+        },
+        {
+          text: 'Dark',
+          onPress: () => setThemeMode('dark'),
+          style: themeMode === 'dark' ? 'default' : 'default'
+        },
+        {
+          text: 'System Default',
+          onPress: () => setThemeMode('system'),
+          style: themeMode === 'system' ? 'default' : 'default'
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
+  const getThemeSubtitle = () => {
+    switch (themeMode) {
+      case 'light': return 'Always use light theme';
+      case 'dark': return 'Always use dark theme';
+      case 'system': return `Auto (currently ${isDarkMode ? 'dark' : 'light'})`;
+    }
+  };
+
   const SettingItem = ({ 
     icon, 
     title, 
@@ -76,22 +125,26 @@ const Settings = () => {
     rightComponent?: React.ReactNode;
   }) => (
     <TouchableOpacity
-      className="flex-row items-center py-4 px-4 border-b border-gray-100"
+      className="flex-row items-center py-4 px-4 border-b"
+      style={{ borderColor: colors.border.primary }}
       onPress={onPress}
       disabled={!onPress}
     >
-      <View className="w-10 h-10 rounded-full bg-primary-oceanBlue50 justify-center items-center mr-3">
-        <Ionicons name={icon as any} size={wp(5)} color={COLORS.primary.oceanBlue700} />
+      <View 
+        className="w-10 h-10 rounded-full justify-center items-center mr-3"
+        style={{ backgroundColor: colors.primary.oceanBlue50 }}
+      >
+        <Ionicons name={icon as any} size={wp(5)} color={colors.primary.oceanBlue700} />
       </View>
       <View className="flex-1">
-        <Text className="text-lg font-semiBold text-gray-800">{title}</Text>
+        <Text className="text-lg font-semiBold" style={{ color: colors.text.primary }}>{title}</Text>
         {subtitle && (
-          <Text className="text-sm font-regular text-gray-500 mt-1">{subtitle}</Text>
+          <Text className="text-sm font-regular mt-1" style={{ color: colors.text.secondary }}>{subtitle}</Text>
         )}
       </View>
       {rightComponent && rightComponent}
       {showArrow && !rightComponent && (
-        <Ionicons name="chevron-forward" size={wp(5)} color="#9CA3AF" />
+        <Ionicons name="chevron-forward" size={wp(5)} color={colors.text.tertiary} />
       )}
     </TouchableOpacity>
   );
@@ -118,21 +171,24 @@ const Settings = () => {
         <Switch
           value={value}
           onValueChange={onToggle}
-          trackColor={{ false: '#E5E7EB', true: COLORS.primary.oceanBlue100 }}
-          thumbColor={value ? COLORS.primary.oceanBlue700 : '#9CA3AF'}
+          trackColor={{ 
+            false: colors.border.secondary, 
+            true: colors.primary.oceanBlue100 
+          }}
+          thumbColor={value ? colors.primary.oceanBlue700 : colors.text.tertiary}
         />
       }
     />
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background.primary }}>
       {/* Header */}
-      <View className="flex-row justify-between items-center px-4 py-3 border-b border-gray-100">
+      <View className="flex-row justify-between items-center px-4 py-3 border-b" style={{ borderColor: colors.border.primary }}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#006389" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary.oceanBlue700} />
         </TouchableOpacity>
-        <Text className="text-lg font-semibold text-gray-900">Settings</Text>
+        <Text className="text-lg font-semibold" style={{ color: colors.text.primary }}>Settings</Text>
         <View className="w-6" />
       </View>
 
@@ -140,7 +196,7 @@ const Settings = () => {
         {/* User Statistics Dashboard */}
         {userStats && (
           <View className="mt-6 mx-4">
-            <View className="bg-gradient-to-r from-blue-500 to-blue-600 p-4 rounded-xl" style={{backgroundColor: '#3B82F6'}}>
+            <View className="p-4 rounded-xl" style={{backgroundColor: colors.primary.oceanBlue700}}>
               <Text className="text-white text-lg font-bold mb-2">Profile Overview</Text>
               <View className="flex-row justify-between">
                 <View className="items-center">
@@ -162,10 +218,10 @@ const Settings = () => {
 
         {/* Profile & Account Section */}
         <View className="mt-6">
-          <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-2">
+          <Text className="text-sm font-semiBold uppercase px-4 mb-2" style={{ color: colors.text.secondary }}>
             Profile & Account
           </Text>
-          <View className="bg-white">
+          <View style={{ backgroundColor: colors.surface.primary }}>
             <SettingItem
               icon="person"
               title="Edit Profile"
@@ -195,10 +251,10 @@ const Settings = () => {
 
         {/* Discovery & Social Section */}
         <View className="mt-6">
-          <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-2">
+          <Text className="text-sm font-semiBold uppercase px-4 mb-2" style={{ color: colors.text.secondary }}>
             Discovery & Social
           </Text>
-          <View className="bg-white">
+          <View style={{ backgroundColor: colors.surface.primary }}>
             <SettingItem
               icon="search"
               title="Find Users"
@@ -222,10 +278,10 @@ const Settings = () => {
 
         {/* Notifications Section */}
         <View className="mt-6">
-          <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-2">
+          <Text className="text-sm font-semiBold uppercase px-4 mb-2" style={{ color: colors.text.secondary }}>
             Notifications
           </Text>
-          <View className="bg-white">
+          <View style={{ backgroundColor: colors.surface.primary }}>
             <ToggleSettingItem
               icon="notifications"
               title="Push Notifications"
@@ -252,10 +308,10 @@ const Settings = () => {
 
         {/* App Preferences Section */}
         <View className="mt-6">
-          <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-2">
+          <Text className="text-sm font-semiBold uppercase px-4 mb-2" style={{ color: colors.text.secondary }}>
             App Preferences
           </Text>
-          <View className="bg-white">
+          <View style={{ backgroundColor: colors.surface.primary }}>
             <ToggleSettingItem
               icon="location-outline"
               title="Location Services"
@@ -267,28 +323,28 @@ const Settings = () => {
               icon="globe"
               title="Language"
               subtitle={profile?.preferred_language === 'ar' ? 'العربية' : profile?.preferred_language === 'fr' ? 'Français' : 'English'}
-              onPress={() => router.push('/settings/language')}
+              onPress={() => router.push('../settings/language')}
             />
             <SettingItem
               icon="moon"
-              title="Dark Mode"
-              subtitle="Coming soon"
-              onPress={() => Alert.alert('Coming Soon', 'Dark mode will be available in a future update')}
+              title="Theme"
+              subtitle={getThemeSubtitle()}
+              onPress={handleThemeSelection}
             />
           </View>
         </View>
 
         {/* Support Section */}
         <View className="mt-6">
-          <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-2">
+          <Text className="text-sm font-semiBold uppercase px-4 mb-2" style={{ color: colors.text.secondary }}>
             Support
           </Text>
-          <View className="bg-white">
+          <View style={{ backgroundColor: colors.surface.primary }}>
             <SettingItem
               icon="help-circle"
               title="Help Center"
               subtitle="Get help with common questions"
-              onPress={() => router.push('./settings/help')}
+              onPress={() => router.push('../settings/help')}
             />
             <SettingItem
               icon="mail"
@@ -300,17 +356,17 @@ const Settings = () => {
               icon="document-text"
               title="Terms & Privacy"
               subtitle="Read our terms and privacy policy"
-              onPress={() => router.push('./settings/legal')}
+              onPress={() => router.push('../settings/legal')}
             />
           </View>
         </View>
 
         {/* App Info Section */}
         <View className="mt-6 mb-8">
-          <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-2">
+          <Text className="text-sm font-semiBold uppercase px-4 mb-2" style={{ color: colors.text.secondary }}>
             About
           </Text>
-          <View className="bg-white">
+          <View style={{ backgroundColor: colors.surface.primary }}>
             <SettingItem
               icon="information-circle"
               title="App Version"
@@ -330,13 +386,24 @@ const Settings = () => {
               onPress={loadUserStats}
               rightComponent={isLoadingStats ? <ActivityIndicator size="small" color={COLORS.primary.oceanBlue700} /> : null}
             />
+            <SettingItem
+              icon="ribbon"
+              title="Go Premium"
+              subtitle="Unlock exclusive features"
+              onPress={() => setIsPremiumModalVisible(true)}
+            />
+            <PremiumModal 
+              visible={isPremiumModalVisible} 
+              onClose={() => setIsPremiumModalVisible(false)} 
+            />
           </View>
         </View>
 
         {/* Logout Button */}
         <View className="px-4 mb-8">
           <TouchableOpacity
-            className="bg-red-500 py-4 rounded-xl flex-row items-center justify-center"
+            className="py-4 rounded-xl flex-row items-center justify-center"
+            style={{ backgroundColor: '#EF4444' }}
             onPress={handleLogout}
           >
             <Ionicons name="log-out" size={wp(5)} color="#FFFFFF" />

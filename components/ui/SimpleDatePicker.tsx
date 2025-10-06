@@ -10,6 +10,8 @@ interface SimpleDatePickerProps {
   placeholder?: string;
   error?: boolean;
   disabled?: boolean;
+  minimumDate?: Date;
+  maximumDate?: Date;
 }
 
 /**
@@ -22,6 +24,8 @@ export const SimpleDatePicker: React.FC<SimpleDatePickerProps> = ({
   placeholder = "Select date",
   error = false,
   disabled = false,
+  minimumDate,
+  maximumDate,
 }) => {
   const [showPicker, setShowPicker] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => {
@@ -78,9 +82,19 @@ export const SimpleDatePicker: React.FC<SimpleDatePickerProps> = ({
   };
 
   const handleManualEntry = () => {
+    const minDateText = minimumDate ? minimumDate.toLocaleDateString() : "";
+    const maxDateText = maximumDate ? maximumDate.toLocaleDateString() : "";
+    const constraintText = minimumDate && maximumDate 
+      ? `\nDate must be between ${minDateText} and ${maxDateText}`
+      : minimumDate 
+      ? `\nDate must be after ${minDateText}`
+      : maxDateText 
+      ? `\nDate must be before ${maxDateText}`
+      : "";
+
     Alert.prompt(
       "Enter Date",
-      "Please enter date in MM/DD/YYYY format:",
+      `Please enter date in MM/DD/YYYY format:${constraintText}`,
       (text) => {
         if (text) {
           try {
@@ -89,6 +103,16 @@ export const SimpleDatePicker: React.FC<SimpleDatePickerProps> = ({
             if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900) {
               const date = new Date(year, month - 1, day);
               if (!isNaN(date.getTime())) {
+                // Check date constraints
+                if (minimumDate && date < minimumDate) {
+                  Alert.alert("Invalid Date", `Date must be after ${minDateText}`);
+                  return;
+                }
+                if (maximumDate && date > maximumDate) {
+                  Alert.alert("Invalid Date", `Date must be before ${maxDateText}`);
+                  return;
+                }
+                
                 const formattedDate = date.toISOString().split('T')[0];
                 onChange(formattedDate);
                 setCurrentDate(date);
@@ -153,8 +177,8 @@ export const SimpleDatePicker: React.FC<SimpleDatePickerProps> = ({
           mode="date"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={handleDateChange}
-          maximumDate={new Date()}
-          minimumDate={new Date(1900, 0, 1)}
+          maximumDate={maximumDate || new Date(2040, 11, 31)}
+          minimumDate={minimumDate || new Date()}
         />
       )}
 

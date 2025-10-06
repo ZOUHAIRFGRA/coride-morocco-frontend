@@ -300,6 +300,59 @@ export const useUser = () => {
     }
   }, []);
 
+  // New verification status checking
+  const getVerificationStatus = useCallback(async (taskId: string) => {
+    try {
+      const response = await userApiService.getVerificationStatus(taskId);
+      if (response.success && response.data) {
+        return { success: true, data: response.data };
+      }
+      return { success: false, error: response.error?.message };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch verification status';
+      return { success: false, error: errorMessage };
+    }
+  }, []);
+
+  const getDocumentExtractions = useCallback(async () => {
+    try {
+      const response = await userApiService.getDocumentExtractions();
+      if (response.success && response.data) {
+        return { success: true, data: response.data };
+      }
+      return { success: false, error: response.error?.message };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch document extractions';
+      return { success: false, error: errorMessage };
+    }
+  }, []);
+
+  const getDocumentExtraction = useCallback(async (extractionId: number) => {
+    try {
+      const response = await userApiService.getDocumentExtraction(extractionId);
+      if (response.success && response.data) {
+        return { success: true, data: response.data };
+      }
+      return { success: false, error: response.error?.message };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch document extraction';
+      return { success: false, error: errorMessage };
+    }
+  }, []);
+
+  const testVerification = useCallback(async () => {
+    try {
+      const response = await userApiService.testVerification();
+      if (response.success && response.data) {
+        return { success: true, data: response.data };
+      }
+      return { success: false, error: response.error?.message };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to test verification';
+      return { success: false, error: errorMessage };
+    }
+  }, []);
+
   const clearError = useCallback(() => {
     dispatch({ type: 'PROFILE_CLEAR_ERROR' });
   }, [dispatch]);
@@ -328,6 +381,10 @@ export const useUser = () => {
     uploadDriverLicense,
     getDocuments,
     getDocumentStatus,
+    getVerificationStatus,
+    getDocumentExtractions,
+    getDocumentExtraction,
+    testVerification,
     // Utility Actions
     clearError,
   };

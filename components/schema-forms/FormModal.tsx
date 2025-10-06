@@ -20,6 +20,7 @@ import { GradientButton } from "@/components/ui/buttons/GradientButton";
 import * as Haptics from "expo-haptics";
 import { heightPercentageToDP as hp } from "react-native-responsive-screen";
 import { userApiService } from "@/services/userApi";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 // Mock API functions for CoRide Morocco forms
 const mockContactSupport = async (data: any) => {
@@ -56,15 +57,76 @@ const mockAddLocation = async (data: any) => {
   return { success: true, message: "Location saved successfully!" };
 };
 
+const mockDriverLicenseDetails = async (data: any) => {
+  await new Promise((resolve) => setTimeout(resolve, 500));
+  
+  // Validate Moroccan license number format (XX/XXXXXX - letters or numbers)
+  if (!data.licenseNumber) {
+    throw new Error("Please enter your license number");
+  }
+
+  const licenseRegex = /^[A-Z0-9]{2}\/[0-9]{6}$/;
+  if (!licenseRegex.test(data.licenseNumber)) {
+    throw new Error("License number must be in format XX/XXXXXX (e.g., AB/123456 or 05/789873)");
+  }
+
+  // Validate expiry date - Accept YYYY-MM-DD format from date picker
+  if (!data.expiryDate) {
+    throw new Error("Please select an expiry date");
+  }
+
+  let inputDate: Date;
+  try {
+    // Handle YYYY-MM-DD format (from date picker) or DD/MM/YYYY format (manual entry)
+    if (data.expiryDate.includes('-')) {
+      // YYYY-MM-DD format
+      inputDate = new Date(data.expiryDate + 'T00:00:00');
+    } else if (data.expiryDate.includes('/')) {
+      // DD/MM/YYYY format
+      const [day, month, year] = data.expiryDate.split('/');
+      inputDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    } else {
+      throw new Error("Invalid date format");
+    }
+  } catch (error) {
+    throw new Error("Please select a valid expiry date");
+  }
+
+  if (isNaN(inputDate.getTime())) {
+    throw new Error("Please select a valid expiry date");
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Reset time for accurate comparison
+  
+  if (inputDate <= today) {
+    throw new Error("License must not be expired (future date required)");
+  }
+  
+  return { success: true, message: "License details validated successfully!" };
+};
+
 // Real API function for adding location
 const addLocation = async (data: any) => {
   try {
+    // Handle location data - it might be an object from the map picker
+    let addressString = data.address;
+    let latitude = data.latitude;
+    let longitude = data.longitude;
+    
+    // If address is an object (from location picker), extract the values
+    if (typeof data.address === 'object' && data.address !== null) {
+      addressString = data.address.address;
+      latitude = data.address.latitude;
+      longitude = data.address.longitude;
+    }
+    
     // Transform form data to match CreateLocationRequest interface
     const locationData = {
       name: data.locationName,
-      address: data.address,
-      latitude: data.latitude || 33.5731, // Default to Casablanca
-      longitude: data.longitude || -7.5898,
+      address: addressString,
+      latitude: latitude || 33.5731, // Default to Casablanca
+      longitude: longitude || -7.5898,
       location_type: data.locationType
     };
 
@@ -98,6 +160,7 @@ export const FormModal: React.FC<FormModalProps> = ({
   onSuccess,
   initialData,
 }) => {
+  const { colors, isDarkMode } = useAppTheme();
   const scrollViewRef = useRef<ScrollView>(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -139,7 +202,19 @@ export const FormModal: React.FC<FormModalProps> = ({
 
   // Handle field value changes
   const handleFieldChange = useCallback((fieldName: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [fieldName]: value }));
+    // Special handling for location fields - when address is updated from location picker
+    if (fieldName === 'address' && typeof value === 'object' && value !== null && 'latitude' in value && 'longitude' in value) {
+      // Update address, latitude, and longitude fields simultaneously
+      setFormData((prev) => ({
+        ...prev,
+        address: value.address,
+        latitude: value.latitude,
+        longitude: value.longitude
+      }));
+    } else {
+      // Normal field update
+      setFormData((prev) => ({ ...prev, [fieldName]: value }));
+    }
     
     if (errors[fieldName]) {
       setErrors((prev) => {
@@ -165,6 +240,8 @@ export const FormModal: React.FC<FormModalProps> = ({
         return mockReportIssue;
       case "addLocation":
         return addLocation;
+      case "driverLicenseDetails":
+        return mockDriverLicenseDetails;
       default:
         return null;
     }
@@ -258,7 +335,17 @@ export const FormModal: React.FC<FormModalProps> = ({
       <View style={styles.modalContainer}>
         <Animated.View 
           style={[
-            styles.modalContent,
+            {
+              backgroundColor: colors.background.primary,
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
+              height: hp(90),
+              shadowColor: isDarkMode ? '#000000' : '#000000',
+              shadowOffset: { width: 0, height: -3 },
+              shadowOpacity: isDarkMode ? 0.3 : 0.1,
+              shadowRadius: 10,
+              elevation: 8,
+            },
             {
               transform: [{
                 translateY: slideAnim.interpolate({
@@ -270,16 +357,35 @@ export const FormModal: React.FC<FormModalProps> = ({
           ]}
         >
           {/* Header */}
-          <View style={styles.header}>
+          <View style={{
+            paddingHorizontal: 24,
+            paddingVertical: 24,
+            borderBottomWidth: 1,
+            borderBottomColor: isDarkMode ? colors.border.primary : '#E5E7EB',
+            backgroundColor: colors.background.primary,
+          }}>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={COLORS.text.primary} />
+              <Ionicons name="close" size={24} color={colors.text.primary} />
             </TouchableOpacity>
 
-            <Text style={styles.title}>{formDefinition.schema.title}</Text>
+            <Text style={{
+              fontSize: 20,
+              fontFamily: FONTS.bold,
+              color: colors.text.primary,
+              textAlign: 'center',
+              marginTop: 8,
+            }}>{formDefinition.schema.title}</Text>
             <View style={{ width: 40 }} />
 
             {formDefinition.schema.description && (
-              <Text style={styles.description}>
+              <Text style={{
+                fontFamily: FONTS.regular,
+                fontSize: 14,
+                color: colors.text.secondary,
+                textAlign: 'center',
+                marginTop: 16,
+                lineHeight: 20,
+              }}>
                 {formDefinition.schema.description}
               </Text>
             )}
@@ -313,14 +419,30 @@ export const FormModal: React.FC<FormModalProps> = ({
           </KeyboardAvoidingView>
 
           {/* Submit Button */}
-          <View style={styles.footer}>
+          <View style={{
+            paddingHorizontal: 24,
+            paddingVertical: 16,
+            paddingBottom: Platform.OS === 'ios' ? 40 : 16,
+            borderTopWidth: 1,
+            borderTopColor: isDarkMode ? colors.border.primary : '#E5E7EB',
+            backgroundColor: colors.background.primary,
+          }}>
             <GradientButton
               onPress={handleSubmit}
               text={isSubmitting ? "Submitting..." : "Submit"}
               colors={COLORS.primary.gradient}
               isLoading={isSubmitting}
-              style={styles.submitButton}
-              textStyle={styles.submitButtonText}
+              style={{
+                shadowColor: COLORS.primary.light,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 4,
+              }}
+              textStyle={{
+                fontSize: 18,
+                fontWeight: '700',
+              }}
             />
           </View>
         </Animated.View>
@@ -352,63 +474,11 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
     pointerEvents: "box-none",
   },
-  modalContent: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    height: hp(90),
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
-  },
-  header: {
-    paddingHorizontal: 24,
-    paddingVertical: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF",
-  },
   closeButton: {
     padding: 8,
     position: "absolute",
     left: 16,
     top: 16,
     zIndex: 1,
-  },
-  title: {
-    fontSize: 20,
-    fontFamily: FONTS.bold,
-    color: COLORS.text.primary,
-    textAlign: "center",
-    marginTop: 8,
-  },
-  description: {
-    fontFamily: FONTS.regular,
-    fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
-    marginTop: 16,
-    lineHeight: 20,
-  },
-  footer: {
-    paddingHorizontal: 24,
-    paddingVertical: 16,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 16,
-    borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
-    backgroundColor: "#FFFFFF",
-  },
-  submitButton: {
-    shadowColor: COLORS.primary.light,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  submitButtonText: {
-    fontSize: 18,
-    fontWeight: "700",
   },
 });

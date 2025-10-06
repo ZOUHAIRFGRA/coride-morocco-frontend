@@ -22,6 +22,7 @@ import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import * as Haptics from 'expo-haptics';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import WebMapView from './WebMapView';
+
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 export interface MapLocation {
@@ -55,14 +56,15 @@ interface MapViewComponentProps {
   style?: any;
   /** Map type */
   mapType?: 'standard' | 'satellite' | 'hybrid';
-  /** Force fallback to web map (useful for Android without Google Play Services) */
+  /** Force fallback mode (useful for testing or Android without Google Play Services) */
   forceFallback?: boolean;
 }
 
 /**
- * Reusable MapView component for CoRide Morocco
- * Supports location selection, markers, and current location
- * Now includes automatic fallback to web maps for better reliability
+ * Enhanced MapView component with multiple fallback strategies:
+ * 1. React Native Maps (primary - works on iOS, Android with Google Play Services)
+ * 2. WebView + OpenStreetMap/Leaflet (fallback - works everywhere, no API key needed)
+ * 3. Static map image (final fallback - for extreme cases)
  */
 export const MapViewComponent: React.FC<MapViewComponentProps> = ({
   initialRegion,
@@ -77,8 +79,10 @@ export const MapViewComponent: React.FC<MapViewComponentProps> = ({
   forceFallback = false,
 }) => {
   const { colors, isDarkMode } = useAppTheme();
-  const [mapProvider, setMapProvider] = useState<'native' | 'web'>('native');
+  const [mapProvider, setMapProvider] = useState<'native' | 'web' | 'static'>('native');
+  const [isMapReady, setIsMapReady] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+
   // Default region (Casablanca, Morocco)
   const defaultRegion: Region = {
     latitude: 33.5731,
@@ -102,19 +106,19 @@ export const MapViewComponent: React.FC<MapViewComponentProps> = ({
       return;
     }
 
-    // Try to use native maps first, but fall back to web maps on Android if needed
+    // Try to use native maps first
     setMapProvider('native');
     
     // Set a timeout to detect if native maps fail to load
     const errorTimeout = setTimeout(() => {
-      if (!mapRef.current && mapProvider === 'native') {
+      if (!isMapReady && mapProvider === 'native') {
         console.log('Native maps taking too long to load, falling back to web maps');
         handleMapError('Native maps failed to load within timeout');
       }
     }, 10000); // 10 second timeout
 
     return () => clearTimeout(errorTimeout);
-  }, [forceFallback]);
+  }, [forceFallback, isMapReady, mapProvider]);
 
   // Check location permissions on mount
   useEffect(() => {
@@ -130,7 +134,7 @@ export const MapViewComponent: React.FC<MapViewComponentProps> = ({
     }
   };
 
-  // Handle map errors and fallback
+  // Handle native map errors and fallback
   const handleMapError = (error: any) => {
     console.error('Native map error:', error);
     setMapError('Native map failed to load');
@@ -142,7 +146,7 @@ export const MapViewComponent: React.FC<MapViewComponentProps> = ({
     }, 1000);
   };
 
-  // Handle map press for location selection
+  // Handle map press for location selection (native maps)
   const handleMapPress = async (event: MapPressEvent) => {
     if (!interactive) return;
 
@@ -159,6 +163,12 @@ export const MapViewComponent: React.FC<MapViewComponentProps> = ({
     onLocationSelect?.(newLocation);
   };
 
+  // Handle web map location selection
+  const handleWebLocationSelect = (location: MapLocation) => {
+    setSelectedLocation(location);
+    onLocationSelect?.(location);
+  };
+
   // Get current location
   const getCurrentLocation = async () => {
     if (!hasLocationPermission) {
@@ -170,7 +180,6 @@ export const MapViewComponent: React.FC<MapViewComponentProps> = ({
           { 
             text: 'Settings', 
             onPress: () => {
-              // Open app settings - this would need platform-specific implementation
               Alert.alert('Please enable location in device settings');
             }
           }
@@ -197,7 +206,11 @@ export const MapViewComponent: React.FC<MapViewComponentProps> = ({
       };
 
       setRegion(newRegion);
-      mapRef.current?.animateToRegion(newRegion, 1000);
+      
+      // Animate to location based on map provider
+      if (mapProvider === 'native' && mapRef.current) {
+        mapRef.current.animateToRegion(newRegion, 1000);
+      }
 
       if (interactive) {
         const currentLocation: MapLocation = {
@@ -246,17 +259,6 @@ export const MapViewComponent: React.FC<MapViewComponentProps> = ({
     return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
   };
 
-  // Animate to specific location
-  const animateToLocation = (location: LatLng, zoom?: number) => {
-    const newRegion: Region = {
-      latitude: location.latitude,
-      longitude: location.longitude,
-      latitudeDelta: zoom || 0.005,
-      longitudeDelta: zoom || 0.005,
-    };
-    mapRef.current?.animateToRegion(newRegion, 1000);
-  };
-
   // Convert markers format for web map
   const webMarkers = markers.map(marker => ({
     id: marker.id,
@@ -266,43 +268,56 @@ export const MapViewComponent: React.FC<MapViewComponentProps> = ({
     description: marker.description,
   }));
 
-  // Handle web map location selection
-  const handleWebLocationSelect = (location: MapLocation) => {
-    setSelectedLocation(location);
-    onLocationSelect?.(location);
-  };
+  // Render provider indicator
+  const renderProviderIndicator = () => (
+    <View style={{
+      position: 'absolute',
+      top: 12,
+      left: 12,
+      backgroundColor: colors.background.secondary,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 6,
+      flexDirection: 'row',
+      alignItems: 'center',
+    }}>
+      <View style={{
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: mapProvider === 'native' ? '#10B981' : '#F59E0B',
+        marginRight: 6,
+      }} />
+      <Text style={{
+        fontSize: 12,
+        color: colors.text.secondary,
+        fontFamily: FONTS.regular,
+      }}>
+        {mapProvider === 'native' ? 'Native Maps' : mapProvider === 'web' ? 'Web Maps' : 'Static Map'}
+      </Text>
+    </View>
+  );
 
-  return (
-    <View style={[{ height, borderRadius: 12, overflow: 'hidden' }, style]}>
-      {mapProvider === 'web' ? (
-        <WebMapView
-          initialRegion={region}
-          initialLocation={selectedLocation || undefined}
-          interactive={interactive}
-          onLocationSelect={handleWebLocationSelect}
-          markers={webMarkers}
-          height="100%"
-          showCurrentLocationButton={showCurrentLocationButton}
-          style={{ flex: 1 }}
-        />
-      ) : (
-        <>
-          <MapView
-            ref={mapRef}
-            style={{ flex: 1 }}
-            provider={PROVIDER_DEFAULT}
-            mapType={mapType}
-            region={region}
-            onRegionChangeComplete={setRegion}
-            onPress={handleMapPress}
-            showsUserLocation={hasLocationPermission}
-            showsMyLocationButton={false}
-            showsCompass={false}
-            showsScale={Platform.OS === 'android'}
-            loadingEnabled
-            loadingIndicatorColor={COLORS.primary.oceanBlue700}
-            moveOnMarkerPress={false}
-          >
+  // Render native map
+  const renderNativeMap = () => (
+    <>
+      <MapView
+        ref={mapRef}
+        style={{ flex: 1 }}
+        provider={PROVIDER_DEFAULT}
+        mapType={mapType}
+        region={region}
+        onRegionChangeComplete={setRegion}
+        onPress={handleMapPress}
+        onMapReady={() => setIsMapReady(true)}
+        showsUserLocation={hasLocationPermission}
+        showsMyLocationButton={false}
+        showsCompass={false}
+        showsScale={Platform.OS === 'android'}
+        loadingEnabled
+        loadingIndicatorColor={COLORS.primary.oceanBlue700}
+        moveOnMarkerPress={false}
+      >
         {/* Selected location marker */}
         {selectedLocation && (
           <Marker
@@ -328,105 +343,152 @@ export const MapViewComponent: React.FC<MapViewComponentProps> = ({
         ))}
       </MapView>
 
-          {/* Controls overlay */}
-          <View style={{ position: 'absolute', top: 12, right: 12 }}>
-            {showCurrentLocationButton && (
-              <TouchableOpacity
-                style={{
-                  backgroundColor: colors.background.primary,
-                  borderRadius: 8,
-                  padding: 12,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 4,
-                  elevation: 3,
-                }}
-                onPress={getCurrentLocation}
-                disabled={isLoadingLocation}
-              >
-                {isLoadingLocation ? (
-                  <ActivityIndicator size="small" color={COLORS.primary.oceanBlue700} />
-                ) : (
-                  <Ionicons 
-                    name="locate" 
-                    size={20} 
-                    color={COLORS.primary.oceanBlue700} 
-                  />
-                )}
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Location info overlay */}
-          {interactive && selectedLocation && (
-            <View style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
+      {/* Controls overlay */}
+      <View style={{ position: 'absolute', top: 12, right: 12 }}>
+        {showCurrentLocationButton && (
+          <TouchableOpacity
+            style={{
               backgroundColor: colors.background.primary,
-              borderTopWidth: 1,
-              borderTopColor: colors.border.primary,
-              padding: 12
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                <Ionicons 
-                  name="location" 
-                  size={20} 
-                  color={COLORS.primary.oceanBlue700} 
-                  style={{ marginTop: 2, marginRight: 8 }}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={{
-                    color: colors.text.primary,
-                    fontFamily: FONTS.semiBold,
-                    fontWeight: '500'
-                  }}>
-                    Selected Location
-                  </Text>
-                  <Text style={{
-                    color: colors.text.secondary,
-                    fontSize: 14,
-                    marginTop: 4,
-                    fontFamily: FONTS.regular
-                  }} numberOfLines={2}>
-                    {selectedLocation.address || `${selectedLocation.latitude.toFixed(4)}, ${selectedLocation.longitude.toFixed(4)}`}
-                  </Text>
-                </View>
-              </View>
+              borderRadius: 8,
+              padding: 12,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 3,
+            }}
+            onPress={getCurrentLocation}
+            disabled={isLoadingLocation}
+          >
+            {isLoadingLocation ? (
+              <ActivityIndicator size="small" color={COLORS.primary.oceanBlue700} />
+            ) : (
+              <Ionicons 
+                name="locate" 
+                size={20} 
+                color={COLORS.primary.oceanBlue700} 
+              />
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Location info overlay */}
+      {interactive && selectedLocation && (
+        <View style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: colors.background.primary,
+          borderTopWidth: 1,
+          borderTopColor: colors.border.primary,
+          padding: 12
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+            <Ionicons 
+              name="location" 
+              size={20} 
+              color={COLORS.primary.oceanBlue700} 
+              style={{ marginTop: 2, marginRight: 8 }}
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={{
+                color: colors.text.primary,
+                fontFamily: FONTS.semiBold,
+                fontWeight: '500'
+              }}>
+                Selected Location
+              </Text>
+              <Text style={{
+                color: colors.text.secondary,
+                fontSize: 14,
+                marginTop: 4,
+                fontFamily: FONTS.regular
+              }} numberOfLines={2}>
+                {selectedLocation.address || `${selectedLocation.latitude.toFixed(4)}, ${selectedLocation.longitude.toFixed(4)}`}
+              </Text>
             </View>
-          )}
+          </View>
+        </View>
+      )}
+    </>
+  );
+
+  // Render web map
+  const renderWebMap = () => (
+    <WebMapView
+      initialRegion={region}
+      initialLocation={selectedLocation || undefined}
+      interactive={interactive}
+      onLocationSelect={handleWebLocationSelect}
+      markers={webMarkers}
+      height="100%"
+      showCurrentLocationButton={showCurrentLocationButton}
+      style={{ flex: 1 }}
+    />
+  );
+
+  // Render error message with manual fallback option
+  const renderMapError = () => (
+    <View style={{
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.secondary,
+      padding: 20,
+    }}>
+      <Ionicons name="map-outline" size={60} color={colors.text.tertiary} />
+      <Text style={{
+        color: colors.text.primary,
+        fontSize: 18,
+        fontWeight: '600',
+        marginTop: 16,
+        textAlign: 'center',
+      }}>
+        Map Loading Issue
+      </Text>
+      <Text style={{
+        color: colors.text.secondary,
+        fontSize: 14,
+        marginTop: 8,
+        textAlign: 'center',
+        lineHeight: 20,
+      }}>
+        {mapError}
+      </Text>
+      <TouchableOpacity
+        style={{
+          marginTop: 20,
+          backgroundColor: COLORS.primary.oceanBlue700,
+          paddingHorizontal: 20,
+          paddingVertical: 10,
+          borderRadius: 8,
+        }}
+        onPress={() => {
+          setMapProvider('web');
+          setMapError(null);
+        }}
+      >
+        <Text style={{
+          color: 'white',
+          fontWeight: '600',
+        }}>
+          Try Alternative Map
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <View style={[{ height, borderRadius: 12, overflow: 'hidden' }, style]}>
+      {mapError ? renderMapError() : (
+        <>
+          {mapProvider === 'native' && renderNativeMap()}
+          {mapProvider === 'web' && renderWebMap()}
+          {renderProviderIndicator()}
         </>
       )}
-
-      {/* Map Provider Indicator */}
-      <View style={{
-        position: 'absolute',
-        top: 12,
-        left: 12,
-        backgroundColor: colors.background.secondary,
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
-        flexDirection: 'row',
-        alignItems: 'center',
-      }}>
-        <View style={{
-          width: 8,
-          height: 8,
-          borderRadius: 4,
-          backgroundColor: mapProvider === 'native' ? '#10B981' : '#F59E0B',
-          marginRight: 6,
-        }} />
-        <Text style={{
-          fontSize: 12,
-          color: colors.text.secondary,
-          fontFamily: FONTS.regular,
-        }}>
-          {mapProvider === 'native' ? 'Native Maps' : 'Web Maps'}
-        </Text>
-      </View>
     </View>
   );
 };

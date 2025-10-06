@@ -22,6 +22,7 @@ import { StateCode } from "@/constants/countries"
 import { LinearGradient } from "expo-linear-gradient";
 import LocationField from "@/components/ui/LocationField";
 import { useAuth } from "@/contexts/AppStateContext";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 interface FormFieldRendererProps {
   fieldName: string;
@@ -75,6 +76,7 @@ const CustomSelectDropdown: React.FC<CustomSelectDropdownProps & { fieldName?: s
   searchable = false,
   fieldName,
 }) => {
+  const { colors, isDarkMode } = useAppTheme();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -140,21 +142,34 @@ const CustomSelectDropdown: React.FC<CustomSelectDropdownProps & { fieldName?: s
     <View className="relative">
       <TouchableOpacity
         onPress={() => !disabled && setIsOpen(true)}
-        className={`border rounded-lg px-3 py-3 flex-row items-center justify-between ${
-          error ? "border-error-500" : "border-outline-300"
-        } ${disabled ? "bg-gray-100" : "bg-white"}`}
-        disabled={disabled}
         style={{
-          minHeight: 48, // Ensure consistent height
+          minHeight: 48,
+          borderWidth: 1,
+          borderRadius: 8,
+          paddingHorizontal: 12,
+          paddingVertical: 12,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderColor: error ? '#EF4444' : (isDarkMode ? colors.border.primary : '#D1D5DB'),
+          backgroundColor: disabled 
+            ? (isDarkMode ? colors.background.tertiary : '#F3F4F6') 
+            : (isDarkMode ? colors.background.secondary : '#FFFFFF')
         }}
+        disabled={disabled}
       >
         {/* If icon field, render icon+label, else just label */}
         {fieldName === "icon" && value ? (
           getDisplayValue()
         ) : (
         <Text
-          className={`flex-1 ${!value ? "text-gray-500" : "text-gray-900"}`}
-          style={{ fontFamily: FONTS.regular }}
+          style={{
+            flex: 1,
+            fontFamily: FONTS.regular,
+            color: !value 
+              ? (isDarkMode ? colors.text.tertiary : '#6B7280') 
+              : colors.text.primary
+          }}
         >
             {(() => {
               if (!value) return placeholder || "Select an option";
@@ -186,8 +201,12 @@ const CustomSelectDropdown: React.FC<CustomSelectDropdownProps & { fieldName?: s
           onPress={handleModalClose}
         >
           <View
-            className="bg-white rounded-lg max-h-80 mx-8 min-w-64"
             style={{
+              backgroundColor: colors.background.primary,
+              borderRadius: 8,
+              maxHeight: 320,
+              marginHorizontal: 32,
+              minWidth: 256,
               shadowColor: "#000",
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.25,
@@ -197,10 +216,18 @@ const CustomSelectDropdown: React.FC<CustomSelectDropdownProps & { fieldName?: s
               width: 300,
             }}
           >
-            <View className="border-b border-gray-200 px-4 py-3">
+            <View style={{
+              borderBottomWidth: 1,
+              borderBottomColor: isDarkMode ? colors.border.primary : '#E5E7EB',
+              paddingHorizontal: 16,
+              paddingVertical: 12
+            }}>
               <Text
-                className="font-semiBold text-lg text-gray-900"
-                style={{ fontFamily: FONTS.semiBold }}
+                style={{
+                  fontFamily: FONTS.semiBold,
+                  fontSize: 18,
+                  color: colors.text.primary
+                }}
               >
                 {placeholder}
               </Text>
@@ -208,21 +235,31 @@ const CustomSelectDropdown: React.FC<CustomSelectDropdownProps & { fieldName?: s
 
             {/* Search Input */}
             {searchable && (
-              <View className="border-b border-gray-200 px-4 py-2 bg-gray-50">
-                <View className="flex-row items-center">
-                  <Ionicons name="search" size={16} color="#6B7280" />
+              <View style={{
+                borderBottomWidth: 1,
+                borderBottomColor: isDarkMode ? colors.border.primary : '#E5E7EB',
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                backgroundColor: isDarkMode ? colors.background.secondary : '#F9FAFB'
+              }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="search" size={16} color={colors.text.secondary} />
                   <TextInput
                     ref={searchInputRef}
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     placeholder="Search..."
-                    placeholderTextColor="#9CA3AF"
-                    className="flex-1 ml-2 text-gray-900"
-                    style={{ fontFamily: FONTS.regular }}
+                    placeholderTextColor={isDarkMode ? colors.text.tertiary : '#9CA3AF'}
+                    style={{
+                      flex: 1,
+                      marginLeft: 8,
+                      color: colors.text.primary,
+                      fontFamily: FONTS.regular
+                    }}
                   />
                   {searchQuery.length > 0 && (
                     <TouchableOpacity onPress={() => setSearchQuery("")}>
-                      <Ionicons name="close-circle" size={16} color="#6B7280" />
+                      <Ionicons name="close-circle" size={16} color={colors.text.secondary} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -238,26 +275,31 @@ const CustomSelectDropdown: React.FC<CustomSelectDropdownProps & { fieldName?: s
                   <TouchableOpacity
                     key={String(option)}
                     onPress={() => handleOptionSelect(option)}
-                    className={`px-4 py-3 border-b border-gray-100 ${
-                      String(option) === String(value) ? "bg-blue-50" : ""
-                    }`}
-                    style={{ flexDirection: "row", alignItems: "center" }}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderBottomWidth: 1,
+                      borderBottomColor: isDarkMode ? colors.border.secondary : '#F3F4F6',
+                      backgroundColor: String(option) === String(value) 
+                        ? (isDarkMode ? colors.background.tertiary : '#EFF6FF') 
+                        : 'transparent',
+                      flexDirection: 'row',
+                      alignItems: 'center'
+                    }}
                   >
                     {/* If icon field, render icon+label, else just label */}
                     {fieldName === "icon" ? (
-                      <Ionicons name={option as any} size={20} style={{ marginRight: 10 }} />
+                      <Ionicons name={option as any} size={20} style={{ marginRight: 10 }} color={colors.text.primary} />
                     ) : null}
                     <Text
-                      className={`text-md ${
-                        String(option) === String(value)
-                          ? "text-blue-700 font-semiBold"
-                          : "text-gray-900"
-                      }`}
                       style={{
-                        fontFamily:
-                          String(option) === String(value)
-                            ? FONTS.semiBold
-                            : FONTS.regular,
+                        fontSize: 16,
+                        color: String(option) === String(value)
+                          ? (isDarkMode ? COLORS.primary.oceanBlue200 : '#1D4ED8')
+                          : colors.text.primary,
+                        fontFamily: String(option) === String(value)
+                          ? FONTS.semiBold
+                          : FONTS.regular,
                       }}
                     >
                       {optionLabels?.[index] || String(option)}
@@ -265,10 +307,13 @@ const CustomSelectDropdown: React.FC<CustomSelectDropdownProps & { fieldName?: s
                   </TouchableOpacity>
                 ))
               ) : searchable && searchQuery.length > 0 ? (
-                <View className="px-4 py-6 items-center">
+                <View style={{ paddingHorizontal: 16, paddingVertical: 24, alignItems: 'center' }}>
                   <Text
-                    className="text-gray-500 text-center"
-                    style={{ fontFamily: FONTS.regular }}
+                    style={{
+                      color: colors.text.secondary,
+                      textAlign: 'center',
+                      fontFamily: FONTS.regular
+                    }}
                   >
                     No options found matching "{searchQuery}"
                   </Text>
@@ -277,11 +322,19 @@ const CustomSelectDropdown: React.FC<CustomSelectDropdownProps & { fieldName?: s
             </ScrollView>
             <TouchableOpacity
               onPress={handleModalClose}
-              className="px-4 py-3 border-t border-gray-200"
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+                borderTopWidth: 1,
+                borderTopColor: isDarkMode ? colors.border.primary : '#E5E7EB'
+              }}
             >
               <Text
-                className="text-center text-blue-600 font-semiBold"
-                style={{ fontFamily: FONTS.semiBold }}
+                style={{
+                  textAlign: 'center',
+                  color: isDarkMode ? COLORS.primary.oceanBlue200 : '#2563EB',
+                  fontFamily: FONTS.semiBold
+                }}
               >
                 Cancel
               </Text>
@@ -309,6 +362,7 @@ export const FormFieldRenderer: React.FC<FormFieldRendererProps> = React.memo(({
   required = false,
   onTextareaFocus,
 }) => {
+  const { colors, isDarkMode } = useAppTheme();
   const widget = uiDef?.["ui:widget"];
   const placeholder =
     uiDef?.["ui:placeholder"] || `Enter ${fieldDef.title.toLowerCase()}`;
@@ -340,8 +394,13 @@ export const FormFieldRenderer: React.FC<FormFieldRendererProps> = React.memo(({
   // Common label component
   const FieldLabel = () => (
     <Text
-      className="text-sm font-medium text-typography-700 mb-2"
-      style={{ fontFamily: FONTS.regular }}
+      style={{
+        fontSize: 14,
+        fontWeight: '500',
+        color: colors.text.primary,
+        marginBottom: 8,
+        fontFamily: FONTS.regular
+      }}
     >
       {fieldDef.title}
       {required && <Text style={{ color: "#E53935" }}> *</Text>}
@@ -350,12 +409,12 @@ export const FormFieldRenderer: React.FC<FormFieldRendererProps> = React.memo(({
 
   // Common error component
   const FieldError = () =>
-    error ? <Text className="text-error-500 text-xs mt-1">{error}</Text> : null;
+    error ? <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>{error}</Text> : null;
 
   // Common help text component
   const FieldHelp = () =>
     help ? (
-      <Text className="text-typography-500 text-xs mt-1">{help}</Text>
+      <Text style={{ color: colors.text.secondary, fontSize: 12, marginTop: 4 }}>{help}</Text>
     ) : null;
 
   // Render different widgets based on type and widget hint
@@ -519,6 +578,18 @@ export const FormFieldRenderer: React.FC<FormFieldRendererProps> = React.memo(({
         );
 
       case "date":
+        // Parse date constraints from options
+        const getDateConstraint = (constraint: string | Date | undefined): Date | undefined => {
+          if (!constraint) return undefined;
+          if (constraint instanceof Date) return constraint;
+          if (constraint === 'today') return new Date();
+          try {
+            return new Date(constraint);
+          } catch {
+            return undefined;
+          }
+        };
+
         return (
           <SimpleDatePicker
             value={value}
@@ -526,6 +597,8 @@ export const FormFieldRenderer: React.FC<FormFieldRendererProps> = React.memo(({
             placeholder={placeholder}
             error={!!error}
             disabled={isFieldDisabled}
+            minimumDate={getDateConstraint(options.minimumDate)}
+            maximumDate={getDateConstraint(options.maximumDate)}
           />
         );
 
@@ -542,17 +615,23 @@ export const FormFieldRenderer: React.FC<FormFieldRendererProps> = React.memo(({
       case "textarea":
         return (
           <TextInput
-            className={`border rounded-lg px-3 py-3 text-md min-h-[140px] text-typography-800 font-regular ${
-              error ? "border-error-500" : "border-outline-300"
-            }`}
             style={{
+              borderWidth: 1,
+              borderRadius: 8,
+              paddingHorizontal: 12,
+              paddingVertical: 12,
+              fontSize: 16,
+              minHeight: 140,
               fontFamily: FONTS.regular,
               textAlignVertical: "top",
+              borderColor: error ? '#EF4444' : (isDarkMode ? colors.border.primary : '#D1D5DB'),
+              backgroundColor: isDarkMode ? colors.background.secondary : '#F9FAFB',
+              color: colors.text.primary
             }}
             value={value || ""}
             onChangeText={onChange}
             placeholder={placeholder}
-            placeholderTextColor="#999"
+            placeholderTextColor={isDarkMode ? colors.text.tertiary : '#9CA3AF'}
             multiline
             numberOfLines={4}
             editable={!disabled}
@@ -570,19 +649,33 @@ export const FormFieldRenderer: React.FC<FormFieldRendererProps> = React.memo(({
 
       case "tickerInput":
         return (
-          <View className="flex-row items-center bg-gray-100 rounded-xl px-3 border border-gray-200">
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            backgroundColor: isDarkMode ? colors.background.secondary : '#F3F4F6',
+            borderRadius: 12,
+            paddingHorizontal: 12,
+            borderWidth: 1,
+            borderColor: isDarkMode ? colors.border.primary : '#E5E7EB'
+          }}>
             <Ionicons
               name="search-outline"
               size={20}
-              color={COLORS.text.secondary}
-              className="mr-2"
+              color={colors.text.secondary}
+              style={{ marginRight: 8 }}
             />
             <TextInput
               value={value || ""}
               onChangeText={onChange}
-              className="flex-1 py-3 text-md text-gray-700 font-medium"
+              style={{
+                flex: 1,
+                paddingVertical: 12,
+                fontSize: 16,
+                color: colors.text.primary,
+                fontWeight: '500'
+              }}
               placeholder={placeholder}
-              placeholderTextColor={COLORS.text.secondary}
+              placeholderTextColor={colors.text.tertiary}
               autoCapitalize="characters"
               editable={!isFieldDisabled}
             />
@@ -1164,18 +1257,25 @@ export const FormFieldRenderer: React.FC<FormFieldRendererProps> = React.memo(({
         // Default text input
         return (
           <TextInput
-            className={`border rounded-lg px-3 py-3 text-base ${
-              error ? "border-error-500" : "border-outline-300"
-            } ${
-              isFieldDisabled
-                ? "bg-gray-200 text-gray-500"
-                : "bg-gray-50 text-typography-900"
-            }`}
-            style={{ fontFamily: FONTS.regular }}
+            style={{
+              borderWidth: 1,
+              borderRadius: 8,
+              paddingHorizontal: 12,
+              paddingVertical: 12,
+              fontSize: 16,
+              fontFamily: FONTS.regular,
+              borderColor: error ? '#EF4444' : (isDarkMode ? colors.border.primary : '#D1D5DB'),
+              backgroundColor: isFieldDisabled
+                ? (isDarkMode ? colors.background.tertiary : '#F3F4F6')
+                : (isDarkMode ? colors.background.secondary : '#F9FAFB'),
+              color: isFieldDisabled
+                ? (isDarkMode ? colors.text.tertiary : '#6B7280')
+                : colors.text.primary
+            }}
             value={value || ""}
             onChangeText={onChange}
             placeholder={placeholder}
-            placeholderTextColor="#999"
+            placeholderTextColor={isDarkMode ? colors.text.tertiary : '#9CA3AF'}
             keyboardType={getKeyboardType(fieldDef)}
             autoCapitalize={getAutoCapitalize(fieldDef)}
             editable={!isFieldDisabled}

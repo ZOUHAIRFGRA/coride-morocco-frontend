@@ -6,11 +6,13 @@ import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { useAuth } from '@/contexts/AppStateContext';
 import { useUser } from '@/hooks/useUserProfile';
 import CoRideSidebar from '@/components/CoRideSidebar';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 export default function MainScreen() {
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const { user } = useAuth();
   const { profile } = useUser();
+  const { colors, isDarkMode } = useAppTheme();
 
   // Use profile data or fallback to auth user
   const userData = profile || user;
@@ -27,71 +29,73 @@ export default function MainScreen() {
     return firstName ? `${greeting}, ${firstName}!` : `${greeting}!`;
   };
 
+  const dynamicStyles = createStyles(colors);
+
   return (
     <>
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={dynamicStyles.container}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={dynamicStyles.header}>
           <View>
-            <Text style={styles.welcomeText}>{getWelcomeMessage()}</Text>
-            <Text style={styles.subtitle}>Ready to share a ride?</Text>
+            <Text style={dynamicStyles.welcomeText}>{getWelcomeMessage()}</Text>
+            <Text style={dynamicStyles.subtitle}>Ready to share a ride?</Text>
           </View>
           <TouchableOpacity 
-            style={styles.menuButton}
+            style={dynamicStyles.menuButton}
             onPress={() => setSidebarVisible(true)}
           >
-            <Ionicons name="menu" size={wp(7)} color="#2C3E50" />
+            <Ionicons name="menu" size={wp(7)} color={colors.text.primary} />
           </TouchableOpacity>
         </View>
 
         {/* Main Content */}
-        <View style={styles.content}>
-          <View style={styles.logoContainer}>
-            <View style={styles.logoCircle}>
+        <View style={dynamicStyles.content}>
+          <View style={dynamicStyles.logoContainer}>
+            <View style={dynamicStyles.logoCircle}>
               <Ionicons name="car" size={wp(15)} color="#FFFFFF" />
             </View>
-            <Text style={styles.title}>CoRide Morocco</Text>
+            <Text style={dynamicStyles.title}>CoRide Morocco</Text>
           </View>
           
-          <Text style={styles.description}>
+          <Text style={dynamicStyles.description}>
             Share rides, save money, and make new connections across Morocco.
             Whether you're offering a ride or looking for one, we've got you covered.
           </Text>
 
           {/* Quick Actions */}
-          <View style={styles.quickActions}>
-            <TouchableOpacity style={styles.actionButton}>
+          <View style={dynamicStyles.quickActions}>
+            <TouchableOpacity style={dynamicStyles.actionButton}>
               <Ionicons name="search" size={wp(8)} color="#FFFFFF" />
-              <Text style={styles.actionText}>Find a Ride</Text>
+              <Text style={dynamicStyles.actionText}>Find a Ride</Text>
             </TouchableOpacity>
             
             {userData?.role === 'driver' && (
-              <TouchableOpacity style={[styles.actionButton, styles.secondaryButton]}>
-                <Ionicons name="add-circle" size={wp(8)} color="#0F4C75" />
-                <Text style={[styles.actionText, styles.secondaryText]}>Offer a Ride</Text>
+              <TouchableOpacity style={[dynamicStyles.actionButton, dynamicStyles.secondaryButton]}>
+                <Ionicons name="add-circle" size={wp(8)} color={colors.primary.dark} />
+                <Text style={[dynamicStyles.actionText, dynamicStyles.secondaryText]}>Offer a Ride</Text>
               </TouchableOpacity>
             )}
           </View>
 
           {/* Stats or Recent Activity */}
-          <View style={styles.statsContainer}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
+          <View style={dynamicStyles.statsContainer}>
+            <View style={dynamicStyles.statItem}>
+              <Text style={dynamicStyles.statNumber}>
                 {userData?.rating_count || 0}
               </Text>
-              <Text style={styles.statLabel}>Rides</Text>
+              <Text style={dynamicStyles.statLabel}>Rides</Text>
             </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
+            <View style={dynamicStyles.statItem}>
+              <Text style={dynamicStyles.statNumber}>
                 {userData?.rating_average?.toFixed(1) || '--'}
               </Text>
-              <Text style={styles.statLabel}>Rating</Text>
+              <Text style={dynamicStyles.statLabel}>Rating</Text>
             </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>
+            <View style={dynamicStyles.statItem}>
+              <Text style={dynamicStyles.statNumber}>
                 {userData?.is_verified ? '✓' : '✗'}
               </Text>
-              <Text style={styles.statLabel}>Verified</Text>
+              <Text style={dynamicStyles.statLabel}>Verified</Text>
             </View>
           </View>
         </View>
@@ -106,10 +110,10 @@ export default function MainScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: colors.background.primary,
   },
   header: {
     flexDirection: 'row',
@@ -118,24 +122,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background.secondary,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border.primary,
   },
   welcomeText: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#2C3E50',
+    color: colors.text.primary,
   },
   subtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.text.secondary,
     marginTop: 2,
   },
   menuButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.background.tertiary,
   },
   content: {
     flex: 1,
@@ -151,11 +155,11 @@ const styles = StyleSheet.create({
     width: wp(25),
     height: wp(25),
     borderRadius: wp(12.5),
-    backgroundColor: '#0F4C75',
+    backgroundColor: colors.primary.dark,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    shadowColor: '#0F4C75',
+    shadowColor: colors.primary.dark,
     shadowOffset: {
       width: 0,
       height: 4,
@@ -167,12 +171,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#2C3E50',
+    color: colors.text.primary,
     textAlign: 'center',
   },
   description: {
     fontSize: 16,
-    color: '#6B7280',
+    color: colors.text.secondary,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 40,
@@ -185,12 +189,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F4C75',
+    backgroundColor: colors.primary.dark,
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12,
     marginBottom: 12,
-    shadowColor: '#0F4C75',
+    shadowColor: colors.primary.dark,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -200,9 +204,9 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   secondaryButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background.secondary,
     borderWidth: 2,
-    borderColor: '#0F4C75',
+    borderColor: colors.primary.dark,
   },
   actionText: {
     color: '#FFFFFF',
@@ -211,15 +215,15 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   secondaryText: {
-    color: '#0F4C75',
+    color: colors.primary.dark,
   },
   statsContainer: {
     flexDirection: 'row',
     width: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background.secondary,
     borderRadius: 12,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: {
       width: 0,
       height: 1,
@@ -235,12 +239,12 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#0F4C75',
+    color: colors.primary.dark,
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: colors.text.secondary,
     textTransform: 'uppercase',
     fontWeight: '500',
   },
