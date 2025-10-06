@@ -328,17 +328,63 @@ export const formSchemas: Record<string, FormDefinition> = {
         "ui:description": "Tap to open map and select the exact location"
       },
       latitude: { 
-        "ui:placeholder": "33.5731",
-        "ui:description": "Optional: GPS coordinate (defaults to Casablanca center)"
+        "ui:widget": "hidden"
       },
       longitude: { 
-        "ui:placeholder": "-7.5898",
-        "ui:description": "Optional: GPS coordinate (defaults to Casablanca center)"
+        "ui:widget": "hidden"
       }
     },
     mutation: "addLocation",
     successMessage: "Location saved successfully!",
     errorMessage: "Failed to save location. Please try again."
+  },
+
+  // Driver License Details Form
+  driverLicenseDetails: {
+    schema: {
+      title: "Driver License Details",
+      description: "Please provide your driver license information before uploading photos",
+      type: "object",
+      properties: {
+        licenseNumber: {
+          type: "string",
+          title: "License Number",
+          minLength: 9,
+          maxLength: 9,
+          pattern: "^[A-Z0-9]{2}\/[0-9]{6}$"
+        },
+        expiryDate: {
+          type: "string",
+          title: "Expiry Date",
+          format: "date"
+        }
+      },
+      required: ["licenseNumber", "expiryDate"]
+    },
+    uiSchema: {
+      licenseNumber: {
+        "ui:placeholder": "Enter your license number (e.g., AB/123456 or 05/789873)",
+        "ui:description": "Moroccan driver license format: 2 letters/numbers / 6 numbers",
+        "ui:options": { 
+          autoCapitalize: "characters",
+          mask: "XX/XXXXXX",
+          placeholder: "XX/XXXXXX"
+        }
+      },
+      expiryDate: {
+        "ui:widget": "date",
+        "ui:placeholder": "Select expiry date",
+        "ui:description": "Select your license expiry date",
+        "ui:options": { 
+          minimumDate: "today",
+          maximumDate: "2040-12-31",
+          futureOnly: true
+        }
+      }
+    },
+    mutation: "driverLicenseDetails",
+    successMessage: "License details validated successfully!",
+    errorMessage: "Please check your license details and try again."
   }
 };
 

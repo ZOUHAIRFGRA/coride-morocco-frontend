@@ -7,6 +7,7 @@ import StatusBarManagerComponent from "@/components/ui/StatusBarManager";
 import { UIProvider } from "@/contexts/UIContext";
 import { AppStateProvider } from "@/contexts/AppStateContext";
 import { useAuth } from "@/contexts/AppStateContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { useUserProfile } from "@hooks/useUserProfile";
 import { useAppSection, AppSectionPaths } from "@hooks/useAppSection";
 import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
@@ -159,15 +160,17 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <GluestackUIProvider>
-        <AppStateProvider>
-          <SafeAreaProvider>
-              <UIProvider>
-                <AppInitializer>
-                  <RootLayoutNav />
-                </AppInitializer>
-              </UIProvider>
-          </SafeAreaProvider>
-        </AppStateProvider>
+        <ThemeProvider>
+          <AppStateProvider>
+            <SafeAreaProvider>
+                <UIProvider>
+                  <AppInitializer>
+                    <RootLayoutNav />
+                  </AppInitializer>
+                </UIProvider>
+            </SafeAreaProvider>
+          </AppStateProvider>
+        </ThemeProvider>
       </GluestackUIProvider>
     </GestureHandlerRootView>
   );

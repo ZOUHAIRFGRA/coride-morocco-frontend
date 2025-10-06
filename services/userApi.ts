@@ -19,7 +19,9 @@ import type {
   DocumentStatusResponse,
   UploadIdentityDocumentResponse,
   UploadDriverLicenseResponse,
-  DocumentType
+  DocumentType,
+  VerificationStatus,
+  DocumentExtraction
 } from '../types/user';
 
 class UserApiService extends BaseApiService {
@@ -289,6 +291,38 @@ class UserApiService extends BaseApiService {
    */
   async getDocumentStatus(documentId: number): Promise<ApiResponse<DocumentStatusResponse>> {
     return this.get<DocumentStatusResponse>(`/users/documents/${documentId}/status`);
+  }
+
+  /**
+   * 16. Check Verification Status
+   * GET /users/documents/verification/status/{task_id}
+   */
+  async getVerificationStatus(taskId: string): Promise<ApiResponse<VerificationStatus>> {
+    return this.get<VerificationStatus>(`/users/documents/verification/status/${taskId}`);
+  }
+
+  /**
+   * 17. Get All Document Extractions
+   * GET /users/documents/extractions
+   */
+  async getDocumentExtractions(): Promise<ApiResponse<DocumentExtraction[]>> {
+    return this.get<DocumentExtraction[]>('/users/documents/extractions');
+  }
+
+  /**
+   * 18. Get Specific Document Extraction
+   * GET /users/documents/extractions/{id}
+   */
+  async getDocumentExtraction(extractionId: number): Promise<ApiResponse<DocumentExtraction>> {
+    return this.get<DocumentExtraction>(`/users/documents/extractions/${extractionId}`);
+  }
+
+  /**
+   * 19. Test Verification System
+   * POST /users/documents/test-verification
+   */
+  async testVerification(): Promise<ApiResponse<any>> {
+    return this.post<any>('/users/documents/test-verification', {});
   }
 
   /**

@@ -177,6 +177,7 @@ export interface UploadIdentityDocumentResponse {
   document_id: number;
   document_type: string;
   status: string;
+  verification_task_id: string;
   front_image_url: string;
   back_image_url?: string;
 }
@@ -186,9 +187,39 @@ export interface UploadDriverLicenseResponse {
   license_id: number;
   license_number: string;
   status: string;
+  verification_task_id: string;
   front_image_url: string;
   back_image_url: string;
   expiry_date: string;
+}
+
+// New types for verification tracking
+export interface VerificationStatus {
+  task_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  message?: string;
+  extracted_data?: DocumentExtraction;
+  error?: string;
+}
+
+export interface DocumentExtraction {
+  id: number;
+  document_type: string;
+  extracted_data: {
+    [key: string]: any;
+    // For identity documents
+    cin?: string;
+    full_name?: string;
+    birth_date?: string;
+    address?: string;
+    // For driver license
+    license_number?: string;
+    expiry_date?: string;
+    issue_date?: string;
+  };
+  confidence_score: number;
+  created_at: string;
 }
 
 // Enums for validation
