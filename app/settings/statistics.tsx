@@ -12,12 +12,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { COLORS } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { useUser } from '@/hooks/useUserProfile';
 import type { UserStats } from '@/types/user';
 import * as Haptics from 'expo-haptics';
 
 const Statistics = () => {
   const router = useRouter();
+  const { colors, isDarkMode } = useAppTheme();
   const { getStats, profile } = useUser();
 
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -64,7 +66,19 @@ const Statistics = () => {
     color?: string;
     backgroundColor?: string;
   }) => (
-    <View className="bg-white rounded-xl mx-4 mb-4 shadow-sm border border-gray-100">
+    <View style={{
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      marginHorizontal: 16,
+      marginBottom: 16,
+      shadowColor: isDarkMode ? '#000' : '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDarkMode ? 0.3 : 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+      borderWidth: 1,
+      borderColor: colors.border.primary
+    }}>
       <View className="p-6">
         <View className="flex-row items-center mb-4">
           <View 
@@ -74,13 +88,25 @@ const Statistics = () => {
             <Ionicons name={icon as any} size={24} color={color} />
           </View>
           <View className="flex-1">
-            <Text className="text-lg font-semiBold text-gray-900">{title}</Text>
+            <Text style={{
+              fontSize: 18,
+              fontWeight: '600',
+              color: colors.text.primary
+            }}>{title}</Text>
             {description && (
-              <Text className="text-sm text-gray-500 mt-1">{description}</Text>
+              <Text style={{
+                fontSize: 14,
+                color: colors.text.secondary,
+                marginTop: 4
+              }}>{description}</Text>
             )}
           </View>
         </View>
-        <Text className="text-3xl font-bold text-gray-900">{value}</Text>
+        <Text style={{
+          fontSize: 30,
+          fontWeight: 'bold',
+          color: colors.text.primary
+        }}>{value}</Text>
       </View>
     </View>
   );
@@ -96,17 +122,38 @@ const Statistics = () => {
     description?: string;
     color?: string;
   }) => (
-    <View className="bg-white rounded-xl mx-4 mb-4 shadow-sm border border-gray-100">
+    <View style={{
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      marginHorizontal: 16,
+      marginBottom: 16,
+      shadowColor: isDarkMode ? '#000' : '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: isDarkMode ? 0.3 : 0.1,
+      shadowRadius: 2,
+      elevation: 2,
+      borderWidth: 1,
+      borderColor: colors.border.primary
+    }}>
       <View className="p-6">
         <View className="flex-row items-center justify-between mb-4">
-          <Text className="text-lg font-semiBold text-gray-900">{title}</Text>
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '600',
+            color: colors.text.primary
+          }}>{title}</Text>
           <Text className="text-xl font-bold" style={{ color }}>
             {percentage.toFixed(0)}%
           </Text>
         </View>
         
         {/* Progress Bar */}
-        <View className="bg-gray-200 rounded-full h-3 mb-2">
+        <View style={{
+          backgroundColor: colors.border.secondary,
+          borderRadius: 6,
+          height: 12,
+          marginBottom: 8
+        }}>
           <View 
             className="h-3 rounded-full"
             style={{ 
@@ -117,7 +164,10 @@ const Statistics = () => {
         </View>
         
         {description && (
-          <Text className="text-sm text-gray-500">{description}</Text>
+          <Text style={{
+            fontSize: 14,
+            color: colors.text.secondary
+          }}>{description}</Text>
         )}
       </View>
     </View>
@@ -134,41 +184,90 @@ const Statistics = () => {
     value: string;
     color?: string;
   }) => (
-    <View className="flex-row items-center py-3 px-6 border-b border-gray-50">
+    <View style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.secondary
+    }}>
       <Ionicons name={icon as any} size={20} color={color} />
-      <Text className="flex-1 ml-4 text-gray-700">{label}</Text>
-      <Text className="font-semiBold text-gray-900">{value}</Text>
+      <Text style={{
+        flex: 1,
+        marginLeft: 16,
+        color: colors.text.secondary
+      }}>{label}</Text>
+      <Text style={{
+        fontWeight: '600',
+        color: colors.text.primary
+      }}>{value}</Text>
     </View>
   );
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+      <SafeAreaView style={{
+        flex: 1,
+        backgroundColor: colors.background.primary
+      }}>
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: colors.background.secondary,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border.primary
+        }}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#006389" />
+            <Ionicons name="arrow-back" size={24} color={colors.primary.dark} />
           </TouchableOpacity>
-          <Text className="text-lg font-semibold text-gray-900">My Statistics</Text>
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '600',
+            color: colors.text.primary
+          }}>My Statistics</Text>
           <View className="w-6" />
         </View>
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color={COLORS.primary.oceanBlue700} />
-          <Text className="mt-4 text-gray-500">Loading your statistics...</Text>
+          <Text style={{
+            marginTop: 16,
+            color: colors.text.secondary
+          }}>Loading your statistics...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView style={{
+      flex: 1,
+      backgroundColor: colors.background.primary
+    }}>
       {/* Header */}
-      <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: colors.background.secondary,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.primary
+      }}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#006389" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary.dark} />
         </TouchableOpacity>
-        <Text className="text-lg font-semibold text-gray-900">My Statistics</Text>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: '600',
+          color: colors.text.primary
+        }}>My Statistics</Text>
         <TouchableOpacity onPress={handleRefresh}>
-          <Ionicons name="refresh" size={24} color="#006389" />
+          <Ionicons name="refresh" size={24} color={colors.primary.dark} />
         </TouchableOpacity>
       </View>
 
@@ -227,11 +326,30 @@ const Statistics = () => {
 
             {/* Account Information */}
             <View className="mt-2">
-              <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-3">
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: colors.text.secondary,
+                textTransform: 'uppercase',
+                paddingHorizontal: 16,
+                marginBottom: 12
+              }}>
                 Account Information
               </Text>
               
-              <View className="bg-white rounded-xl mx-4 mb-4 shadow-sm border border-gray-100">
+              <View style={{
+                backgroundColor: colors.background.secondary,
+                borderRadius: 12,
+                marginHorizontal: 16,
+                marginBottom: 16,
+                shadowColor: isDarkMode ? '#000' : '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: isDarkMode ? 0.3 : 0.1,
+                shadowRadius: 2,
+                elevation: 2,
+                borderWidth: 1,
+                borderColor: colors.border.primary
+              }}>
                 <InfoRow
                   icon="calendar"
                   label="Member Since"
@@ -273,69 +391,114 @@ const Statistics = () => {
 
             {/* Profile Insights */}
             <View className="mt-2">
-              <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-3">
+              <Text style={{
+                fontSize: 14,
+                fontWeight: '600',
+                color: colors.text.secondary,
+                textTransform: 'uppercase',
+                paddingHorizontal: 16,
+                marginBottom: 12
+              }}>
                 Profile Insights
               </Text>
               
-              <View className="bg-white rounded-xl mx-4 mb-4 shadow-sm border border-gray-100 p-6">
+              <View style={{
+                backgroundColor: colors.background.secondary,
+                borderRadius: 12,
+                marginHorizontal: 16,
+                marginBottom: 16,
+                shadowColor: isDarkMode ? '#000' : '#000',
+                shadowOffset: { width: 0, height: 1 },
+                shadowOpacity: isDarkMode ? 0.3 : 0.1,
+                shadowRadius: 2,
+                elevation: 2,
+                borderWidth: 1,
+                borderColor: colors.border.primary,
+                padding: 24
+              }}>
                 <View className="flex-row items-center mb-4">
                   <Ionicons name="analytics" size={24} color={COLORS.primary.oceanBlue700} />
-                  <Text className="ml-3 text-lg font-semiBold text-gray-900">Profile Strength</Text>
+                  <Text style={{
+                    marginLeft: 12,
+                    fontSize: 18,
+                    fontWeight: '600',
+                    color: colors.text.primary
+                  }}>Profile Strength</Text>
                 </View>
                 
                 <View className="space-y-3">
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-gray-600">Basic Information</Text>
+                    <Text style={{color: colors.text.secondary}}>Basic Information</Text>
                     <View className="flex-row items-center">
                       <Ionicons 
                         name={profile ? 'checkmark-circle' : 'close-circle'} 
                         size={16} 
                         color={profile ? '#10B981' : '#EF4444'} 
                       />
-                      <Text className="ml-1 text-sm font-medium text-gray-900">
-                        {profile ? 'Complete' : 'Incomplete'}
+                      <Text style={{
+                        marginLeft: 4,
+                        fontSize: 14,
+                        fontWeight: '500',
+                        color: colors.text.primary
+                      }}>
+                        {profile ? '100%' : '0%'}
                       </Text>
                     </View>
                   </View>
                   
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-gray-600">Profile Photo</Text>
+                    <Text style={{color: colors.text.secondary}}>Profile Photo</Text>
                     <View className="flex-row items-center">
                       <Ionicons 
                         name={profile?.profile_photo_url ? 'checkmark-circle' : 'close-circle'} 
                         size={16} 
                         color={profile?.profile_photo_url ? '#10B981' : '#EF4444'} 
                       />
-                      <Text className="ml-1 text-sm font-medium text-gray-900">
-                        {profile?.profile_photo_url ? 'Added' : 'Missing'}
+                      <Text style={{
+                        marginLeft: 4,
+                        fontSize: 14,
+                        fontWeight: '500',
+                        color: colors.text.primary
+                      }}>
+                        {profile?.profile_photo_url ? '100%' : '0%'}
                       </Text>
                     </View>
                   </View>
                   
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-gray-600">Bio Description</Text>
+                    <Text style={{color: colors.text.secondary}}>Bio Description</Text>
                     <View className="flex-row items-center">
                       <Ionicons 
                         name={profile?.bio ? 'checkmark-circle' : 'close-circle'} 
                         size={16} 
                         color={profile?.bio ? '#10B981' : '#EF4444'} 
                       />
-                      <Text className="ml-1 text-sm font-medium text-gray-900">
-                        {profile?.bio ? 'Added' : 'Missing'}
+                      <Text style={{
+                        marginLeft: 4,
+                        fontSize: 14,
+                        fontWeight: '500',
+                        color: colors.text.primary
+                      }}>
+                        {profile?.bio ? '100%' : '0%'}
                       </Text>
                     </View>
                   </View>
                   
                   <View className="flex-row items-center justify-between">
-                    <Text className="text-gray-600">Saved Locations</Text>
+                    <Text style={{color: colors.text.secondary}}>Saved Locations</Text>
                     <View className="flex-row items-center">
                       <Ionicons 
                         name={stats.saved_locations > 0 ? 'checkmark-circle' : 'close-circle'} 
                         size={16} 
                         color={stats.saved_locations > 0 ? '#10B981' : '#EF4444'} 
                       />
-                      <Text className="ml-1 text-sm font-medium text-gray-900">
-                        {stats.saved_locations > 0 ? `${stats.saved_locations} saved` : 'None saved'}
+                                            <Text style={{
+                        marginLeft: 4,
+                        fontSize: 14,
+                        fontWeight: '500',
+                        color: colors.text.primary
+                      }}>
+                        {stats?.saved_locations > 0 ? '100%' : '0%'}
                       </Text>
                     </View>
                   </View>
@@ -346,7 +509,13 @@ const Statistics = () => {
             {/* Tips for Improvement */}
             {stats.profile_completion < 90 && (
               <View className="mt-2 mx-4 mb-4">
-                <View className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <View style={{
+                  backgroundColor: isDarkMode ? colors.background.secondary : '#FFFBEB',
+                  borderWidth: 1,
+                  borderColor: isDarkMode ? colors.border.primary : '#FED7AA',
+                  borderRadius: 12,
+                  padding: 16
+                }}>
                   <View className="flex-row items-start">
                     <Ionicons name="bulb" size={20} color="#F59E0B" />
                     <View className="flex-1 ml-3">

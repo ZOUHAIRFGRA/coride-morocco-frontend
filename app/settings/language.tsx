@@ -16,6 +16,7 @@ import { useUser } from '@/hooks/useUserProfile';
 import type { UserProfile } from '@/types/user';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 const SUPPORTED_LANGUAGES = [
   { code: 'en', name: 'English', nativeName: 'English', flag: '🇺🇸' },
@@ -38,6 +39,7 @@ interface LanguagePreference {
 
 const LanguageSettings = () => {
   const router = useRouter();
+  const { colors, isDarkMode } = useAppTheme();
   const { profile, updateProfile } = useUser();
 
   const [preferences, setPreferences] = useState<LanguagePreference>({
@@ -160,33 +162,56 @@ const LanguageSettings = () => {
     <TouchableOpacity
       onPress={onPress}
       disabled={disabled}
-      className={`flex-row items-center p-4 border-b border-gray-100 ${
-        disabled ? 'opacity-50' : ''
-      }`}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.primary,
+        backgroundColor: colors.background.secondary,
+        opacity: disabled ? 0.5 : 1
+      }}
       activeOpacity={0.7}
     >
-      <Text className="text-2xl mr-4">{language.flag}</Text>
-      <View className="flex-1">
-        <Text className="text-lg font-medium text-gray-900">{language.name}</Text>
-        <Text className="text-sm text-gray-500">{language.nativeName}</Text>
+      <Text style={{ fontSize: 24, marginRight: 16 }}>{language.flag}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{
+          fontSize: 16,
+          fontWeight: '500',
+          color: colors.text.primary
+        }}>{language.name}</Text>
+        <Text style={{
+          fontSize: 14,
+          color: colors.text.secondary
+        }}>{language.nativeName}</Text>
       </View>
-      <View className="ml-4">
+      <View style={{ marginLeft: 16 }}>
         {type === 'primary' || type === 'interface' ? (
-          <View className={`w-6 h-6 rounded-full border-2 ${
-            isSelected 
-              ? 'border-oceanBlue-600 bg-oceanBlue-600' 
-              : 'border-gray-300'
-          } items-center justify-center`}>
+          <View style={{
+            width: 24,
+            height: 24,
+            borderRadius: 12,
+            borderWidth: 2,
+            borderColor: isSelected ? colors.primary.dark : colors.border.secondary,
+            backgroundColor: isSelected ? colors.primary.dark : 'transparent',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
             {isSelected && (
               <Ionicons name="checkmark" size={14} color="white" />
             )}
           </View>
         ) : (
-          <View className={`w-6 h-6 rounded border-2 ${
-            isSelected 
-              ? 'border-oceanBlue-600 bg-oceanBlue-600' 
-              : 'border-gray-300'
-          } items-center justify-center`}>
+          <View style={{
+            width: 24,
+            height: 24,
+            borderRadius: 4,
+            borderWidth: 2,
+            borderColor: isSelected ? colors.primary.dark : colors.border.secondary,
+            backgroundColor: isSelected ? colors.primary.dark : 'transparent',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
             {isSelected && (
               <Ionicons name="checkmark" size={14} color="white" />
             )}
@@ -197,61 +222,110 @@ const LanguageSettings = () => {
   );
 
   const SectionHeader = ({ title, description }: { title: string; description: string }) => (
-    <View className="px-4 py-4 bg-gray-50 border-b border-gray-100">
-      <Text className="text-lg font-semiBold text-gray-900">{title}</Text>
-      <Text className="text-sm text-gray-600 mt-1">{description}</Text>
+    <View style={{
+      paddingHorizontal: 16,
+      paddingVertical: 16,
+      backgroundColor: colors.background.tertiary,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.primary
+    }}>
+      <Text style={{
+        fontSize: 18,
+        fontWeight: '600',
+        color: colors.text.primary
+      }}>{title}</Text>
+      <Text style={{
+        fontSize: 14,
+        color: colors.text.secondary,
+        marginTop: 4
+      }}>{description}</Text>
     </View>
   );
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.primary }}>
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: colors.background.secondary,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border.primary
+        }}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={24} color="#006389" />
+            <Ionicons name="arrow-back" size={24} color={colors.primary.dark} />
           </TouchableOpacity>
-          <Text className="text-lg font-semibold text-gray-900">Language Settings</Text>
-          <View className="w-6" />
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '600',
+            color: colors.text.primary
+          }}>Language Settings</Text>
+          <View style={{ width: 24 }} />
         </View>
-        <View className="flex-1 justify-center items-center">
-          <ActivityIndicator size="large" color={COLORS.primary.oceanBlue700} />
-          <Text className="mt-4 text-gray-500">Loading language settings...</Text>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.primary.oceanBlue700} />
+          <Text style={{
+            marginTop: 16,
+            color: colors.text.secondary
+          }}>Loading language settings...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.primary }}>
       {/* Header */}
-      <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: colors.background.secondary,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.primary
+      }}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#006389" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary.dark} />
         </TouchableOpacity>
-        <Text className="text-lg font-semibold text-gray-900">Language Settings</Text>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: '600',
+          color: colors.text.primary
+        }}>Language Settings</Text>
         {hasChanges ? (
           <TouchableOpacity 
             onPress={saveLanguagePreferences}
             disabled={isSaving}
           >
             {isSaving ? (
-              <ActivityIndicator size="small" color="#006389" />
+              <ActivityIndicator size="small" color={colors.primary.dark} />
             ) : (
-              <Text className="text-oceanBlue-600 font-medium">Save</Text>
+              <Text style={{
+                color: colors.primary.dark,
+                fontWeight: '500'
+              }}>Save</Text>
             )}
           </TouchableOpacity>
         ) : (
-          <View className="w-12" />
+          <View style={{ width: 48 }} />
         )}
       </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={{ flex: 1, backgroundColor: colors.background.primary }} 
+        showsVerticalScrollIndicator={false}
+      >
         {/* Interface Language */}
         <SectionHeader
           title="Interface Language"
           description="Choose the language for app menus and interface"
         />
-        <View className="bg-white">
+        <View style={{ backgroundColor: colors.background.secondary }}>
           {SUPPORTED_LANGUAGES.map((language) => (
             <LanguageOption
               key={`interface-${language.code}`}
@@ -268,7 +342,7 @@ const LanguageSettings = () => {
           title="Primary Language"
           description="Your main language for communication with other users"
         />
-        <View className="bg-white">
+        <View style={{ backgroundColor: colors.background.secondary }}>
           {SUPPORTED_LANGUAGES.map((language) => (
             <LanguageOption
               key={`primary-${language.code}`}
@@ -285,7 +359,7 @@ const LanguageSettings = () => {
           title="Secondary Languages"
           description="Additional languages you can communicate in"
         />
-        <View className="bg-white">
+        <View style={{ backgroundColor: colors.background.secondary }}>
           {SUPPORTED_LANGUAGES.map((language) => (
             <LanguageOption
               key={`secondary-${language.code}`}
@@ -300,22 +374,46 @@ const LanguageSettings = () => {
 
         {/* Language Tips */}
         <View className="mx-4 my-6">
-          <View className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <View style={{
+            backgroundColor: colors.primary.oceanBlue50,
+            borderWidth: 1,
+            borderColor: colors.border.secondary,
+            borderRadius: 12,
+            padding: 16
+          }}>
             <View className="flex-row items-start">
               <Ionicons name="information-circle" size={20} color="#3B82F6" />
               <View className="flex-1 ml-3">
-                <Text className="text-blue-800 font-medium">Language Tips</Text>
+                <Text style={{
+                  color: colors.primary.oceanBlue700,
+                  fontWeight: '500'
+                }}>Language Tips</Text>
                 <View className="mt-2">
-                  <Text className="text-blue-700 text-sm">
+                  <Text style={{
+                    color: colors.primary.oceanBlue600,
+                    fontSize: 14
+                  }}>
                     • Your primary language will be displayed in your profile
                   </Text>
-                  <Text className="text-blue-700 text-sm mt-1">
+                  <Text style={{
+                    color: colors.primary.oceanBlue600,
+                    fontSize: 14,
+                    marginTop: 4
+                  }}>
                     • Secondary languages help you connect with more users
                   </Text>
-                  <Text className="text-blue-700 text-sm mt-1">
+                  <Text style={{
+                    color: colors.primary.oceanBlue600,
+                    fontSize: 14,
+                    marginTop: 4
+                  }}>
                     • Interface language only affects the app's menus and buttons
                   </Text>
-                  <Text className="text-blue-700 text-sm mt-1">
+                  <Text style={{
+                    color: colors.primary.oceanBlue600,
+                    fontSize: 14,
+                    marginTop: 4
+                  }}>
                     • You can change these settings anytime
                   </Text>
                 </View>
@@ -326,29 +424,50 @@ const LanguageSettings = () => {
 
         {/* Current Selection Summary */}
         <View className="mx-4 mb-6">
-          <View className="bg-white rounded-xl border border-gray-100 p-4">
-            <Text className="text-lg font-semiBold text-gray-900 mb-4">Current Selection</Text>
+          <View style={{
+            backgroundColor: colors.background.secondary,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: colors.border.secondary,
+            padding: 16
+          }}>
+            <Text style={{
+              fontSize: 18,
+              fontWeight: '600',
+              color: colors.text.primary,
+              marginBottom: 16
+            }}>Current Selection</Text>
             
             <View className="space-y-3">
               <View>
-                <Text className="text-sm font-medium text-gray-500 mb-1">Interface</Text>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '500',
+                  color: colors.text.secondary,
+                  marginBottom: 4
+                }}>Interface</Text>
                 <View className="flex-row items-center">
                   <Text className="text-xl mr-2">
                     {SUPPORTED_LANGUAGES.find(l => l.code === preferences.interface_language)?.flag}
                   </Text>
-                  <Text className="text-gray-900">
+                  <Text style={{ color: colors.text.primary }}>
                     {SUPPORTED_LANGUAGES.find(l => l.code === preferences.interface_language)?.name}
                   </Text>
                 </View>
               </View>
 
               <View>
-                <Text className="text-sm font-medium text-gray-500 mb-1">Primary Language</Text>
+                <Text style={{
+                  fontSize: 14,
+                  fontWeight: '500',
+                  color: colors.text.secondary,
+                  marginBottom: 4
+                }}>Primary Language</Text>
                 <View className="flex-row items-center">
                   <Text className="text-xl mr-2">
                     {SUPPORTED_LANGUAGES.find(l => l.code === preferences.primary_language)?.flag}
                   </Text>
-                  <Text className="text-gray-900">
+                  <Text style={{ color: colors.text.primary }}>
                     {SUPPORTED_LANGUAGES.find(l => l.code === preferences.primary_language)?.name}
                   </Text>
                 </View>
@@ -356,7 +475,12 @@ const LanguageSettings = () => {
 
               {preferences.secondary_languages.length > 0 && (
                 <View>
-                  <Text className="text-sm font-medium text-gray-500 mb-1">
+                  <Text style={{
+                    fontSize: 14,
+                    fontWeight: '500',
+                    color: colors.text.secondary,
+                    marginBottom: 4
+                  }}>
                     Secondary Languages ({preferences.secondary_languages.length})
                   </Text>
                   <View className="flex-row flex-wrap">
@@ -365,7 +489,10 @@ const LanguageSettings = () => {
                       return lang ? (
                         <View key={code} className="flex-row items-center mr-4 mb-2">
                           <Text className="text-lg mr-2">{lang.flag}</Text>
-                          <Text className="text-gray-900 text-sm">{lang.name}</Text>
+                          <Text style={{
+                            color: colors.text.primary,
+                            fontSize: 14
+                          }}>{lang.name}</Text>
                         </View>
                       ) : null;
                     })}

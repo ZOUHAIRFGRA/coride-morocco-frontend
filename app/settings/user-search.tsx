@@ -16,12 +16,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { COLORS } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { useUser } from '@/hooks/useUserProfile';
 import type { UserSearchResult, UserSearchParams, PublicUserProfile } from '@/types/user';
 import * as Haptics from 'expo-haptics';
 
 const UserSearch = () => {
   const router = useRouter();
+  const { colors, isDarkMode } = useAppTheme();
   const { searchUsers, getPublicProfile } = useUser();
 
   const [searchResults, setSearchResults] = useState<UserSearchResult[]>([]);
@@ -151,7 +153,19 @@ const UserSearch = () => {
 
     return (
       <TouchableOpacity
-        className="bg-white rounded-xl mx-4 mb-3 shadow-sm border border-gray-100"
+        style={{
+          backgroundColor: colors.background.secondary,
+          borderRadius: 12,
+          marginHorizontal: 16,
+          marginBottom: 12,
+          shadowColor: isDarkMode ? '#000' : '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: isDarkMode ? 0.3 : 0.1,
+          shadowRadius: 2,
+          elevation: 2,
+          borderWidth: 1,
+          borderColor: colors.border.primary
+        }}
         onPress={() => handleViewProfile(user.id)}
       >
         <View className="p-4">
@@ -165,7 +179,11 @@ const UserSearch = () => {
                   resizeMode="cover"
                 />
               ) : (
-                <Text className="text-primary-oceanBlue700 font-bold text-lg">
+                <Text style={{
+                  color: COLORS.primary.oceanBlue700,
+                  fontWeight: 'bold',
+                  fontSize: 18
+                }}>
                   {getInitials(user.first_name, user.last_name)}
                 </Text>
               )}
@@ -174,7 +192,11 @@ const UserSearch = () => {
             {/* User Info */}
             <View className="flex-1">
               <View className="flex-row items-center">
-                <Text className="text-lg font-semiBold text-gray-900">
+                <Text style={{
+                  fontSize: 18,
+                  fontWeight: '600',
+                  color: colors.text.primary
+                }}>
                   {user.first_name} {user.last_name}
                 </Text>
                 <View className="ml-2 flex-row items-center">
@@ -183,7 +205,13 @@ const UserSearch = () => {
                     size={14} 
                     color={COLORS.primary.oceanBlue700} 
                   />
-                  <Text className="text-primary-oceanBlue600 text-xs font-medium ml-1 capitalize">
+                  <Text style={{
+                    color: COLORS.primary.oceanBlue700,
+                    fontSize: 12,
+                    fontWeight: '500',
+                    marginLeft: 4,
+                    textTransform: 'capitalize'
+                  }}>
                     {user.role}
                   </Text>
                 </View>
@@ -192,14 +220,22 @@ const UserSearch = () => {
               {/* Rating */}
               <View className="flex-row items-center mt-1">
                 <Ionicons name="star" size={14} color="#F59E0B" />
-                <Text className="text-gray-600 text-sm ml-1">
+                <Text style={{
+                  color: colors.text.secondary,
+                  fontSize: 14,
+                  marginLeft: 4
+                }}>
                   {user.rating_average?.toFixed(1) || '0.0'} ({user.rating_count} reviews)
                 </Text>
               </View>
 
               {/* Bio preview */}
               {user.bio && (
-                <Text className="text-gray-500 text-sm mt-2" numberOfLines={2}>
+                <Text style={{
+                  color: colors.text.secondary,
+                  fontSize: 14,
+                  marginTop: 8
+                }} numberOfLines={2}>
                   {user.bio}
                 </Text>
               )}
@@ -223,38 +259,76 @@ const UserSearch = () => {
     onPress: () => void; 
   }) => (
     <TouchableOpacity
-      className={`px-4 py-2 rounded-full mr-2 border ${
-        isActive 
-          ? 'bg-primary-oceanBlue600 border-primary-oceanBlue600' 
-          : 'bg-gray-100 border-gray-300'
-      }`}
+      style={{
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        marginRight: 8,
+        borderWidth: 1,
+        backgroundColor: isActive ? COLORS.primary.oceanBlue600 : colors.background.tertiary,
+        borderColor: isActive ? COLORS.primary.oceanBlue600 : colors.border.primary,
+      }}
       onPress={onPress}
     >
-      <Text className={`text-sm font-medium ${
-        isActive ? 'text-white' : 'text-gray-700'
-      }`}>
+      <Text style={{
+        fontSize: 14,
+        fontWeight: '500',
+        color: isActive ? '#FFFFFF' : colors.text.primary
+      }}>
         {label}
       </Text>
     </TouchableOpacity>
   );
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView style={{
+      flex: 1,
+      backgroundColor: colors.background.primary
+    }}>
       {/* Header */}
-      <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: colors.background.secondary,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.primary
+      }}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#006389" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary.dark} />
         </TouchableOpacity>
-        <Text className="text-lg font-semibold text-gray-900">Find Users</Text>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: '600',
+          color: colors.text.primary
+        }}>Find Users</Text>
         <View className="w-6" />
       </View>
 
       {/* Search Bar */}
-      <View className="px-4 py-3 bg-white">
-        <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3">
-          <Ionicons name="search" size={20} color="#9CA3AF" />
+      <View style={{
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: colors.background.secondary
+      }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: colors.background.tertiary,
+          borderRadius: 12,
+          paddingHorizontal: 16,
+          paddingVertical: 12
+        }}>
+          <Ionicons name="search" size={20} color={colors.text.tertiary} />
           <TextInput
-            className="flex-1 ml-3 text-md text-gray-900"
+            style={{
+              flex: 1,
+              marginLeft: 12,
+              fontSize: 16,
+              color: colors.text.primary
+            }}
             placeholder="Search by name or email..."
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
@@ -271,7 +345,11 @@ const UserSearch = () => {
       </View>
 
       {/* Filters */}
-      <View className="bg-white px-4 pb-3">
+      <View style={{
+        backgroundColor: colors.background.secondary,
+        paddingHorizontal: 16,
+        paddingBottom: 12
+      }}>
         {/* Role Filter */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
           {roles.map((role) => (
@@ -306,7 +384,10 @@ const UserSearch = () => {
       {isLoading && searchResults.length === 0 ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color={COLORS.primary.oceanBlue700} />
-          <Text className="mt-4 text-gray-500">
+          <Text style={{
+            marginTop: 16,
+            color: colors.text.secondary
+          }}>
             {hasSearched ? 'Searching users...' : 'Loading popular users...'}
           </Text>
         </View>
@@ -336,8 +417,18 @@ const UserSearch = () => {
             hasSearched ? (
               <View className="flex-1 justify-center items-center py-20">
                 <Ionicons name="search" size={60} color="#9CA3AF" />
-                <Text className="text-gray-500 text-lg font-medium mt-4">No users found</Text>
-                <Text className="text-gray-400 text-center mt-2 px-8">
+                <Text style={{
+                  color: colors.text.secondary,
+                  fontSize: 18,
+                  fontWeight: '500',
+                  marginTop: 16
+                }}>No users found</Text>
+                <Text style={{
+                  color: colors.text.tertiary,
+                  textAlign: 'center',
+                  marginTop: 8,
+                  paddingHorizontal: 32
+                }}>
                   Try adjusting your search terms or filters
                 </Text>
                 <TouchableOpacity
@@ -358,10 +449,21 @@ const UserSearch = () => {
 
       {/* Info Banner */}
       <View className="px-4 pb-4">
-        <View className="bg-blue-50 border border-blue-200 rounded-xl p-3">
+        <View style={{
+          backgroundColor: isDarkMode ? colors.background.secondary : '#EFF6FF',
+          borderWidth: 1,
+          borderColor: isDarkMode ? colors.border.primary : '#BFDBFE',
+          borderRadius: 12,
+          padding: 12
+        }}>
           <View className="flex-row items-center">
-            <Ionicons name="information-circle" size={16} color="#3B82F6" />
-            <Text className="flex-1 ml-2 text-blue-800 text-sm">
+            <Ionicons name="information-circle" size={16} color={COLORS.primary.oceanBlue700} />
+            <Text style={{
+              flex: 1,
+              marginLeft: 8,
+              color: isDarkMode ? colors.text.secondary : '#1E40AF',
+              fontSize: 14
+            }}>
               Tap on any user to view their public profile and contact them
             </Text>
           </View>

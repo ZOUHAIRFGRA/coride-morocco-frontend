@@ -7,7 +7,8 @@ import {
   Alert,
   ActivityIndicator,
   Image,
-  Modal
+  Modal,
+  TextInput
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,20 +19,32 @@ import { useUser } from '@/hooks/useUserProfile';
 import type { UserDocuments, DocumentType, DocumentStatus } from '@/types/user';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
+import { FormModal } from '@/components/schema-forms/FormModal';
+import { useAppTheme } from '@/hooks/useAppTheme';
 
 const DocumentVerification = () => {
   const router = useRouter();
+  const { colors, isDarkMode } = useAppTheme();
   const { 
     getDocuments, 
     uploadIdentityDocument, 
     uploadDriverLicense, 
-    getDocumentStatus 
+    getDocumentStatus,
+    getVerificationStatus,
+    getDocumentExtractions 
   } = useUser();
 
   const [documents, setDocuments] = useState<UserDocuments | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>('');
+  
+  // License modal states
+  const [licenseModalVisible, setLicenseModalVisible] = useState(false);
+  
+  // Verification tracking states
+  const [verificationTasks, setVerificationTasks] = useState<{[key: string]: string}>({});
+  const [verificationStatus, setVerificationStatus] = useState<{[key: string]: any}>({});
 
   const documentTypes = [
     { value: 'national_id', label: 'National ID', icon: 'card', description: 'Moroccan National Identity Card' },
@@ -159,27 +172,75 @@ const DocumentVerification = () => {
     backAsset: any = null
   ) => {
     try {
+      if (!frontAsset) {
+        throw new Error("Front image is required for identity upload.");
+      }
+
       setIsUploading(true);
       setUploadProgress('Preparing documents...');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Create File objects from assets
-      const frontBlob = await fetch(frontAsset.uri).then(r => r.blob());
-      const frontFile = new File([frontBlob], `${documentType}_front.jpg`, { type: 'image/jpeg' });
-      
+      console.log('Frontend - Front asset details:', {
+        uri: frontAsset.uri,
+        width: frontAsset.width,
+        height: frontAsset.height,
+        fileSize: frontAsset.fileSize,
+        type: frontAsset.type
+      });
+
+      // Create proper File objects for React Native upload
+      const frontFile = {
+        uri: frontAsset.uri,
+        type: frontAsset.type || 'image/jpeg',
+        name: `${documentType}_front.jpg`,
+      } as any;
+
       let backFile = undefined;
       if (backAsset) {
-        const backBlob = await fetch(backAsset.uri).then(r => r.blob());
-        backFile = new File([backBlob], `${documentType}_back.jpg`, { type: 'image/jpeg' });
+        console.log('Frontend - Back asset details:', {
+          uri: backAsset.uri,
+          width: backAsset.width,
+          height: backAsset.height,
+          fileSize: backAsset.fileSize,
+          type: backAsset.type
+        });
+        
+        backFile = {
+          uri: backAsset.uri,
+          type: backAsset.type || 'image/jpeg',
+          name: `${documentType}_back.jpg`,
+        } as any;
       }
 
       setUploadProgress('Uploading to server...');
+      
+      // Log file details for debugging
+      console.log('Frontend - Files prepared for upload:', {
+        documentType,
+        frontFile: frontFile.name,
+        backFile: backFile?.name,
+        frontImageIncluded: true,
+        backImageIncluded: !!backAsset
+      });
+      
       const response = await uploadIdentityDocument(frontFile, documentType, backFile);
       
-      if (response.success) {
-        setUploadProgress('Upload successful!');
+      if (response.success && response.data) {
+        const { verification_task_id } = response.data;
+        
+        setUploadProgress('Upload successful! Processing document...');
+        
+        // Store task ID for tracking
+        setVerificationTasks(prev => ({
+          ...prev,
+          [`identity_${documentType}`]: verification_task_id
+        }));
+        
+        // Start tracking verification status
+        trackVerificationStatus(verification_task_id, `identity_${documentType}`);
+        
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Success', 'Document uploaded successfully! It will be reviewed within 24-48 hours.');
+        Alert.alert('Success', 'Document uploaded successfully! OCR processing has started. You can track the progress below.');
         await loadDocuments(); // Refresh documents
       } else {
         throw new Error(response.error || 'Upload failed');
@@ -195,53 +256,123 @@ const DocumentVerification = () => {
   };
 
   const handleUploadDriverLicense = () => {
+    // Show FormModal for license details
+    setLicenseModalVisible(true);
+  };
+
+  const handleLicenseDetailsSuccess = (result: any, formData: any) => {
+    // Close modal
+    setLicenseModalVisible(false);
+    
+    // Extract license details from form data
+    const { licenseNumber, expiryDate } = formData;
+    
+    // Convert date to ISO format - handle both YYYY-MM-DD and DD/MM/YYYY formats
+    let isoDate: string;
+    try {
+      if (expiryDate.includes('-')) {
+        // YYYY-MM-DD format from date picker
+        isoDate = `${expiryDate}T23:59:59`;
+      } else if (expiryDate.includes('/')) {
+        // DD/MM/YYYY format from manual entry
+        const [day, month, year] = expiryDate.split('/');
+        isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T23:59:59`;
+      } else {
+        throw new Error('Invalid date format');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Invalid date format. Please try again.');
+      return;
+    }
+
+    // Store license details and start the photo upload process
+    const licenseDetails = {
+      licenseNumber: licenseNumber.trim(),
+      expiryDate: isoDate
+    };
+
+    // Start image selection process
+    Alert.alert(
+      'Upload License Photos',
+      'Please take photos of both sides of your driver license. Make sure all text is clearly visible.',
+      [
+        { 
+          text: 'Start Upload', 
+          onPress: () => uploadLicensePhotos(licenseDetails)
+        },
+        { 
+          text: 'Cancel', 
+          style: 'cancel' 
+        }
+      ]
+    );
+  };
+
+  const uploadLicensePhotos = (licenseDetails: { licenseNumber: string, expiryDate: string }) => {
     let frontAsset: any = null;
     let backAsset: any = null;
-    let licenseNumber = '';
-    let expiryDate = '';
 
-    // First, get license details
-    Alert.prompt(
-      'Driver License Details',
-      'Enter your license number',
-      (text) => {
-        if (!text || text.trim().length < 5) {
-          Alert.alert('Error', 'Please enter a valid license number');
-          return;
-        }
-        licenseNumber = text.trim();
-
-        // Get expiry date
-        Alert.prompt(
-          'License Expiry Date',
-          'Enter expiry date (YYYY-MM-DD)',
-          (dateText) => {
-            if (!dateText || !dateText.match(/^\d{4}-\d{2}-\d{2}$/)) {
-              Alert.alert('Error', 'Please enter date in YYYY-MM-DD format (e.g., 2025-12-31)');
-              return;
-            }
-            expiryDate = `${dateText}T23:59:59`;
-
-            // Now get images
-            showImagePicker((asset) => {
+    // First, get front photo
+    Alert.alert(
+      'Front Side Photo',
+      'Take or select a photo of the front side of your driver license',
+      [
+        { 
+          text: 'Take Photo', 
+          onPress: async () => {
+            const asset = await takePhoto();
+            if (asset) {
               frontAsset = asset;
-              
-              Alert.alert(
-                'Back Side Required',
-                'Please also upload the back side of your driver license',
-                [
-                  { text: 'Take Back Photo', onPress: () => {
-                    showImagePicker((backAssetData) => {
-                      backAsset = backAssetData;
-                      performDriverLicenseUpload(frontAsset, backAsset, licenseNumber, expiryDate);
-                    });
-                  }}
-                ]
-              );
-            });
+              promptForBackPhoto(licenseDetails, frontAsset);
+            }
           }
-        );
-      }
+        },
+        { 
+          text: 'Choose from Gallery', 
+          onPress: async () => {
+            const asset = await pickImage();
+            if (asset) {
+              frontAsset = asset;
+              promptForBackPhoto(licenseDetails, frontAsset);
+            }
+          }
+        },
+        { 
+          text: 'Cancel', 
+          style: 'cancel' 
+        }
+      ]
+    );
+  };
+
+  const promptForBackPhoto = (licenseDetails: { licenseNumber: string, expiryDate: string }, frontAsset: any) => {
+    Alert.alert(
+      'Back Side Photo',
+      'Now take or select a photo of the back side of your driver license',
+      [
+        { 
+          text: 'Take Photo', 
+          onPress: async () => {
+            const backAsset = await takePhoto();
+            if (backAsset) {
+              performDriverLicenseUpload(frontAsset, backAsset, licenseDetails.licenseNumber, licenseDetails.expiryDate);
+            }
+          }
+        },
+        { 
+          text: 'Choose from Gallery', 
+          onPress: async () => {
+            const backAsset = await pickImage();
+            if (backAsset) {
+              performDriverLicenseUpload(frontAsset, backAsset, licenseDetails.licenseNumber, licenseDetails.expiryDate);
+            }
+          }
+        },
+        { 
+          text: 'Cancel', 
+          style: 'cancel' 
+        }
+      ]
     );
   };
 
@@ -256,20 +387,60 @@ const DocumentVerification = () => {
       setUploadProgress('Preparing license documents...');
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-      // Create File objects
-      const frontBlob = await fetch(frontAsset.uri).then(r => r.blob());
-      const frontFile = new File([frontBlob], 'license_front.jpg', { type: 'image/jpeg' });
+      console.log('Frontend - License front asset:', {
+        uri: frontAsset.uri,
+        fileSize: frontAsset.fileSize,
+        type: frontAsset.type
+      });
       
-      const backBlob = await fetch(backAsset.uri).then(r => r.blob());
-      const backFile = new File([backBlob], 'license_back.jpg', { type: 'image/jpeg' });
+      console.log('Frontend - License back asset:', {
+        uri: backAsset.uri,
+        fileSize: backAsset.fileSize,
+        type: backAsset.type
+      });
+
+      // Create proper File objects for React Native upload
+      const frontFile = {
+        uri: frontAsset.uri,
+        type: frontAsset.type || 'image/jpeg',
+        name: 'license_front.jpg',
+      } as any;
+      
+      const backFile = {
+        uri: backAsset.uri,
+        type: backAsset.type || 'image/jpeg',
+        name: 'license_back.jpg',
+      } as any;
 
       setUploadProgress('Uploading license...');
+      
+      console.log('Frontend - License files prepared for upload:', {
+        licenseNumber,
+        expiryDate,
+        frontFile: frontFile.name,
+        backFile: backFile.name,
+        frontImageIncluded: true,
+        backImageIncluded: true
+      });
+      
       const response = await uploadDriverLicense(frontFile, backFile, licenseNumber, expiryDate);
       
-      if (response.success) {
-        setUploadProgress('License uploaded successfully!');
+      if (response.success && response.data) {
+        const { verification_task_id } = response.data;
+        
+        setUploadProgress('License uploaded successfully! Processing document...');
+        
+        // Store task ID for tracking
+        setVerificationTasks(prev => ({
+          ...prev,
+          driver_license: verification_task_id
+        }));
+        
+        // Start tracking verification status
+        trackVerificationStatus(verification_task_id, 'driver_license');
+        
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert('Success', 'Driver license uploaded successfully! It will be reviewed within 24-48 hours.');
+        Alert.alert('Success', 'Driver license uploaded successfully! OCR processing has started. You can track the progress below.');
         await loadDocuments(); // Refresh documents
       } else {
         throw new Error(response.error || 'Upload failed');
@@ -282,6 +453,56 @@ const DocumentVerification = () => {
       setIsUploading(false);
       setUploadProgress('');
     }
+  };
+
+  // Verification tracking function
+  const trackVerificationStatus = async (taskId: string, documentKey: string) => {
+    const maxAttempts = 30; // Maximum polling attempts (5 minutes at 10s intervals)
+    let attempts = 0;
+    
+    const pollStatus = async () => {
+      try {
+        if (attempts >= maxAttempts) {
+          console.log(`Verification tracking stopped for ${documentKey} - max attempts reached`);
+          return;
+        }
+        
+        const response = await getVerificationStatus(taskId);
+        
+        if (response.success && response.data) {
+          const status = response.data;
+          
+          // Update verification status state
+          setVerificationStatus(prev => ({
+            ...prev,
+            [documentKey]: status
+          }));
+          
+          console.log(`Verification status for ${documentKey}:`, status);
+          
+          // Continue polling if still processing
+          if (status.status === 'pending' || status.status === 'processing') {
+            attempts++;
+            setTimeout(pollStatus, 10000); // Poll every 10 seconds
+          } else if (status.status === 'completed') {
+            console.log(`Verification completed for ${documentKey}:`, status.extracted_data);
+            // Refresh documents when verification completes
+            await loadDocuments();
+          } else if (status.status === 'failed') {
+            console.error(`Verification failed for ${documentKey}:`, status.error);
+          }
+        }
+      } catch (error) {
+        console.error(`Error checking verification status for ${documentKey}:`, error);
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(pollStatus, 10000);
+        }
+      }
+    };
+    
+    // Start polling immediately
+    pollStatus();
   };
 
   const getStatusColor = (status: string) => {
@@ -323,10 +544,52 @@ const DocumentVerification = () => {
     backImageUrl?: string;
     description: string;
   }) => (
-    <View className="bg-white rounded-xl mx-4 mb-4 shadow-sm border border-gray-100">
-      <View className="p-4">
+    <View style={{
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      marginHorizontal: 16,
+      marginBottom: 16,
+      shadowColor: colors.text.primary,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+      borderWidth: 1,
+      borderColor: colors.border.secondary
+    }}>
+      <View style={{ padding: 16 }}>
+        {/* Add visual upload zone when no document exists */}
+        {!status && (
+          <TouchableOpacity
+            onPress={onUpload}
+            disabled={isUploading}
+            className="mb-4 p-6 border-2 border-dashed border-blue-300 rounded-xl bg-blue-50"
+            style={{
+              backgroundColor: isUploading ? '#F3F4F6' : '#EFF6FF',
+              borderColor: isUploading ? '#D1D5DB' : '#93C5FD'
+            }}
+          >
+            <View className="items-center">
+              <Ionicons 
+                name="cloud-upload-outline" 
+                size={32} 
+                color={isUploading ? '#9CA3AF' : '#3B82F6'} 
+              />
+              <Text className="mt-2 text-blue-600 font-semiBold text-center">
+                Tap here to upload {title.toLowerCase()}
+              </Text>
+              <Text className="mt-1 text-blue-500 text-sm text-center">
+                Take photo or choose from gallery
+              </Text>
+            </View>
+          </TouchableOpacity>
+        )}
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-lg font-semiBold text-gray-900">{title}</Text>
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '600',
+            color: colors.text.primary
+          }}>{title}</Text>
           {status && (
             <View className="flex-row items-center">
               <Ionicons 
@@ -344,13 +607,21 @@ const DocumentVerification = () => {
           )}
         </View>
 
-        <Text className="text-gray-600 text-sm mb-4">{description}</Text>
+        <Text style={{
+          color: colors.text.secondary,
+          fontSize: 14,
+          marginBottom: 16
+        }}>{description}</Text>
 
         {showImages && (frontImageUrl || backImageUrl) && (
           <View className="flex-row mb-4">
             {frontImageUrl && (
               <View className="flex-1 mr-2">
-                <Text className="text-xs text-gray-500 mb-1">Front</Text>
+                <Text style={{
+                  fontSize: 12,
+                  color: colors.text.secondary,
+                  marginBottom: 4
+                }}>Front</Text>
                 <Image 
                   source={{ uri: frontImageUrl }} 
                   className="w-full h-20 rounded-lg bg-gray-100"
@@ -360,7 +631,11 @@ const DocumentVerification = () => {
             )}
             {backImageUrl && (
               <View className="flex-1 ml-2">
-                <Text className="text-xs text-gray-500 mb-1">Back</Text>
+                <Text style={{
+                  fontSize: 12,
+                  color: colors.text.secondary,
+                  marginBottom: 4
+                }}>Back</Text>
                 <Image 
                   source={{ uri: backImageUrl }} 
                   className="w-full h-20 rounded-lg bg-gray-100"
@@ -372,92 +647,261 @@ const DocumentVerification = () => {
         )}
 
         {uploadedAt && (
-          <Text className="text-xs text-gray-500 mb-3">
+          <Text style={{
+            fontSize: 12,
+            color: colors.text.secondary,
+            marginBottom: 12
+          }}>
             Uploaded: {new Date(uploadedAt).toLocaleDateString()}
             {verifiedAt && ` • Verified: ${new Date(verifiedAt).toLocaleDateString()}`}
           </Text>
         )}
 
-        <TouchableOpacity
-          className={`py-3 px-4 rounded-lg ${
-            status === 'verified' 
-              ? 'bg-green-50 border border-green-200' 
-              : status === 'pending'
-              ? 'bg-amber-50 border border-amber-200'
-              : 'bg-primary-oceanBlue600'
-          }`}
-          onPress={onUpload}
-          disabled={isUploading}
-        >
-          <Text className={`text-center font-semiBold ${
-            status === 'verified' 
-              ? 'text-green-700' 
-              : status === 'pending'
-              ? 'text-amber-700'
-              : 'text-white'
-          }`}>
-            {status === 'verified' 
-              ? 'Re-upload Document' 
-              : status === 'pending'
-              ? 'Upload New Version'
-              : 'Upload Document'
-            }
-          </Text>
-        </TouchableOpacity>
+        {/* Only show button-style upload for documents that already exist (have status) */}
+        {status && (
+          <TouchableOpacity
+            className={`py-4 px-4 rounded-xl flex-row items-center justify-center ${
+              status === 'verified' 
+                ? 'bg-green-50 border-2 border-green-200' 
+                : status === 'pending'
+                ? 'bg-amber-50 border-2 border-amber-200'
+                : 'bg-primary-oceanBlue600 border-2 border-primary-oceanBlue600'
+            } ${isUploading ? 'opacity-50' : ''}`}
+            onPress={onUpload}
+            disabled={isUploading}
+            style={{
+              shadowColor: status === 'verified' || status === 'pending' ? '#000' : '#006389',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 3,
+            }}
+          >
+            {/* Upload Icon */}
+            <Ionicons 
+              name={
+                status === 'verified' ? 'refresh-circle' : 
+                status === 'pending' ? 'cloud-upload' : 
+                'camera'
+              } 
+              size={20} 
+              color={
+                status === 'verified' ? '#047857' : 
+                status === 'pending' ? '#D97706' : 
+                'white'
+              } 
+            />
+            
+            {/* Upload Text */}
+            <Text className={`ml-2 text-center font-semiBold ${
+              status === 'verified' 
+                ? 'text-green-700' 
+                : status === 'pending'
+                ? 'text-amber-700'
+                : 'text-white'
+            }`}>
+              {status === 'verified' 
+                ? 'Re-upload Document' 
+                : status === 'pending'
+                ? 'Upload New Version'
+                : 'Tap to Upload Document'
+              }
+            </Text>
+
+            {/* Arrow indicating action */}
+            <Ionicons 
+              name="chevron-forward" 
+              size={16} 
+              color={
+                status === 'verified' ? '#047857' : 
+                status === 'pending' ? '#D97706' : 
+                'white'
+              }
+              style={{ marginLeft: 4 }}
+            />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.primary }}>
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: colors.background.secondary,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border.primary
+        }}>
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#006389" />
           </TouchableOpacity>
-          <Text className="text-lg font-semibold text-gray-900">Document Verification</Text>
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '600',
+            color: colors.text.primary
+          }}>Document Verification</Text>
           <View className="w-6" />
         </View>
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color={COLORS.primary.oceanBlue700} />
-          <Text className="mt-4 text-gray-500">Loading documents...</Text>
+          <Text style={{
+            marginTop: 16,
+            color: colors.text.secondary
+          }}>Loading documents...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.primary }}>
       {/* Header */}
-      <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: colors.background.secondary,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.primary
+      }}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#006389" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary.dark} />
         </TouchableOpacity>
-        <Text className="text-lg font-semibold text-gray-900">Document Verification</Text>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: '600',
+          color: colors.text.primary
+        }}>Document Verification</Text>
         <TouchableOpacity onPress={loadDocuments}>
-          <Ionicons name="refresh" size={24} color="#006389" />
+          <Ionicons name="refresh" size={24} color={colors.primary.dark} />
         </TouchableOpacity>
       </View>
 
+      {/* License Details Form Modal */}
+      <FormModal
+        visible={licenseModalVisible}
+        formName="driverLicenseDetails"
+        onClose={() => setLicenseModalVisible(false)}
+        onSuccess={handleLicenseDetailsSuccess}
+      />
+
       {/* Upload Progress Modal */}
       <Modal visible={isUploading} transparent animationType="fade">
-        <View className="flex-1 bg-black bg-opacity-50 justify-center items-center">
-          <View className="bg-white rounded-xl p-6 mx-8 items-center">
-            <ActivityIndicator size="large" color={COLORS.primary.oceanBlue700} />
-            <Text className="text-gray-900 font-semiBold mt-4">Uploading Document</Text>
-            <Text className="text-gray-600 text-sm mt-2 text-center">{uploadProgress}</Text>
+        <View 
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)'
+          }}
+        >
+          <View style={{
+            backgroundColor: colors.background.secondary,
+            borderRadius: 12,
+            padding: 24,
+            marginHorizontal: 32,
+            alignItems: 'center',
+            shadowColor: colors.text.primary,
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 8
+          }}>
+            <ActivityIndicator size="large" color={colors.primary.oceanBlue700} />
+            <Text style={{
+              color: colors.text.primary,
+              fontWeight: '600',
+              marginTop: 16,
+              fontSize: 16
+            }}>Uploading Document</Text>
+            <Text style={{
+              color: colors.text.secondary,
+              fontSize: 14,
+              marginTop: 8,
+              textAlign: 'center'
+            }}>{uploadProgress}</Text>
           </View>
         </View>
       </Modal>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+        {/* Verification Progress Tracking */}
+        {Object.keys(verificationStatus).length > 0 && (
+          <View className="mt-4 mx-4 bg-blue-50 rounded-xl p-4 border border-blue-200">
+            <Text className="text-lg font-bold text-blue-900 mb-3">🔍 OCR Processing Status</Text>
+            {Object.entries(verificationStatus).map(([key, status]: [string, any]) => (
+              <View key={key} className="mb-3 last:mb-0">
+                <View className="flex-row justify-between items-center mb-1">
+                  <Text className="font-medium text-blue-800 capitalize">{key.replace('_', ' ')}</Text>
+                  <Text className={`text-sm font-medium ${
+                    status.status === 'completed' ? 'text-green-600' :
+                    status.status === 'failed' ? 'text-red-600' :
+                    'text-blue-600'
+                  }`}>
+                    {status.status.toUpperCase()}
+                  </Text>
+                </View>
+                <View className="w-full bg-blue-200 rounded-full h-2 mb-2">
+                  <View 
+                    className={`h-2 rounded-full ${
+                      status.status === 'completed' ? 'bg-green-500' :
+                      status.status === 'failed' ? 'bg-red-500' :
+                      'bg-blue-500'
+                    }`}
+                    style={{ width: `${status.progress || 0}%` }}
+                  />
+                </View>
+                {status.message && (
+                  <Text className="text-sm text-blue-700">{status.message}</Text>
+                )}
+                {status.extracted_data && (
+                  <View className="mt-2 p-2 bg-green-50 rounded border border-green-200">
+                    <Text className="text-xs font-medium text-green-800 mb-1">✅ Extracted Data:</Text>
+                    {Object.entries(status.extracted_data).map(([field, value]: [string, any]) => (
+                      <Text key={field} className="text-xs text-green-700">
+                        {field}: {typeof value === 'string' ? value : JSON.stringify(value)}
+                      </Text>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Verification Status Summary */}
         {documents && (
-          <View className="mt-4 mx-4 bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-            <Text className="text-lg font-bold text-gray-900 mb-3">Verification Status</Text>
+          <View style={{
+            marginTop: 16,
+            marginHorizontal: 16,
+            backgroundColor: colors.background.secondary,
+            borderRadius: 12,
+            padding: 16,
+            shadowColor: colors.text.primary,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+            borderWidth: 1,
+            borderColor: colors.border.secondary
+          }}>
+            <Text style={{
+              fontSize: 18,
+              fontWeight: 'bold',
+              color: colors.text.primary,
+              marginBottom: 12
+            }}>Verification Status</Text>
             
             <View className="flex-row justify-between mb-2">
-              <Text className="text-gray-600">Identity Verification</Text>
+              <Text style={{color: colors.text.secondary}}>Identity Verification</Text>
               <View className="flex-row items-center">
                 <Ionicons 
                   name={documents.verification_summary.identity_verified ? 'checkmark-circle' : 'close-circle'} 
@@ -473,7 +917,7 @@ const DocumentVerification = () => {
             </View>
 
             <View className="flex-row justify-between mb-2">
-              <Text className="text-gray-600">Driver License</Text>
+              <Text style={{color: colors.text.secondary}}>Driver License</Text>
               <View className="flex-row items-center">
                 <Ionicons 
                   name={documents.verification_summary.driver_license_verified ? 'checkmark-circle' : 'close-circle'} 
@@ -489,7 +933,10 @@ const DocumentVerification = () => {
             </View>
 
             <View className="flex-row justify-between">
-              <Text className="text-gray-600 font-medium">Can Drive Rides</Text>
+              <Text style={{
+                color: colors.text.secondary,
+                fontWeight: '500'
+              }}>Can Drive Rides</Text>
               <View className="flex-row items-center">
                 <Ionicons 
                   name={documents.verification_summary.can_drive ? 'car' : 'ban'} 
@@ -508,7 +955,14 @@ const DocumentVerification = () => {
 
         {/* Identity Documents Section */}
         <View className="mt-6">
-          <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-3">
+          <Text style={{
+            fontSize: 12,
+            fontWeight: '600',
+            color: colors.text.secondary,
+            textTransform: 'uppercase',
+            paddingHorizontal: 16,
+            marginBottom: 12
+          }}>
             Identity Documents
           </Text>
           
@@ -546,7 +1000,14 @@ const DocumentVerification = () => {
 
         {/* Driver License Section */}
         <View className="mt-6">
-          <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-3">
+          <Text style={{
+            fontSize: 14,
+            fontWeight: '600',
+            color: colors.text.secondary,
+            textTransform: 'uppercase',
+            paddingHorizontal: 16,
+            marginBottom: 12
+          }}>
             Driver License
           </Text>
           
@@ -572,7 +1033,15 @@ const DocumentVerification = () => {
         </View>
 
         {/* Info Section */}
-        <View className="mt-6 mx-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <View style={{
+          marginTop: 24,
+          marginHorizontal: 16,
+          backgroundColor: isDarkMode ? colors.background.secondary : '#EFF6FF',
+          borderWidth: 1,
+          borderColor: isDarkMode ? colors.border.primary : '#BFDBFE',
+          borderRadius: 12,
+          padding: 16
+        }}>
           <View className="flex-row items-start">
             <Ionicons name="information-circle" size={20} color="#3B82F6" />
             <View className="flex-1 ml-3">

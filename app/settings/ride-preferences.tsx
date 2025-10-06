@@ -14,12 +14,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { COLORS } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { useUser } from '@/hooks/useUserProfile';
 import type { UserPreferences, UpdatePreferencesRequest } from '@/types/user';
 import * as Haptics from 'expo-haptics';
 
 const RidePreferences = () => {
   const router = useRouter();
+  const { colors, isDarkMode } = useAppTheme();
   const { getPreferences, updatePreferences, profile } = useUser();
 
   const [preferences, setPreferences] = useState<UserPreferences | null>(null);
@@ -114,10 +116,28 @@ const RidePreferences = () => {
 
   const PreferenceSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <View className="mt-6">
-      <Text className="text-sm font-semiBold text-gray-500 uppercase px-4 mb-3">
+      <Text style={{
+        fontSize: 14,
+        fontWeight: '600',
+        color: colors.text.secondary,
+        textTransform: 'uppercase',
+        paddingHorizontal: 16,
+        marginBottom: 12
+      }}>
         {title}
       </Text>
-      <View className="bg-white rounded-xl mx-4 shadow-sm">
+      <View style={{
+        backgroundColor: colors.background.secondary,
+        borderRadius: 12,
+        marginHorizontal: 16,
+        shadowColor: isDarkMode ? '#000' : '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: isDarkMode ? 0.3 : 0.1,
+        shadowRadius: 2,
+        elevation: 2,
+        borderWidth: 1,
+        borderColor: colors.border.primary
+      }}>
         {children}
       </View>
     </View>
@@ -138,30 +158,57 @@ const RidePreferences = () => {
     onSelect: (value: string) => void;
     icon: string;
   }) => (
-    <View className="p-4 border-b border-gray-50">
+    <View style={{
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.primary,
+      backgroundColor: colors.background.secondary,
+    }}>
       <View className="flex-row items-center mb-3">
-        <View className="w-8 h-8 rounded-full bg-primary-oceanBlue50 items-center justify-center mr-3">
+        <View style={{
+          width: 32,
+          height: 32,
+          borderRadius: 16,
+          backgroundColor: COLORS.primary.oceanBlue50,
+          alignItems: 'center',
+          justifyContent: 'center',
+          marginRight: 12
+        }}>
           <Ionicons name={icon as any} size={16} color={COLORS.primary.oceanBlue700} />
         </View>
         <View className="flex-1">
-          <Text className="text-md font-semiBold text-gray-900">{title}</Text>
-          <Text className="text-sm text-gray-500">{subtitle}</Text>
+          <Text style={{
+            fontSize: 16,
+            fontWeight: '600',
+            color: colors.text.primary
+          }}>{title}</Text>
+          <Text style={{
+            fontSize: 14,
+            color: colors.text.secondary
+          }}>{subtitle}</Text>
         </View>
       </View>
       <View className="flex-row justify-between">
         {options.map((option) => (
           <TouchableOpacity
             key={option.value}
-            className={`flex-1 mx-1 p-3 rounded-lg border-2 ${
-              value === option.value
-                ? 'border-primary-oceanBlue500 bg-primary-oceanBlue50'
-                : 'border-gray-200 bg-gray-50'
-            }`}
+            style={{
+              flex: 1,
+              marginHorizontal: 4,
+              padding: 12,
+              borderRadius: 8,
+              borderWidth: 2,
+              borderColor: value === option.value ? COLORS.primary.oceanBlue700 : colors.border.primary,
+              backgroundColor: value === option.value ? COLORS.primary.oceanBlue50 : colors.background.secondary,
+            }}
             onPress={() => onSelect(option.value)}
           >
-            <Text className={`text-center text-sm font-medium ${
-              value === option.value ? 'text-primary-oceanBlue700' : 'text-gray-600'
-            }`}>
+            <Text style={{
+              textAlign: 'center',
+              fontSize: 14,
+              fontWeight: '500',
+              color: value === option.value ? colors.primary.dark : colors.text.secondary
+            }}>
               {option.label}
             </Text>
           </TouchableOpacity>
@@ -183,13 +230,34 @@ const RidePreferences = () => {
     onToggle: (value: boolean) => void;
     icon: string;
   }) => (
-    <View className="flex-row items-center p-4 border-b border-gray-50">
-      <View className="w-8 h-8 rounded-full bg-primary-oceanBlue50 items-center justify-center mr-3">
+    <View style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border.primary
+    }}>
+      <View style={{
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: COLORS.primary.oceanBlue50,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 12
+      }}>
         <Ionicons name={icon as any} size={16} color={COLORS.primary.oceanBlue700} />
       </View>
       <View className="flex-1">
-        <Text className="text-md font-semiBold text-gray-900">{title}</Text>
-        <Text className="text-sm text-gray-500">{subtitle}</Text>
+        <Text style={{
+          fontSize: 16,
+          fontWeight: '600',
+          color: colors.text.primary
+        }}>{title}</Text>
+        <Text style={{
+          fontSize: 14,
+          color: colors.text.secondary
+        }}>{subtitle}</Text>
       </View>
       <Switch
         value={value}
@@ -224,28 +292,50 @@ const RidePreferences = () => {
     return (
       <View className="p-4">
         <View className="flex-row items-center mb-3">
-          <View className="w-8 h-8 rounded-full bg-primary-oceanBlue50 items-center justify-center mr-3">
+          <View style={{
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: COLORS.primary.oceanBlue50,
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: 12
+          }}>
             <Ionicons name={icon as any} size={16} color={COLORS.primary.oceanBlue700} />
           </View>
           <View className="flex-1">
-            <Text className="text-md font-semiBold text-gray-900">{title}</Text>
-            <Text className="text-sm text-gray-500">{subtitle}</Text>
+            <Text style={{
+              fontSize: 16,
+              fontWeight: '600',
+              color: colors.text.primary
+            }}>{title}</Text>
+            <Text style={{
+              fontSize: 14,
+              color: colors.text.secondary
+            }}>{subtitle}</Text>
           </View>
         </View>
         <View className="flex-row flex-wrap justify-between">
           {options.map((option) => (
             <TouchableOpacity
               key={option}
-              className={`m-1 px-4 py-2 rounded-lg border-2 ${
-                value === option
-                  ? 'border-primary-oceanBlue500 bg-primary-oceanBlue50'
-                  : 'border-gray-200 bg-gray-50'
-              }`}
+              style={{
+                margin: 4,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 8,
+                borderWidth: 2,
+                borderColor: value === option ? COLORS.primary.oceanBlue700 : colors.border.primary,
+                backgroundColor: value === option ? COLORS.primary.oceanBlue50 : colors.background.secondary,
+              }}
               onPress={() => onSelect(option)}
             >
-              <Text className={`text-center text-sm font-medium ${
-                value === option ? 'text-primary-oceanBlue700' : 'text-gray-600'
-              }`}>
+              <Text style={{
+                textAlign: 'center',
+                fontSize: 14,
+                fontWeight: '500',
+                color: value === option ? colors.primary.dark : colors.text.secondary
+              }}>
                 {option} {unit}
               </Text>
             </TouchableOpacity>
@@ -257,30 +347,64 @@ const RidePreferences = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.primary }}>
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: colors.background.secondary,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border.primary
+        }}>
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#006389" />
           </TouchableOpacity>
-          <Text className="text-lg font-semibold text-gray-900">Ride Preferences</Text>
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '600',
+            color: colors.text.primary
+          }}>Ride Preferences</Text>
           <View className="w-6" />
         </View>
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color={COLORS.primary.oceanBlue700} />
-          <Text className="mt-4 text-gray-500">Loading your preferences...</Text>
+          <Text style={{
+            marginTop: 16,
+            color: colors.text.secondary
+          }}>Loading your preferences...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.primary }}>
       {/* Header */}
-      <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: colors.background.secondary,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.primary,
+        shadowColor: isDarkMode ? '#000' : '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: isDarkMode ? 0.3 : 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+      }}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#006389" />
         </TouchableOpacity>
-        <Text className="text-lg font-semibold text-gray-900">Ride Preferences</Text>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: '600',
+          color: colors.text.primary
+        }}>Ride Preferences</Text>
         <TouchableOpacity onPress={savePreferences} disabled={!hasUnsavedChanges || isSaving}>
           {isSaving ? (
             <ActivityIndicator size="small" color="#006389" />
@@ -294,7 +418,7 @@ const RidePreferences = () => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1, backgroundColor: colors.background.primary }} showsVerticalScrollIndicator={false}>
         {/* Music Preferences */}
         <PreferenceSection title="Music Preferences">
           <SelectOption
@@ -369,30 +493,63 @@ const RidePreferences = () => {
         {/* Save/Reset Actions */}
         {hasUnsavedChanges && (
           <View className="mt-6 mx-4 mb-8">
-            <View className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4">
+            <View style={{
+              backgroundColor: isDarkMode ? '#FEF3C7' : '#FEF3C7',
+              borderWidth: 1,
+              borderColor: '#F3E8FF',
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 16,
+            }}>
               <View className="flex-row items-center">
                 <Ionicons name="warning" size={20} color="#F59E0B" />
-                <Text className="ml-2 text-amber-800 font-medium">You have unsaved changes</Text>
+                <Text style={{
+                  marginLeft: 8,
+                  color: isDarkMode ? '#92400E' : '#92400E',
+                  fontWeight: '500'
+                }}>You have unsaved changes</Text>
               </View>
             </View>
             
             <View className="flex-row space-x-3">
               <TouchableOpacity 
-                className="flex-1 bg-gray-200 py-4 rounded-xl mr-2"
+                style={{
+                  flex: 1,
+                  backgroundColor: colors.background.secondary,
+                  paddingVertical: 16,
+                  borderRadius: 12,
+                  marginRight: 8,
+                  borderWidth: 1,
+                  borderColor: colors.border.primary,
+                }}
                 onPress={resetPreferences}
               >
-                <Text className="text-center text-gray-700 font-semiBold">Reset</Text>
+                <Text style={{
+                  textAlign: 'center',
+                  color: colors.text.secondary,
+                  fontWeight: '600'
+                }}>Reset</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
-                className="flex-1 bg-primary-oceanBlue600 py-4 rounded-xl ml-2"
+                style={{
+                  flex: 1,
+                  backgroundColor: COLORS.primary.oceanBlue600,
+                  paddingVertical: 16,
+                  borderRadius: 12,
+                  marginLeft: 8,
+                }}
                 onPress={savePreferences}
                 disabled={isSaving}
               >
                 {isSaving ? (
                   <ActivityIndicator color="white" />
                 ) : (
-                  <Text className="text-center text-white font-semiBold">Save Changes</Text>
+                  <Text style={{
+                    textAlign: 'center',
+                    color: '#FFFFFF',
+                    fontWeight: '600'
+                  }}>Save Changes</Text>
                 )}
               </TouchableOpacity>
             </View>

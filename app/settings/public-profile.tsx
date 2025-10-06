@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { COLORS } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { useUser } from '@/hooks/useUserProfile';
 import type { PublicUserProfile } from '@/types/user';
 import * as Haptics from 'expo-haptics';
@@ -22,6 +23,7 @@ const { width } = Dimensions.get('window');
 
 const PublicProfile = () => {
   const router = useRouter();
+  const { colors, isDarkMode } = useAppTheme();
   const { getPublicProfile, profile } = useUser();
 
   const [publicProfile, setPublicProfile] = useState<PublicUserProfile | null>(null);
@@ -95,13 +97,35 @@ const PublicProfile = () => {
     value: string | undefined;
     color?: string;
   }) => (
-    <View className="bg-white rounded-xl mx-4 mb-4 shadow-sm border border-gray-100">
+    <View style={{
+      backgroundColor: colors.background.secondary,
+      borderRadius: 12,
+      marginHorizontal: 16,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: colors.border.primary,
+      shadowColor: isDarkMode ? '#000' : '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: isDarkMode ? 0.3 : 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    }}>
       <View className="p-4">
         <View className="flex-row items-center mb-2">
           <Ionicons name={icon as any} size={20} color={color} />
-          <Text className="ml-3 text-sm font-medium text-gray-500 uppercase">{title}</Text>
+          <Text style={{
+            marginLeft: 12,
+            fontSize: 14,
+            fontWeight: '500',
+            color: colors.text.secondary,
+            textTransform: 'uppercase'
+          }}>{title}</Text>
         </View>
-        <Text className="text-lg text-gray-900 ml-8">{value || 'Not specified'}</Text>
+        <Text style={{
+          fontSize: 18,
+          color: colors.text.primary,
+          marginLeft: 32
+        }}>{value || 'Not specified'}</Text>
       </View>
     </View>
   );
@@ -132,31 +156,65 @@ const PublicProfile = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.primary }}>
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: colors.background.secondary,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border.primary,
+        }}>
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#006389" />
           </TouchableOpacity>
-          <Text className="text-lg font-semibold text-gray-900">Public Profile</Text>
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '600',
+            color: colors.text.primary
+          }}>Public Profile</Text>
           <View className="w-6" />
         </View>
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color={COLORS.primary.oceanBlue700} />
-          <Text className="mt-4 text-gray-500">Loading your public profile...</Text>
+          <Text style={{
+            marginTop: 16,
+            color: colors.text.secondary
+          }}>Loading your public profile...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.primary }}>
       {/* Header */}
-      <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: colors.background.secondary,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.primary,
+        shadowColor: isDarkMode ? '#000' : '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: isDarkMode ? 0.3 : 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+      }}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#006389" />
         </TouchableOpacity>
-        <Text className="text-lg font-semibold text-gray-900">Public Profile</Text>
-        <TouchableOpacity onPress={() => router.push('/settings/edit-profile' as any)}>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: '600',
+          color: colors.text.primary
+        }}>Public Profile</Text>
+        <TouchableOpacity onPress={() => router.push('../profile/profile' as any)}>
           <Ionicons name="create-outline" size={24} color="#006389" />
         </TouchableOpacity>
       </View>
@@ -165,7 +223,7 @@ const PublicProfile = () => {
         {publicProfile && (
           <>
             {/* Profile Header */}
-            <View className="bg-white">
+            <View style={{ backgroundColor: colors.background.secondary }}>
               <View className="items-center py-8">
                 {/* Profile Photo */}
                 <View className="relative">
@@ -191,11 +249,19 @@ const PublicProfile = () => {
 
                 {/* Name and Basic Info */}
                 <View className="items-center mt-6">
-                  <Text className="text-2xl font-bold text-gray-900">
+                  <Text style={{
+                    fontSize: 24,
+                    fontWeight: 'bold',
+                    color: colors.text.primary
+                  }}>
                     {publicProfile.first_name} {publicProfile.last_name}
                   </Text>
                   
-                  <Text className="text-lg text-gray-600 mt-1">
+                  <Text style={{
+                    fontSize: 18,
+                    color: colors.text.secondary,
+                    marginTop: 4
+                  }}>
                     {publicProfile.role.charAt(0).toUpperCase() + publicProfile.role.slice(1)}
                   </Text>
 
@@ -203,11 +269,19 @@ const PublicProfile = () => {
                   {publicProfile.rating_average > 0 && (
                     <View className="flex-row items-center mt-3">
                       <RatingStars rating={publicProfile.rating_average} />
-                      <Text className="ml-2 text-lg font-medium text-gray-700">
+                      <Text style={{
+                        marginLeft: 8,
+                        fontSize: 18,
+                        fontWeight: '500',
+                        color: colors.text.primary
+                      }}>
                         {publicProfile.rating_average.toFixed(1)}
                       </Text>
                       {publicProfile.rating_count && (
-                        <Text className="ml-1 text-gray-500">
+                        <Text style={{
+                          marginLeft: 4,
+                          color: colors.text.secondary
+                        }}>
                           ({publicProfile.rating_count} reviews)
                         </Text>
                       )}
@@ -219,13 +293,34 @@ const PublicProfile = () => {
 
             {/* Bio Section */}
             {publicProfile.bio && (
-              <View className="bg-white mx-4 my-4 rounded-xl shadow-sm border border-gray-100">
+              <View style={{
+                backgroundColor: colors.background.secondary,
+                marginHorizontal: 16,
+                marginVertical: 16,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: colors.border.primary,
+                shadowColor: isDarkMode ? '#000' : '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: isDarkMode ? 0.3 : 0.1,
+                shadowRadius: 4,
+                elevation: 3,
+              }}>
                 <View className="p-4">
                   <View className="flex-row items-center mb-3">
                     <Ionicons name="document-text" size={20} color={COLORS.primary.oceanBlue700} />
-                    <Text className="ml-3 text-sm font-medium text-gray-500 uppercase">About</Text>
+                    <Text style={{
+                      marginLeft: 12,
+                      fontSize: 14,
+                      fontWeight: '500',
+                      color: colors.text.secondary,
+                      textTransform: 'uppercase'
+                    }}>About</Text>
                   </View>
-                  <Text className="text-gray-900 leading-6">{publicProfile.bio}</Text>
+                  <Text style={{
+                    color: colors.text.primary,
+                    lineHeight: 24
+                  }}>{publicProfile.bio}</Text>
                 </View>
               </View>
             )}
@@ -255,24 +350,50 @@ const PublicProfile = () => {
             </View>
 
             {/* Languages */}
-            <View className="bg-white mx-4 mb-4 rounded-xl shadow-sm border border-gray-100">
+            <View style={{
+              backgroundColor: colors.background.secondary,
+              marginHorizontal: 16,
+              marginBottom: 16,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: colors.border.primary,
+              shadowColor: isDarkMode ? '#000' : '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: isDarkMode ? 0.3 : 0.1,
+              shadowRadius: 4,
+              elevation: 3,
+            }}>
               <View className="p-4">
                 <View className="flex-row items-center mb-3">
                   <Ionicons name="language" size={20} color={COLORS.primary.oceanBlue700} />
-                  <Text className="ml-3 text-sm font-medium text-gray-500 uppercase">Languages</Text>
+                  <Text style={{
+                    marginLeft: 12,
+                    fontSize: 14,
+                    fontWeight: '500',
+                    color: colors.text.secondary,
+                    textTransform: 'uppercase'
+                  }}>Languages</Text>
                 </View>
                 
                 <View>
                   <View className="flex-row items-center mb-2">
-                    <Text className="font-medium text-gray-700 mr-2">Primary:</Text>
-                    <Text className="text-gray-900">{savedLanguages.primary}</Text>
+                    <Text style={{
+                      fontWeight: '500',
+                      color: colors.text.secondary,
+                      marginRight: 8
+                    }}>Primary:</Text>
+                    <Text style={{color: colors.text.primary}}>{savedLanguages.primary}</Text>
                   </View>
                   
                   {savedLanguages.secondary.length > 0 && (
                     <View className="flex-row items-start">
-                      <Text className="font-medium text-gray-700 mr-2">Also speaks:</Text>
+                      <Text style={{
+                        fontWeight: '500',
+                        color: colors.text.secondary,
+                        marginRight: 8
+                      }}>Also speaks:</Text>
                       <View className="flex-1">
-                        <Text className="text-gray-900">
+                        <Text style={{color: colors.text.primary}}>
                           {savedLanguages.secondary.join(', ')}
                         </Text>
                       </View>
@@ -280,7 +401,11 @@ const PublicProfile = () => {
                   )}
                   
                   {savedLanguages.secondary.length === 0 && (
-                    <Text className="text-gray-500 text-sm mt-2">
+                    <Text style={{
+                      color: colors.text.secondary,
+                      fontSize: 14,
+                      marginTop: 8
+                    }}>
                       No additional languages specified
                     </Text>
                   )}
@@ -290,32 +415,59 @@ const PublicProfile = () => {
 
             {/* Profile Stats */}
             {(publicProfile.rating_count || profile?.created_at) && (
-              <View className="bg-white mx-4 mb-4 rounded-xl shadow-sm border border-gray-100">
+              <View style={{
+                backgroundColor: colors.background.secondary,
+                marginHorizontal: 16,
+                marginBottom: 16,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: colors.border.primary,
+                shadowColor: isDarkMode ? '#000' : '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: isDarkMode ? 0.3 : 0.1,
+                shadowRadius: 4,
+                elevation: 3,
+              }}>
                 <View className="p-4">
                   <View className="flex-row items-center mb-4">
                     <Ionicons name="analytics" size={20} color={COLORS.primary.oceanBlue700} />
-                    <Text className="ml-3 text-sm font-medium text-gray-500 uppercase">Profile Stats</Text>
+                    <Text style={{
+                      marginLeft: 12,
+                      fontSize: 14,
+                      fontWeight: '500',
+                      color: colors.text.secondary,
+                      textTransform: 'uppercase'
+                    }}>Profile Stats</Text>
                   </View>
                   
                   <View className="space-y-3">
                     {publicProfile.rating_count > 0 && (
                       <View className="flex-row justify-between items-center">
-                        <Text className="text-gray-600">Reviews Received</Text>
-                        <Text className="font-semiBold text-gray-900">{publicProfile.rating_count}</Text>
+                        <Text style={{color: colors.text.secondary}}>Reviews Received</Text>
+                        <Text style={{
+                          fontWeight: '600',
+                          color: colors.text.primary
+                        }}>{publicProfile.rating_count}</Text>
                       </View>
                     )}
                     
                     {publicProfile.rating_average > 0 && (
                       <View className="flex-row justify-between items-center">
-                        <Text className="text-gray-600">Average Rating</Text>
-                        <Text className="font-semiBold text-gray-900">{publicProfile.rating_average.toFixed(1)} ⭐</Text>
+                        <Text style={{color: colors.text.secondary}}>Average Rating</Text>
+                        <Text style={{
+                          fontWeight: '600',
+                          color: colors.text.primary
+                        }}>{publicProfile.rating_average.toFixed(1)} ⭐</Text>
                       </View>
                     )}
                     
                     {profile?.created_at && (
                       <View className="flex-row justify-between items-center">
-                        <Text className="text-gray-600">Member Since</Text>
-                        <Text className="font-semiBold text-gray-900">
+                        <Text style={{color: colors.text.secondary}}>Member Since</Text>
+                        <Text style={{
+                          fontWeight: '600',
+                          color: colors.text.primary
+                        }}>
                           {new Date(profile.created_at).toLocaleDateString('en-US', {
                             year: 'numeric',
                             month: 'long'
@@ -330,20 +482,43 @@ const PublicProfile = () => {
 
             {/* Profile Completion Tip */}
             <View className="mx-4 mb-6">
-              <View className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <View style={{
+                backgroundColor: isDarkMode ? colors.background.secondary : '#EFF6FF',
+                borderWidth: 1,
+                borderColor: isDarkMode ? colors.border.primary : '#BFDBFE',
+                borderRadius: 12,
+                padding: 16
+              }}>
                 <View className="flex-row items-start">
                   <Ionicons name="information-circle" size={20} color="#3B82F6" />
                   <View className="flex-1 ml-3">
-                    <Text className="text-blue-800 font-medium">Public Profile Preview</Text>
-                    <Text className="text-blue-700 text-sm mt-1">
+                    <Text style={{
+                      color: isDarkMode ? colors.text.primary : '#1E40AF',
+                      fontWeight: '500'
+                    }}>Public Profile Preview</Text>
+                    <Text style={{
+                      color: isDarkMode ? colors.text.secondary : '#1D4ED8',
+                      fontSize: 14,
+                      marginTop: 4
+                    }}>
                       This is how other users see your profile. Complete your profile to build trust and connect with more riders.
                     </Text>
                     <TouchableOpacity 
                       className="mt-3"
-                      onPress={() => router.push('/settings/edit-profile' as any)}
+                      onPress={() => router.push('../profile/profile' as any)}
                     >
-                      <View className="bg-blue-100 rounded-lg px-3 py-2 self-start">
-                        <Text className="text-blue-700 font-medium text-sm">Edit Profile</Text>
+                      <View style={{
+                        backgroundColor: isDarkMode ? colors.background.tertiary : '#DBEAFE',
+                        borderRadius: 8,
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        alignSelf: 'flex-start'
+                      }}>
+                        <Text style={{
+                          color: isDarkMode ? colors.text.secondary : '#1D4ED8',
+                          fontWeight: '500',
+                          fontSize: 14
+                        }}>Edit Profile</Text>
                       </View>
                     </TouchableOpacity>
                   </View>

@@ -11,6 +11,7 @@ import { useUser } from "@/hooks/useUserProfile";
 import { UserProfile } from "@/types/user";
 import EditProfile from "./EditProfile";
 import { COLORS } from "@/constants/theme";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 // Define the type for list items
 interface ListItem {
@@ -23,6 +24,7 @@ interface ListItem {
 export default function Profile() {
   const router = useRouter();
   const { logout, user } = useAuth();
+  const { colors, isDarkMode } = useAppTheme();
 
   // Use the CoRide useUser hook
   const { profile, isLoading: isUserProfileLoading, error: userProfileError, clearError, getProfile } = useUser();
@@ -139,13 +141,29 @@ export default function Profile() {
   // Reusable list item component  
   const ProfileListItem = ({ icon, text, subtitle, action }: ListItem) => (
     <TouchableOpacity
-      className="flex-row items-center py-4 px-4 border-b border-gray-100"
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.primary,
+        backgroundColor: colors.background.secondary
+      }}
       onPress={action}
       disabled={!action} // Disable if no action provided
     >
-      <View className={`w-10 h-10 rounded-full justify-center items-center mr-3 ${
-        icon === "log-out-outline" ? "bg-red-50" : "bg-primary-oceanBlue50"
-      }`}>
+      <View style={{
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+        backgroundColor: icon === "log-out-outline" 
+          ? (isDarkMode ? '#7F1D1D' : '#FEF2F2') 
+          : COLORS.primary.oceanBlue50
+      }}>
         <Ionicons 
           name={icon} 
           size={wp(5)} 
@@ -153,17 +171,20 @@ export default function Profile() {
         />
       </View>
       <View className="flex-1">
-        <Text className={`text-lg font-semiBold ${
-          icon === "log-out-outline" ? "text-red-600" : "text-gray-800"
-        }`}>{text}</Text>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: '600',
+          color: icon === "log-out-outline" ? "#DC1C13" : colors.text.primary
+        }}>{text}</Text>
         {subtitle && (
-          <Text className="text-sm font-regular text-gray-500 mt-1">{subtitle}</Text>
-        )}
-        {subtitle && (
-          <Text className="text-sm font-regular text-gray-500 mt-1">{subtitle}</Text>
+          <Text style={{
+            fontSize: 14,
+            color: colors.text.secondary,
+            marginTop: 4
+          }}>{subtitle}</Text>
         )}
       </View>
-      {icon !== "log-out-outline" && <Ionicons name="chevron-forward" size={wp(5)} color="#9CA3AF" />}
+      {icon !== "log-out-outline" && <Ionicons name="chevron-forward" size={wp(5)} color={colors.text.tertiary} />}
     </TouchableOpacity>
   );
 
@@ -238,23 +259,39 @@ export default function Profile() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.primary }}>
       {/* Header */}
-      <View className="flex-row justify-between items-center px-4 py-3 border-b border-gray-100">
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.primary,
+        backgroundColor: colors.background.secondary
+      }}>
         <TouchableOpacity onPress={() => (isEditing ? toggleEditMode(false) : router.back())}>
-          <Ionicons name="arrow-back" size={24} color="#006389" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary.dark} />
         </TouchableOpacity>
-        <Text className="text-lg font-semibold text-gray-900">{isEditing ? "Edit Profile" : "My Profile"}</Text>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: '600',
+          color: colors.text.primary
+        }}>{isEditing ? "Edit Profile" : "My Profile"}</Text>
         <TouchableOpacity onPress={isEditing ? handleSavePress : navigateToSettings}>
-          <Ionicons name={isEditing ? "checkmark" : "settings-outline"} size={24} color={isEditing ? "#00C853" : "#006389"} />
+          <Ionicons name={isEditing ? "checkmark" : "settings-outline"} size={24} color={isEditing ? "#00C853" : colors.primary.dark} />
         </TouchableOpacity>
       </View>
 
       <View className="flex-1 relative">
         {isUserProfileLoading ? (
           <View className="flex-1 justify-center items-center py-20">
-            <ActivityIndicator size="large" color="#33B7E9" />
-            <Text className="mt-4 text-gray-500">Loading profile...</Text>
+            <ActivityIndicator size="large" color={COLORS.primary.oceanBlue700} />
+            <Text style={{
+              marginTop: 16,
+              color: colors.text.secondary
+            }}>Loading profile...</Text>
           </View>
         ) : userProfile ? (
           <>
@@ -280,22 +317,48 @@ export default function Profile() {
                       />
                     )}
                   </View>
-                  <Text className="text-xl font-bold text-gray-900">
+                  <Text style={{
+                    fontSize: 20,
+                    fontWeight: 'bold',
+                    color: colors.text.primary,
+                    marginTop: 16
+                  }}>
                     {userProfile?.first_name && userProfile?.last_name
                       ? `${userProfile.first_name} ${userProfile.last_name}`
                       : userProfile?.first_name || 'User'}
                   </Text>
-                  <Text className="text-primary-text mt-1">{userProfile?.email || "No email"}</Text>
+                  <Text style={{
+                    color: colors.text.secondary,
+                    marginTop: 4
+                  }}>{userProfile?.email || "No email"}</Text>
                   {(userProfile as UserProfile)?.bio && (
-                    <Text className="text-gray-600 mt-2 text-center px-4">{(userProfile as UserProfile).bio}</Text>
+                    <Text style={{
+                      color: colors.text.secondary,
+                      marginTop: 8,
+                      textAlign: 'center',
+                      paddingHorizontal: 16
+                    }}>{(userProfile as UserProfile).bio}</Text>
                   )}
-                  <TouchableOpacity className="mt-4 bg-primary-dark px-8 py-3 rounded-full" onPress={() => toggleEditMode(true)}>
-                    <Text className="text-white font-semibold text-md">Edit Profile</Text>
+                  <TouchableOpacity 
+                    style={{
+                      marginTop: 16,
+                      backgroundColor: colors.primary.dark,
+                      paddingHorizontal: 32,
+                      paddingVertical: 12,
+                      borderRadius: 24
+                    }} 
+                    onPress={() => toggleEditMode(true)}
+                  >
+                    <Text style={{
+                      color: '#FFFFFF',
+                      fontWeight: '600',
+                      fontSize: 16
+                    }}>Edit Profile</Text>
                   </TouchableOpacity>
                 </View>
 
                 {/* Profile List Items */}
-                <View className="px-4">
+                <View className="px-4 rounded-lg mx-4" style={{ backgroundColor: colors.background.secondary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 }}>
                   {profileItems.map((item, index) => (
                     <ProfileListItem 
                       key={index} 
@@ -325,31 +388,59 @@ export default function Profile() {
             {isUserProfileError ? (
               <>
                 <Ionicons name="alert-circle-outline" size={60} color="#DC1C13" />
-                <Text className="text-red-600 mt-4 text-center text-lg font-semibold">Error Loading Profile</Text>
-                <Text className="text-gray-500 mt-2 text-center text-md">
+                <Text style={{
+                  color: '#DC1C13',
+                  marginTop: 16,
+                  textAlign: 'center',
+                  fontSize: 18,
+                  fontWeight: '600'
+                }}>Error Loading Profile</Text>
+                <Text style={{
+                  color: colors.text.secondary,
+                  marginTop: 8,
+                  textAlign: 'center',
+                  fontSize: 16
+                }}>
                   {userProfileError || "Failed to load profile data. Please check your connection and try again."}
                 </Text>
                 <TouchableOpacity
-                  className="mt-6 bg-red-500 py-3 px-6 rounded-full"
+                  style={{
+                    marginTop: 24,
+                    backgroundColor: '#DC1C13',
+                    paddingVertical: 12,
+                    paddingHorizontal: 24,
+                    borderRadius: 24
+                  }}
                   onPress={async () => {
                     clearError();
                     await getProfile(true);
                   }}
                 >
-                  <Text className="text-white font-medium">Retry</Text>
+                  <Text style={{ color: '#FFFFFF', fontWeight: '500' }}>Retry</Text>
                 </TouchableOpacity>
               </>
             ) : (
               <>
-                <Ionicons name="person-circle-outline" size={60} color="#9CA3AF" />
-                <Text className="text-gray-500 mt-4 text-center text-md">No profile data available.</Text>
+                <Ionicons name="person-circle-outline" size={60} color={colors.text.tertiary} />
+                <Text style={{
+                  color: colors.text.secondary,
+                  marginTop: 16,
+                  textAlign: 'center',
+                  fontSize: 16
+                }}>No profile data available.</Text>
                 <TouchableOpacity
-                  className="mt-6 bg-primary-light py-2.5 px-5 rounded-full"
+                  style={{
+                    marginTop: 24,
+                    backgroundColor: colors.primary.dark,
+                    paddingVertical: 10,
+                    paddingHorizontal: 20,
+                    borderRadius: 24
+                  }}
                   onPress={async () => {
                     await getProfile(true);
                   }}
                 >
-                  <Text className="text-white font-medium">Load Profile</Text>
+                  <Text style={{ color: '#FFFFFF', fontWeight: '500' }}>Load Profile</Text>
                 </TouchableOpacity>
               </>
             )}

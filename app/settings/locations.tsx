@@ -13,12 +13,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { COLORS } from '@/constants/theme';
+import { useAppTheme } from '@/hooks/useAppTheme';
 import { useUser } from '@/hooks/useUserProfile';
 import type { UserLocation, LocationType } from '@/types/user';
 import * as Haptics from 'expo-haptics';
 
 const SavedLocations = () => {
   const router = useRouter();
+  const { colors, isDarkMode } = useAppTheme();
   const { getLocations, deleteLocation } = useUser();
 
   const [locations, setLocations] = useState<UserLocation[]>([]);
@@ -108,27 +110,63 @@ const SavedLocations = () => {
     const typeInfo = getLocationTypeInfo(location.location_type);
     
     return (
-      <View className="bg-white rounded-xl mx-4 mb-3 shadow-sm border border-gray-100">
+      <View style={{
+        backgroundColor: colors.background.secondary,
+        borderRadius: 12,
+        marginHorizontal: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: colors.border.primary,
+        shadowColor: isDarkMode ? '#000' : '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: isDarkMode ? 0.3 : 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+      }}>
         <View className="p-4">
           <View className="flex-row items-start justify-between">
             <View className="flex-1">
               <View className="flex-row items-center mb-2">
-                <View className="w-10 h-10 rounded-full bg-primary-oceanBlue50 items-center justify-center mr-3">
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: COLORS.primary.oceanBlue50,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginRight: 12
+                }}>
                   <Ionicons name={typeInfo.icon as any} size={20} color={COLORS.primary.oceanBlue700} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-lg font-semiBold text-gray-900">{location.name}</Text>
-                  <Text className="text-sm text-primary-oceanBlue600 capitalize">{typeInfo.label}</Text>
+                  <Text style={{
+                    fontSize: 18,
+                    fontWeight: '600',
+                    color: colors.text.primary
+                  }}>{location.name}</Text>
+                  <Text style={{
+                    fontSize: 14,
+                    color: COLORS.primary.oceanBlue700,
+                    textTransform: 'capitalize'
+                  }}>{typeInfo.label}</Text>
                 </View>
               </View>
               
-              <Text className="text-gray-600 text-sm mb-3" numberOfLines={2}>
+              <Text style={{
+                color: colors.text.secondary,
+                fontSize: 14,
+                marginBottom: 12
+              }} numberOfLines={2}>
                 {location.address}
               </Text>
               
               <View className="flex-row items-center">
                 <Ionicons name="location-outline" size={16} color="#9CA3AF" />
-                <Text className="text-xs text-gray-500 ml-1">
+                <Text style={{
+                  fontSize: 12,
+                  color: colors.text.secondary,
+                  marginLeft: 4
+                }}>
                   {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
                 </Text>
               </View>
@@ -150,30 +188,64 @@ const SavedLocations = () => {
 
   if (isLoading) {
     return (
-      <SafeAreaView className="flex-1 bg-gray-50">
-        <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.primary }}>
+        <View style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+          backgroundColor: colors.background.secondary,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border.primary,
+        }}>
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={24} color="#006389" />
           </TouchableOpacity>
-          <Text className="text-lg font-semibold text-gray-900">Saved Locations</Text>
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '600',
+            color: colors.text.primary
+          }}>Saved Locations</Text>
           <View className="w-6" />
         </View>
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color={COLORS.primary.oceanBlue700} />
-          <Text className="mt-4 text-gray-500">Loading your locations...</Text>
+          <Text style={{
+            marginTop: 16,
+            color: colors.text.secondary
+          }}>Loading your locations...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.background.primary }}>
       {/* Header */}
-      <View className="flex-row justify-between items-center px-4 py-3 bg-white border-b border-gray-100">
+      <View style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        backgroundColor: colors.background.secondary,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.primary,
+        shadowColor: isDarkMode ? '#000' : '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: isDarkMode ? 0.3 : 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+      }}>
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#006389" />
         </TouchableOpacity>
-        <Text className="text-lg font-semibold text-gray-900">Saved Locations</Text>
+        <Text style={{
+          fontSize: 18,
+          fontWeight: '600',
+          color: colors.text.primary
+        }}>Saved Locations</Text>
         <TouchableOpacity onPress={() => setIsFormModalVisible(true)}>
           <Ionicons name="add" size={24} color="#006389" />
         </TouchableOpacity>
@@ -181,12 +253,27 @@ const SavedLocations = () => {
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Info Card */}
-        <View className="mt-4 mx-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <View style={{
+          marginTop: 16,
+          marginHorizontal: 16,
+          backgroundColor: isDarkMode ? colors.background.secondary : '#EFF6FF',
+          borderWidth: 1,
+          borderColor: isDarkMode ? colors.border.primary : '#BFDBFE',
+          borderRadius: 12,
+          padding: 16
+        }}>
           <View className="flex-row items-start">
-            <Ionicons name="information-circle" size={20} color="#3B82F6" />
+            <Ionicons name="information-circle" size={20} color={COLORS.primary.oceanBlue700} />
             <View className="flex-1 ml-3">
-              <Text className="text-blue-800 font-medium">Quick Access Locations</Text>
-              <Text className="text-blue-700 text-sm mt-1">
+              <Text style={{
+                color: isDarkMode ? colors.text.primary : '#1E40AF',
+                fontWeight: '500'
+              }}>Quick Access Locations</Text>
+              <Text style={{
+                color: isDarkMode ? colors.text.secondary : '#1D4ED8',
+                fontSize: 14,
+                marginTop: 4
+              }}>
                 Save frequently visited places for faster ride booking. You can save up to 10 locations.
               </Text>
             </View>
@@ -203,15 +290,35 @@ const SavedLocations = () => {
         ) : (
           <View className="flex-1 justify-center items-center py-20">
             <Ionicons name="location-outline" size={60} color="#9CA3AF" />
-            <Text className="text-gray-500 text-lg font-medium mt-4">No saved locations</Text>
-            <Text className="text-gray-400 text-center mt-2 px-8">
+            <Text style={{
+              color: colors.text.secondary,
+              fontSize: 18,
+              fontWeight: '500',
+              marginTop: 16
+            }}>No saved locations</Text>
+            <Text style={{
+              color: colors.text.tertiary,
+              textAlign: 'center',
+              marginTop: 8,
+              paddingHorizontal: 32
+            }}>
               Add your frequently visited places for quick ride booking
             </Text>
             <TouchableOpacity
-              className="mt-6 bg-primary-oceanBlue600 py-3 px-6 rounded-xl"
+              style={{
+                marginTop: 24,
+                backgroundColor: COLORS.primary.oceanBlue600,
+                paddingVertical: 12,
+                paddingHorizontal: 24,
+                borderRadius: 12
+              }}
               onPress={() => setIsFormModalVisible(true)}
             >
-              <Text className="text-white font-semiBold">Add First Location</Text>
+              <Text style={{
+                color: '#FFFFFF',
+                fontWeight: '600',
+                textAlign: 'center'
+              }}>Add First Location</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -220,11 +327,23 @@ const SavedLocations = () => {
         {locations.length > 0 && (
           <View className="mt-4 mx-4 mb-8">
             <TouchableOpacity
-              className="bg-primary-oceanBlue600 py-4 rounded-xl flex-row items-center justify-center"
+              style={{
+                backgroundColor: COLORS.primary.oceanBlue600,
+                paddingVertical: 16,
+                borderRadius: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
               onPress={() => setIsFormModalVisible(true)}
             >
               <Ionicons name="add" size={20} color="white" />
-              <Text className="text-white font-semiBold text-md ml-2">Add New Location</Text>
+              <Text style={{
+                color: '#FFFFFF',
+                fontWeight: '600',
+                fontSize: 16,
+                marginLeft: 8
+              }}>Add New Location</Text>
             </TouchableOpacity>
           </View>
         )}
