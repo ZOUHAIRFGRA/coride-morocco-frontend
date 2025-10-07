@@ -1,8 +1,18 @@
 import * as ImagePicker from "expo-image-picker";
 
 // Cloudinary upload preset and cloud name - replace with your actual values
-const CLOUDINARY_UPLOAD_PRESET = "coride_mobile_uploads";
-const CLOUDINARY_CLOUD_NAME = "dj2ynb4rg";
+const CLOUDINARY_UPLOAD_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+const CLOUDINARY_CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME;
+
+// Validate required environment variables
+if (!CLOUDINARY_UPLOAD_PRESET) {
+  throw new Error("EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET environment variable is required");
+}
+
+if (!CLOUDINARY_CLOUD_NAME) {
+  throw new Error("EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME environment variable is required");
+}
+
 const CLOUDINARY_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
 /**
