@@ -7,7 +7,7 @@ export interface UserProfile {
   phone?: string;
   first_name: string;
   last_name: string;
-  role: string;
+  role: 'rider' | 'driver' | 'admin';
   is_verified: boolean;
   email_verified: boolean;
   phone_verified: boolean;
@@ -24,6 +24,11 @@ export interface UserProfile {
   pets_allowed: boolean;
   air_conditioning: boolean;
   max_detour_minutes: number;
+  // Role management properties
+  can_drive: boolean;
+  driver_license_verified: boolean;
+  identity_verified: boolean;
+  available_roles: ('rider' | 'driver')[];
   // Additional properties for compatibility
   verification_status: {
     identity_verified: boolean;
@@ -35,6 +40,22 @@ export interface UserProfile {
     as_passenger: number;
     total_ratings: number;
   };
+}
+
+// Role management types
+export interface UserRoleInfo {
+  current_role: 'rider' | 'driver' | 'admin';
+  can_drive: boolean;
+  driver_license_verified: boolean;
+  identity_verified: boolean;
+  available_roles: string[];
+}
+
+export interface RoleSwitchResponse {
+  message: string;
+  new_role: 'rider' | 'driver';
+  can_drive: boolean;
+  driver_license_verified: boolean;
 }
 
 export interface UpdateProfileRequest {

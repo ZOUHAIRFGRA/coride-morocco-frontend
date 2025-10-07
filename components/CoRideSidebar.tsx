@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { View, Text, TouchableOpacity } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, TouchableOpacity, Alert, Switch, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { widthPercentageToDP as wp } from "react-native-responsive-screen";
@@ -7,6 +7,8 @@ import { COLORS } from "@/constants/theme";
 import { useRouter, usePathname } from "expo-router";
 import { useAuth } from "@/contexts/AppStateContext";
 import { useUser } from "@/hooks/useUserProfile";
+import { userRoleApiService } from "@/services/userRoleApi";
+import type { UserRoleInfo } from "@/types/user";
 import {
   Drawer,
   DrawerBackdrop,
@@ -31,12 +33,83 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
   const pathname = usePathname();
   const { logout, user } = useAuth();
   const [imageError, setImageError] = useState(false);
+  
+  // Role management state
+  const [roleInfo, setRoleInfo] = useState<UserRoleInfo | null>(null);
+  const [isRoleSwitching, setIsRoleSwitching] = useState(false);
+  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
 
   // Get complete user profile from useUser hook
-  const { profile } = useUser();
+  const { profile, getProfile } = useUser();
   
   // Use profile data or fallback to auth user
   const userData = profile || user;
+
+  // Load user role info on sidebar open
+  useEffect(() => {
+    if (isVisible) {
+      loadUserRoleInfo();
+    }
+  }, [isVisible]);
+
+  const loadUserRoleInfo = async () => {
+    try {
+      const response = await userRoleApiService.getUserRole();
+      console.log('Loaded role info:', response);
+      if (response.success && response.data) {
+        setRoleInfo(response.data);
+        console.log('setShowRoleSwitcher', response.data.available_roles.length >= 1);
+        setShowRoleSwitcher(response.data.available_roles.length >= 1);
+        console.log('Role Info:', roleInfo);
+      }
+    } catch (error) {
+      console.error('Error loading role info:', error);
+    }
+  };
+
+  const handleRoleSwitch = async (newRole: 'rider' | 'driver') => {
+    if (isRoleSwitching || !roleInfo || newRole === roleInfo.current_role) {
+      return;
+    }
+
+    setIsRoleSwitching(true);
+
+    try {
+      const response = await userRoleApiService.switchRole(newRole);
+      
+      if (response.success) {
+        // Update local role info
+        setRoleInfo(prev => prev ? {
+          ...prev,
+          current_role: newRole
+        } : null);
+
+        // Refresh user profile to get updated data
+        await getProfile(true);
+
+        Alert.alert(
+          'Role Switched',
+          `You are now a ${newRole}. ${newRole === 'driver' ? 'You can now offer rides to passengers.' : 'You can now search and book rides.'}`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert(
+          'Switch Failed',
+          response.error?.message || 'Unable to switch role. Please try again.',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (error) {
+      console.error('Role switch error:', error);
+      Alert.alert(
+        'Error',
+        'Failed to switch role. Please check your connection and try again.',
+        [{ text: 'OK' }]
+      );
+    }
+
+    setIsRoleSwitching(false);
+  };
 
   // Use profile_photo_url from user profile with fallback
   const getProfileImageUrl = () => {
@@ -102,17 +175,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
     }
   };
 
-  const navigateToSection = (section: string) => {
-    // For now, just navigate to a placeholder - we'll update these routes later
-    const sectionRoutes: Record<string, string> = {
-      "investment": "/main",
-      "budgeting": "/main", 
-      "bookkeeping": "/main"
-    };
-    
-    const path = sectionRoutes[section] || "/main";
-    handleNavigation(path);
-  };
+ 
 
   const handleLogout = async () => {
     try {
@@ -124,6 +187,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
       onClose();
     }
   };
+  console.log({showRoleSwitcher, roleInfo})
 
   return (
     <Drawer
@@ -178,8 +242,8 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   {userData?.email || "No email"}
                 </Text>
 
-                {/* Role Badge */}
-                {getUserRoleBadge()}
+                {/* Current Role Badge (when no switching available) */}
+                {!showRoleSwitcher && getUserRoleBadge()}
 
                 {/* Verification Status */}
                 {userData?.is_verified && (
@@ -191,6 +255,123 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   </View>
                 )}
               </TouchableOpacity>
+
+              {/* Role Switcher - Outside of profile TouchableOpacity */}
+              {showRoleSwitcher && roleInfo && (
+                <View className="mt-4 w-full">
+                  <Text className="text-xs font-medium text-gray-500 text-center mb-3 uppercase">
+                    Switch Mode
+                  </Text>
+                  
+                  <View className="flex-row bg-gray-100 rounded-lg p-1">
+                    {/* Rider Mode */}
+                    <TouchableOpacity
+                      className={`flex-1 flex-row items-center justify-center py-2 px-3 rounded-md ${
+                        roleInfo.current_role === 'rider' ? 'bg-white shadow-sm' : ''
+                      }`}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleRoleSwitch('rider');
+                      }}
+                      disabled={isRoleSwitching || roleInfo.current_role === 'rider'}
+                      activeOpacity={0.7}
+                    >
+                      {isRoleSwitching && roleInfo.current_role !== 'rider' ? (
+                        <ActivityIndicator size="small" color="#3B82F6" />
+                      ) : (
+                        <>
+                          <Ionicons 
+                            name="person" 
+                            size={14} 
+                            color={roleInfo.current_role === 'rider' ? '#3B82F6' : '#6B7280'} 
+                          />
+                          <Text 
+                            className={`text-xs font-medium ml-1 ${
+                              roleInfo.current_role === 'rider' ? 'text-blue-600' : 'text-gray-500'
+                            }`}
+                          >
+                            Rider
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+
+                    {/* Driver Mode */}
+                    <TouchableOpacity
+                      className={`flex-1 flex-row items-center justify-center py-2 px-3 rounded-md ${
+                        roleInfo.current_role === 'driver' ? 'bg-white shadow-sm' : ''
+                      }`}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleRoleSwitch('driver');
+                      }}
+                      disabled={isRoleSwitching || roleInfo.current_role === 'driver' || !roleInfo.can_drive}
+                      activeOpacity={0.7}
+                    >
+                      {isRoleSwitching && roleInfo.current_role !== 'driver' ? (
+                        <ActivityIndicator size="small" color="#10B981" />
+                      ) : (
+                        <>
+                          <Ionicons 
+                            name="car" 
+                            size={14} 
+                            color={
+                              roleInfo.current_role === 'driver' 
+                                ? '#10B981' 
+                                : roleInfo.can_drive 
+                                  ? '#6B7280' 
+                                  : '#D1D5DB'
+                            } 
+                          />
+                          <Text 
+                            className={`text-xs font-medium ml-1 ${
+                              roleInfo.current_role === 'driver'
+                                ? 'text-emerald-600'
+                                : roleInfo.can_drive
+                                  ? 'text-gray-500'
+                                  : 'text-gray-300'
+                            }`}
+                          >
+                            Driver
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Driver Requirements Info */}
+                  {!roleInfo.can_drive && (
+                    <TouchableOpacity 
+                      className="mt-2 p-2 bg-amber-50 rounded-lg"
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        Alert.alert(
+                          'Driver Requirements',
+                          'To become a driver, you need:\n\n• Verified identity document\n• Valid driver\'s license\n• License verification approval\n\nTap to go to verification settings.',
+                          [
+                            { text: 'Cancel', style: 'cancel' },
+                            { 
+                              text: 'Verify Now', 
+                              onPress: () => {
+                                handleNavigation('/settings/verification');
+                              }
+                            }
+                          ]
+                        );
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View className="flex-row items-center">
+                        <Ionicons name="information-circle" size={12} color="#F59E0B" />
+                        <Text className="text-xs text-amber-600 ml-1 flex-1">
+                          Complete verification to drive
+                        </Text>
+                        <Ionicons name="chevron-forward" size={10} color="#F59E0B" />
+                      </View>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
             </View>
 
 

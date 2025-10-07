@@ -1,6 +1,7 @@
 // Development Environment Configuration
 const USING_NGROK = process.env.EXPO_PUBLIC_USING_NGROK === "true" || false;
-const BACKEND_HOST = USING_NGROK ? "trusted-frank-mudfish.ngrok-free.app" : "192.168.1.2" 
+const WIFI_IP = process.env.EXPO_PUBLIC_WIFI_IP || "192.168.1.2"; // Fallback IP if script fails
+const BACKEND_HOST = USING_NGROK ? "trusted-frank-mudfish.ngrok-free.app" : WIFI_IP;
 const BACKEND_PORT = USING_NGROK ? 80 : 8000;
 const PROTOCOL = USING_NGROK ? "https" : "http"
 const ENV_DEV = {

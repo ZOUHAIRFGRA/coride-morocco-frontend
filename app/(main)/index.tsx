@@ -9,15 +9,16 @@ import { useUser } from '@/hooks/useUserProfile';
 import CoRideSidebar from '@/components/CoRideSidebar';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import LocationSearchModal from '@/components/modals/LocationSearchModal';
-import { geospatialService } from '@/services/geospatialService';
-import type { LocationSuggestion, RouteMatch } from '@/types/geospatial';
+import { integratedRideService } from '@/services/integratedRideService';
+import type { LocationSuggestion } from '@/types/geospatial';
+import type { SmartRideMatch } from '@/types/ride';
 
 export default function MainScreen() {
   const [sidebarVisible, setSidebarVisible] = useState(false);
   const [startLocation, setStartLocation] = useState<LocationSuggestion | null>(null);
   const [endLocation, setEndLocation] = useState<LocationSuggestion | null>(null);
   const [passengerCount, setPassengerCount] = useState(1);
-  const [routes, setRoutes] = useState<RouteMatch[]>([]);
+  const [routes, setRoutes] = useState<SmartRideMatch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showStartLocationModal, setShowStartLocationModal] = useState(false);
   const [showEndLocationModal, setShowEndLocationModal] = useState(false);
@@ -40,6 +41,19 @@ export default function MainScreen() {
     return firstName ? `${greeting}, ${firstName}!` : `${greeting}!`;
   };
 
+  const getSubtitleMessage = () => {
+    const role = userData?.role;
+    
+    switch (role) {
+      case 'driver':
+        return 'Ready to offer rides or find passengers?';
+      case 'rider':
+        return 'Ready to find your next ride?';
+      default:
+        return 'Ready to share a ride?';
+    }
+  };
+
   // Auto-search when both locations are set
   useEffect(() => {
     if (startLocation && endLocation) {
@@ -60,17 +74,15 @@ export default function MainScreen() {
       const now = new Date();
       const searchDepartureTime = new Date(now.getTime() + 60 * 60 * 1000); // 1 hour from now
 
-      const routeResponse = await geospatialService.findQuickRoutes({
-        startLat: startLocation.latitude,
-        startLng: startLocation.longitude,
-        endLat: endLocation.latitude,
-        endLng: endLocation.longitude,
-        departureTime: searchDepartureTime.toISOString(),
+      const routeResponse = await integratedRideService.findBestMatches(
+        startLocation,
+        endLocation,
+        searchDepartureTime,
         passengerCount
-      });
+      );
 
       if (routeResponse.success && routeResponse.data) {
-        setRoutes(routeResponse.data.matches);
+        setRoutes(routeResponse.data);
       } else {
         setRoutes([]);
         Alert.alert(
@@ -87,10 +99,11 @@ export default function MainScreen() {
     setIsLoading(false);
   };
 
-  const handleRouteSelect = (route: RouteMatch) => {
+  const handleRouteSelect = (route: SmartRideMatch) => {
+    const driverName = route.driver ? `${route.driver.first_name} ${route.driver.last_name}` : 'Driver';
     Alert.alert(
       'Route Selected',
-      `You selected a ride with ${route.driver_name}. This would typically navigate to booking or contact details.`,
+      `You selected a ride with ${driverName}. This would typically navigate to booking or contact details.`,
       [{ text: 'OK' }]
     );
   };
@@ -113,14 +126,25 @@ export default function MainScreen() {
         <View style={dynamicStyles.header}>
           <View>
             <Text style={dynamicStyles.welcomeText}>{getWelcomeMessage()}</Text>
-            <Text style={dynamicStyles.subtitle}>Ready to share a ride?</Text>
+            <Text style={dynamicStyles.subtitle}>{getSubtitleMessage()}</Text>
           </View>
-          <TouchableOpacity 
-            style={dynamicStyles.menuButton}
-            onPress={() => setSidebarVisible(true)}
-          >
-            <Ionicons name="menu" size={wp(7)} color={colors.text.primary} />
-          </TouchableOpacity>
+          <View style={dynamicStyles.headerRight}>
+            {/* Role Indicator */}
+            <View style={[dynamicStyles.roleIndicator, { backgroundColor: colors.background.tertiary }]}>
+              <Ionicons 
+                name={userData?.role === 'driver' ? 'car' : 'person'} 
+                size={16} 
+                color={userData?.role === 'driver' ? '#10B981' : '#3B82F6'} 
+              />
+            </View>
+
+            <TouchableOpacity 
+              style={dynamicStyles.menuButton}
+              onPress={() => setSidebarVisible(true)}
+            >
+              <Ionicons name="menu" size={wp(7)} color={colors.text.primary} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Main Content */}
@@ -240,15 +264,13 @@ export default function MainScreen() {
 
           {/* Quick Actions */}
           <View style={dynamicStyles.quickActions}>
-            {userData?.role === 'driver' && (
-              <TouchableOpacity 
-                style={[dynamicStyles.actionButton, dynamicStyles.secondaryButton]}
-                onPress={() => router.push('/offer')}
-              >
-                <Ionicons name="add-circle" size={wp(6)} color={colors.primary.dark} />
-                <Text style={[dynamicStyles.actionText, dynamicStyles.secondaryText]}>Offer a Ride</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity 
+              style={[dynamicStyles.actionButton, dynamicStyles.secondaryButton]}
+              onPress={() => router.push('/offer')}
+            >
+              <Ionicons name="add-circle" size={wp(6)} color={colors.primary.dark} />
+              <Text style={[dynamicStyles.actionText, dynamicStyles.secondaryText]}>Offer a Ride</Text>
+            </TouchableOpacity>
             
             <TouchableOpacity 
               style={[dynamicStyles.actionButton, dynamicStyles.tertiaryButton]}
@@ -271,85 +293,99 @@ export default function MainScreen() {
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled={true}
               >
-                {routes.slice(0, 3).map((route) => (
-                  <TouchableOpacity
-                    key={route.ride_id}
-                    style={[dynamicStyles.routeCard, { 
-                      backgroundColor: colors.surface.primary,
-                      borderColor: colors.border.primary
-                    }]}
-                    onPress={() => handleRouteSelect(route)}
-                  >
-                    <View style={dynamicStyles.routeHeader}>
-                      <View style={dynamicStyles.driverInfo}>
-                        <View style={[dynamicStyles.driverAvatar, { backgroundColor: colors.background.primary }]}>
-                          <Text style={[dynamicStyles.driverInitial, { color: colors.primary.dark }]}>
-                            {route.driver_name.charAt(0).toUpperCase()}
+                {routes.slice(0, 3).map((route) => {
+                  const driverName = route.driver ? `${route.driver.first_name} ${route.driver.last_name}` : 'Driver';
+                  const driverInitial = route.driver?.first_name?.charAt(0)?.toUpperCase() || 'D';
+                  const driverRating = route.driver?.rating_average || 0;
+                  
+                  return (
+                    <TouchableOpacity
+                      key={route.id}
+                      style={[dynamicStyles.routeCard, { 
+                        backgroundColor: colors.surface.primary,
+                        borderColor: colors.border.primary
+                      }]}
+                      onPress={() => handleRouteSelect(route)}
+                    >
+                      <View style={dynamicStyles.routeHeader}>
+                        <View style={dynamicStyles.driverInfo}>
+                          <View style={[dynamicStyles.driverAvatar, { backgroundColor: colors.background.primary }]}>
+                            <Text style={[dynamicStyles.driverInitial, { color: colors.primary.dark }]}>
+                              {driverInitial}
+                            </Text>
+                          </View>
+                          
+                          <View style={dynamicStyles.driverDetails}>
+                            <Text style={[dynamicStyles.driverName, { color: colors.text.primary }]}>
+                              {driverName}
+                            </Text>
+                            <View style={dynamicStyles.ratingContainer}>
+                              <Ionicons name="star" size={14} color="#FFD700" />
+                              <Text style={[dynamicStyles.rating, { color: colors.text.secondary }]}>
+                                {driverRating.toFixed(1)}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                        
+                        <View style={dynamicStyles.priceContainer}>
+                          <Text style={[dynamicStyles.priceValue, { color: colors.primary.dark }]}>
+                            {route.cost_per_person} MAD
+                          </Text>
+                          <Text style={[dynamicStyles.priceLabel, { color: colors.text.secondary }]}>
+                            per seat
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={dynamicStyles.routeDetails}>
+                        <View style={dynamicStyles.timeInfo}>
+                          <Text style={[dynamicStyles.timeLabel, { color: colors.text.secondary }]}>Departure</Text>
+                          <Text style={[dynamicStyles.timeValue, { color: colors.text.primary }]}>
+                            {formatTime(route.departure_time)}
                           </Text>
                         </View>
                         
-                        <View style={dynamicStyles.driverDetails}>
-                          <Text style={[dynamicStyles.driverName, { color: colors.text.primary }]}>
-                            {route.driver_name}
+                        <View style={dynamicStyles.routeVisualization}>
+                          <View style={[dynamicStyles.routePoint, { backgroundColor: colors.primary.light }]} />
+                          <View style={[dynamicStyles.routeLine, { backgroundColor: colors.border.primary }]} />
+                          <View style={[dynamicStyles.routePoint, { backgroundColor: colors.primary.dark }]} />
+                        </View>
+                        
+                        <View style={dynamicStyles.timeInfo}>
+                          <Text style={[dynamicStyles.timeLabel, { color: colors.text.secondary }]}>Arrival</Text>
+                          <Text style={[dynamicStyles.timeValue, { color: colors.text.primary }]}>
+                            {route.arrival_time_estimated ? formatTime(route.arrival_time_estimated) : '--:--'}
                           </Text>
-                          <View style={dynamicStyles.ratingContainer}>
-                            <Ionicons name="star" size={14} color="#FFD700" />
-                            <Text style={[dynamicStyles.rating, { color: colors.text.secondary }]}>
-                              {route.driver_rating.toFixed(1)}
-                            </Text>
-                          </View>
                         </View>
                       </View>
-                      
-                      <View style={dynamicStyles.priceContainer}>
-                        <Text style={[dynamicStyles.priceValue, { color: colors.primary.dark }]}>
-                          {route.cost_per_seat} MAD
-                        </Text>
-                        <Text style={[dynamicStyles.priceLabel, { color: colors.text.secondary }]}>
-                          per seat
-                        </Text>
-                      </View>
-                    </View>
 
-                    <View style={dynamicStyles.routeDetails}>
-                      <View style={dynamicStyles.timeInfo}>
-                        <Text style={[dynamicStyles.timeLabel, { color: colors.text.secondary }]}>Departure</Text>
-                        <Text style={[dynamicStyles.timeValue, { color: colors.text.primary }]}>
-                          {formatTime(route.departure_time)}
-                        </Text>
+                      <View style={dynamicStyles.routeMetrics}>
+                        <View style={dynamicStyles.metric}>
+                          <Ionicons name="navigate-outline" size={14} color={colors.text.secondary} />
+                          <Text style={[dynamicStyles.metricText, { color: colors.text.secondary }]}>
+                            {route.distanceFromUser.toFixed(1)}km pickup
+                          </Text>
+                        </View>
+                        
+                        <View style={dynamicStyles.metric}>
+                          <Ionicons name="people-outline" size={14} color={colors.text.secondary} />
+                          <Text style={[dynamicStyles.metricText, { color: colors.text.secondary }]}>
+                            {route.available_seats} seats left
+                          </Text>
+                        </View>
                       </View>
-                      
-                      <View style={dynamicStyles.routeVisualization}>
-                        <View style={[dynamicStyles.routePoint, { backgroundColor: colors.primary.light }]} />
-                        <View style={[dynamicStyles.routeLine, { backgroundColor: colors.border.primary }]} />
-                        <View style={[dynamicStyles.routePoint, { backgroundColor: colors.primary.dark }]} />
-                      </View>
-                      
-                      <View style={dynamicStyles.timeInfo}>
-                        <Text style={[dynamicStyles.timeLabel, { color: colors.text.secondary }]}>Arrival</Text>
-                        <Text style={[dynamicStyles.timeValue, { color: colors.text.primary }]}>
-                          {formatTime(route.arrival_time)}
-                        </Text>
-                      </View>
-                    </View>
 
-                    <View style={dynamicStyles.routeMetrics}>
-                      <View style={dynamicStyles.metric}>
-                        <Ionicons name="navigate-outline" size={14} color={colors.text.secondary} />
-                        <Text style={[dynamicStyles.metricText, { color: colors.text.secondary }]}>
-                          {route.pickup_distance_km.toFixed(1)}km pickup
+                      {/* Match Score Indicator */}
+                      <View style={[dynamicStyles.matchScore, { backgroundColor: colors.background.secondary }]}>
+                        <Ionicons name="analytics" size={12} color={colors.primary.dark} />
+                        <Text style={[dynamicStyles.matchScoreText, { color: colors.primary.dark }]}>
+                          {Math.round(route.matchScore * 100)}% match
                         </Text>
                       </View>
-                      
-                      <View style={dynamicStyles.metric}>
-                        <Ionicons name="people-outline" size={14} color={colors.text.secondary} />
-                        <Text style={[dynamicStyles.metricText, { color: colors.text.secondary }]}>
-                          {route.available_seats} seats left
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+                    </TouchableOpacity>
+                  );
+                })}
                 
                 {routes.length > 3 && (
                   <TouchableOpacity 
@@ -455,6 +491,20 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontSize: 14,
     color: colors.text.secondary,
     marginTop: 2,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  roleIndicator: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.primary,
   },
   menuButton: {
     padding: 8,
@@ -816,5 +866,19 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     marginRight: 8,
+  },
+  matchScore: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  matchScoreText: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4,
   },
 });
