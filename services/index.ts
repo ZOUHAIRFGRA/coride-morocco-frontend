@@ -31,6 +31,10 @@ export type {
 } from '../types/user';
 export { userApiService };
 
+// Document Verification WebSocket service
+export { documentVerificationWebSocket } from './documentVerificationWebSocket';
+export type { VerificationStatus, WebSocketMessage } from './documentVerificationWebSocket';
+
 // Service configuration helpers
 export const configureServices = (config: {
   baseUrl?: string;

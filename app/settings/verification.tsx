@@ -21,6 +21,9 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { FormModal } from '@/components/schema-forms/FormModal';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { useDocumentVerificationWebSocket } from '@/hooks/useDocumentVerificationWebSocket';
+import DocumentVerificationStatus from '@/components/DocumentVerificationStatus';
+import { WebSocketDebugPanel } from '@/components/WebSocketDebugPanel';
 
 const DocumentVerification = () => {
   const router = useRouter();
@@ -42,9 +45,20 @@ const DocumentVerification = () => {
   // License modal states
   const [licenseModalVisible, setLicenseModalVisible] = useState(false);
   
-  // Verification tracking states
+  // Verification tracking states (legacy - will be replaced by WebSocket)
   const [verificationTasks, setVerificationTasks] = useState<{[key: string]: string}>({});
   const [verificationStatus, setVerificationStatus] = useState<{[key: string]: any}>({});
+  
+  // Debug panel state
+  const [debugPanelVisible, setDebugPanelVisible] = useState(false);
+  
+  // WebSocket integration for real-time updates
+  const { 
+    verificationStatus: wsVerificationStatus, 
+    isConnected: wsConnected, 
+    resetStatus: resetWsStatus,
+    testConnection: testWsConnection
+  } = useDocumentVerificationWebSocket();
 
   const documentTypes = [
     { value: 'national_id', label: 'National ID', icon: 'card', description: 'Moroccan National Identity Card' },
@@ -52,10 +66,67 @@ const DocumentVerification = () => {
     { value: 'residence_permit', label: 'Residence Permit', icon: 'document-text', description: 'Residence permit for foreigners' }
   ];
 
+  // WebSocket diagnostic function
+  const runWebSocketDiagnostics = async () => {
+    console.log('🔍 Running WebSocket diagnostics...');
+    setDebugPanelVisible(true);
+  };
+
+  // WebSocket event handlers
+  const handleWebSocketVerificationComplete = (result: any) => {
+    console.log('WebSocket verification completed:', result);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert(
+      'Verification Complete! ✅',
+      'Your document has been successfully verified. All extracted data has been validated.',
+      [
+        {
+          text: 'Refresh Documents',
+          onPress: async () => {
+            await loadDocuments();
+          }
+        }
+      ]
+    );
+  };
+
+  const handleWebSocketVerificationFailed = (error: string) => {
+    console.log('WebSocket verification failed:', error);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    Alert.alert(
+      'Verification Failed ❌',
+      `Document verification failed: ${error}\n\nPlease check your document quality and try uploading again.`,
+      [
+        {
+          text: 'Try Again',
+          onPress: () => {
+            resetWsStatus();
+          }
+        },
+        {
+          text: 'OK',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
   useEffect(() => {
     loadDocuments();
     requestPermissions();
   }, []);
+
+  // Monitor WebSocket connection status and fallback to polling if needed
+  useEffect(() => {
+    if (!wsConnected && Object.keys(verificationTasks).length > 0) {
+      console.log('WebSocket disconnected, starting fallback polling for pending tasks');
+      Object.entries(verificationTasks).forEach(([key, taskId]) => {
+        if (!verificationStatus[key] || verificationStatus[key].status === 'processing') {
+          trackVerificationStatus(taskId, key);
+        }
+      });
+    }
+  }, [wsConnected, verificationTasks]);
 
   const requestPermissions = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -230,14 +301,17 @@ const DocumentVerification = () => {
         
         setUploadProgress('Upload successful! Processing document...');
         
-        // Store task ID for tracking
+        // Store task ID for tracking (legacy approach)
         setVerificationTasks(prev => ({
           ...prev,
           [`identity_${documentType}`]: verification_task_id
         }));
         
-        // Start tracking verification status
-        trackVerificationStatus(verification_task_id, `identity_${documentType}`);
+        // Reset WebSocket status for new verification
+        resetWsStatus();
+        
+        // Note: WebSocket will automatically receive real-time updates
+        // No need for manual polling anymore!
         
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert('Success', 'Document uploaded successfully! OCR processing has started. You can track the progress below.');
@@ -430,14 +504,17 @@ const DocumentVerification = () => {
         
         setUploadProgress('License uploaded successfully! Processing document...');
         
-        // Store task ID for tracking
+        // Store task ID for tracking (legacy approach)
         setVerificationTasks(prev => ({
           ...prev,
           driver_license: verification_task_id
         }));
         
-        // Start tracking verification status
-        trackVerificationStatus(verification_task_id, 'driver_license');
+        // Reset WebSocket status for new verification
+        resetWsStatus();
+        
+        // Note: WebSocket will automatically receive real-time updates
+        // No need for manual polling anymore!
         
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert('Success', 'Driver license uploaded successfully! OCR processing has started. You can track the progress below.');
@@ -455,8 +532,15 @@ const DocumentVerification = () => {
     }
   };
 
-  // Verification tracking function
+  // Legacy verification tracking function (fallback when WebSocket is not connected)
   const trackVerificationStatus = async (taskId: string, documentKey: string) => {
+    // Only use polling if WebSocket is not connected
+    if (wsConnected) {
+      console.log('WebSocket is connected, skipping polling for:', documentKey);
+      return;
+    }
+    
+    console.log('WebSocket not available, falling back to polling for:', documentKey);
     const maxAttempts = 30; // Maximum polling attempts (5 minutes at 10s intervals)
     let attempts = 0;
     
@@ -775,14 +859,30 @@ const DocumentVerification = () => {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={colors.primary.dark} />
         </TouchableOpacity>
-        <Text style={{
-          fontSize: 18,
-          fontWeight: '600',
-          color: colors.text.primary
-        }}>Document Verification</Text>
-        <TouchableOpacity onPress={loadDocuments}>
-          <Ionicons name="refresh" size={24} color={colors.primary.dark} />
-        </TouchableOpacity>
+        <View className="flex-row items-center">
+          <Text style={{
+            fontSize: 18,
+            fontWeight: '600',
+            color: colors.text.primary
+          }}>Document Verification</Text>
+          {/* WebSocket Connection Status */}
+          <View className="ml-2 flex-row items-center">
+            <View 
+              className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-500' : 'bg-red-500'}`}
+            />
+            <Text className={`text-xs ml-1 ${wsConnected ? 'text-green-600' : 'text-red-600'}`}>
+              {wsConnected ? 'Live' : 'Offline'}
+            </Text>
+          </View>
+        </View>
+        <View className="flex-row items-center space-x-3">
+          <TouchableOpacity onPress={runWebSocketDiagnostics}>
+            <Ionicons name="bug" size={20} color={colors.primary.dark} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={loadDocuments}>
+            <Ionicons name="refresh" size={24} color={colors.primary.dark} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* License Details Form Modal */}
@@ -832,35 +932,54 @@ const DocumentVerification = () => {
         </View>
       </Modal>
 
+      {/* WebSocket Debug Panel */}
+      <WebSocketDebugPanel
+        visible={debugPanelVisible}
+        onClose={() => setDebugPanelVisible(false)}
+      />
+
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {/* Verification Progress Tracking */}
-        {Object.keys(verificationStatus).length > 0 && (
-          <View className="mt-4 mx-4 bg-blue-50 rounded-xl p-4 border border-blue-200">
-            <Text className="text-lg font-bold text-blue-900 mb-3">🔍 OCR Processing Status</Text>
+        {/* Real-time Verification Status with WebSocket */}
+        <DocumentVerificationStatus
+          onVerificationComplete={handleWebSocketVerificationComplete}
+          onVerificationFailed={handleWebSocketVerificationFailed}
+          showConnectionStatus={true}
+        />
+
+        {/* Legacy Verification Progress Tracking (Fallback) */}
+        {!wsConnected && Object.keys(verificationStatus).length > 0 && (
+          <View className="mt-4 mx-4 bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+            <View className="flex-row items-center mb-3">
+              <Ionicons name="warning" size={20} color="#D97706" />
+              <Text className="text-lg font-bold text-yellow-900 ml-2">📊 Fallback Status (Polling)</Text>
+            </View>
+            <Text className="text-sm text-yellow-800 mb-3">
+              Real-time updates unavailable. Using polling method.
+            </Text>
             {Object.entries(verificationStatus).map(([key, status]: [string, any]) => (
               <View key={key} className="mb-3 last:mb-0">
                 <View className="flex-row justify-between items-center mb-1">
-                  <Text className="font-medium text-blue-800 capitalize">{key.replace('_', ' ')}</Text>
+                  <Text className="font-medium text-yellow-800 capitalize">{key.replace('_', ' ')}</Text>
                   <Text className={`text-sm font-medium ${
                     status.status === 'completed' ? 'text-green-600' :
                     status.status === 'failed' ? 'text-red-600' :
-                    'text-blue-600'
+                    'text-yellow-600'
                   }`}>
                     {status.status.toUpperCase()}
                   </Text>
                 </View>
-                <View className="w-full bg-blue-200 rounded-full h-2 mb-2">
+                <View className="w-full bg-yellow-200 rounded-full h-2 mb-2">
                   <View 
                     className={`h-2 rounded-full ${
                       status.status === 'completed' ? 'bg-green-500' :
                       status.status === 'failed' ? 'bg-red-500' :
-                      'bg-blue-500'
+                      'bg-yellow-500'
                     }`}
                     style={{ width: `${status.progress || 0}%` }}
                   />
                 </View>
                 {status.message && (
-                  <Text className="text-sm text-blue-700">{status.message}</Text>
+                  <Text className="text-sm text-yellow-700">{status.message}</Text>
                 )}
                 {status.extracted_data && (
                   <View className="mt-2 p-2 bg-green-50 rounded border border-green-200">
@@ -1047,6 +1166,7 @@ const DocumentVerification = () => {
             <View className="flex-1 ml-3">
               <Text className="text-blue-800 font-medium">Verification Process</Text>
               <Text className="text-blue-700 text-sm mt-1">
+                • Real-time processing updates via WebSocket{'\n'}
                 • Documents are reviewed within 24-48 hours{'\n'}
                 • Ensure photos are clear and well-lit{'\n'}
                 • All information must be clearly visible{'\n'}
