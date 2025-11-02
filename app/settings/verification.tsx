@@ -591,18 +591,18 @@ const DocumentVerification = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'verified': return '#10B981';
-      case 'pending': return '#F59E0B';
-      case 'rejected': return '#EF4444';
+      case 'VERIFIED': return '#10B981';
+      case 'PENDING': return '#F59E0B';
+      case 'REJECTED': return '#EF4444';
       default: return '#9CA3AF';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'verified': return 'checkmark-circle';
-      case 'pending': return 'time';
-      case 'rejected': return 'close-circle';
+      case 'VERIFIED': return 'checkmark-circle';
+      case 'PENDING': return 'time';
+      case 'REJECTED': return 'close-circle';
       default: return 'help-circle';
     }
   };
@@ -745,16 +745,16 @@ const DocumentVerification = () => {
         {status && (
           <TouchableOpacity
             className={`py-4 px-4 rounded-xl flex-row items-center justify-center ${
-              status === 'verified' 
+              status === 'VERIFIED' 
                 ? 'bg-green-50 border-2 border-green-200' 
-                : status === 'pending'
+                : status === 'PENDING'
                 ? 'bg-amber-50 border-2 border-amber-200'
                 : 'bg-primary-oceanBlue600 border-2 border-primary-oceanBlue600'
             } ${isUploading ? 'opacity-50' : ''}`}
             onPress={onUpload}
             disabled={isUploading}
             style={{
-              shadowColor: status === 'verified' || status === 'pending' ? '#000' : '#006389',
+              shadowColor: status === 'VERIFIED' || status === 'PENDING' ? '#000' : '#006389',
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.1,
               shadowRadius: 4,
@@ -764,29 +764,27 @@ const DocumentVerification = () => {
             {/* Upload Icon */}
             <Ionicons 
               name={
-                status === 'verified' ? 'refresh-circle' : 
-                status === 'pending' ? 'cloud-upload' : 
+                status === 'VERIFIED' ? 'refresh-circle' : 
+                status === 'PENDING' ? 'cloud-upload' : 
                 'camera'
               } 
               size={20} 
               color={
-                status === 'verified' ? '#047857' : 
-                status === 'pending' ? '#D97706' : 
-                'white'
-              } 
+                status === 'VERIFIED' ? '#047857' : 
+                status === 'PENDING' ? '#D97706' : 'text-dark'              } 
             />
             
             {/* Upload Text */}
             <Text className={`ml-2 text-center font-semiBold ${
-              status === 'verified' 
+              status === 'VERIFIED' 
                 ? 'text-green-700' 
-                : status === 'pending'
+                : status === 'PENDING'
                 ? 'text-amber-700'
-                : 'text-white'
+                : 'text-dark'
             }`}>
-              {status === 'verified' 
+              {status === 'VERIFIED' 
                 ? 'Re-upload Document' 
-                : status === 'pending'
+                : status === 'PENDING'
                 ? 'Upload New Version'
                 : 'Tap to Upload Document'
               }
@@ -797,8 +795,8 @@ const DocumentVerification = () => {
               name="chevron-forward" 
               size={16} 
               color={
-                status === 'verified' ? '#047857' : 
-                status === 'pending' ? '#D97706' : 
+                status === 'VERIFIED' ? '#047857' : 
+                status === 'PENDING' ? '#D97706' : 
                 'white'
               }
               style={{ marginLeft: 4 }}
