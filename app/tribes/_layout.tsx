@@ -1,48 +1,48 @@
 import { Stack } from "expo-router";
 
-export default function MainLayout() {
+export default function TribesLayout() {
   return (
     <Stack>
       <Stack.Screen 
         name="index" 
         options={{ 
           headerShown: false,
-          title: "Home" 
+          title: "Tribes" 
         }} 
       />
       <Stack.Screen 
-        name="offer" 
+        name="create" 
         options={{ 
           headerShown: false,
-          title: "Offer Ride" 
+          title: "Create Tribe" 
         }} 
       />
       <Stack.Screen 
-        name="rides" 
+        name="[id]/index" 
         options={{ 
           headerShown: false,
-          title: "My Rides" 
+          title: "Tribe Details" 
         }} 
       />
       <Stack.Screen 
-        name="messages" 
+        name="[id]/chat" 
         options={{ 
           headerShown: false,
-          title: "Messages" 
+          title: "Tribe Chat" 
         }} 
       />
       <Stack.Screen 
-        name="settings" 
+        name="[id]/members" 
         options={{ 
           headerShown: false,
-          title: "Settings" 
+          title: "Tribe Members" 
         }} 
       />
       <Stack.Screen 
-        name="tribes" 
+        name="[id]/settings" 
         options={{ 
           headerShown: false,
-          title: "Trajectory Tribes" 
+          title: "Tribe Settings" 
         }} 
       />
     </Stack>
