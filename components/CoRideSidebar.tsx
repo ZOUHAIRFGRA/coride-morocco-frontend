@@ -522,6 +522,31 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
               </Text>
             </TouchableOpacity>
 
+            {/* Trajectory Tribes */}
+            <TouchableOpacity
+              className={`flex-row items-center py-2 px-4 my-2 ${isActive("/tribes") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
+              onPress={() => handleNavigation("/tribes")}
+            >
+              <View
+                className={`w-10 h-10 rounded-full ${isActive("/tribes") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
+              >
+                <Ionicons
+                  name="people"
+                  size={wp(5)}
+                  color={
+                    isActive("/tribes")
+                      ? "#FFFFFF"
+                      : COLORS.primary.oceanBlue700
+                  }
+                />
+              </View>
+              <Text
+                className={`text-md ${isActive("/tribes") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
+              >
+                Trajectory Tribes
+              </Text>
+            </TouchableOpacity>
+
             <View className="h-px bg-black/10 my-4" />
 
             {/* Profile */}

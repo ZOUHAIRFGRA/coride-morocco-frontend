@@ -9,6 +9,7 @@ export type { ApiConfig, ApiError, ApiResponse, TokenStorage } from './BaseApiSe
 import { authService } from './auth';
 import { ridesApiService } from './ridesApi';
 import { userApiService } from './userApi';
+import { tribesApiService } from './tribesApi';
 
 export type {
     PasswordChangeRequest, TokenResponse, UserLoginRequest, UserRegistrationRequest, UserResponse
@@ -35,6 +36,18 @@ export { userApiService };
 export { documentVerificationWebSocket } from './documentVerificationWebSocket';
 export type { VerificationStatus, WebSocketMessage } from './documentVerificationWebSocket';
 
+// Tribes service
+export { tribesApiService } from './tribesApi';
+export type {
+  Tribe, TribeMember, TribeMessage, TribeListResponse, TribeMemberListResponse,
+  TribeMessageListResponse, CreateTribeRequest, UpdateTribeRequest, JoinTribeRequest,
+  SendMessageRequest, TribeSearchParams
+} from '../types/tribe';
+
+// Tribe WebSocket service
+export { tribeWebSocketService } from './tribeWebSocket';
+export type { TribeWebSocketCallbacks } from './tribeWebSocket';
+
 // Service configuration helpers
 export const configureServices = (config: {
   baseUrl?: string;
@@ -45,6 +58,7 @@ export const configureServices = (config: {
   authService.updateConfig(config);
   ridesApiService.updateConfig(config);
   userApiService.updateConfig(config);
+  tribesApiService.updateConfig(config);
 };
 
 // Service status checker
