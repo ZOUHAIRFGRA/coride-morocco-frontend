@@ -4,7 +4,6 @@
     "slug": "coride-morocco-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo/coride_blue_1024.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -25,8 +24,7 @@
     "android": {
       "package": "com.coride.morocco.app",
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/images/logo/coride_blue_1024.png"
+        "backgroundColor": "#33B7E9"
       },
       "permissions": [
         "android.permission.ACCESS_NETWORK_STATE",
