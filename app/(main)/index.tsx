@@ -9,6 +9,7 @@ import { useUser } from '@/hooks/useUserProfile';
 import CoRideSidebar from '@/components/CoRideSidebar';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import LocationSearchModal from '@/components/modals/LocationSearchModal';
+import JoinRideModal from '@/components/modals/JoinRideModal';
 import { integratedRideService } from '@/services/integratedRideService';
 import type { LocationSuggestion } from '@/types/geospatial';
 import type { SmartRideMatch } from '@/types/ride';
@@ -22,6 +23,8 @@ export default function MainScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showStartLocationModal, setShowStartLocationModal] = useState(false);
   const [showEndLocationModal, setShowEndLocationModal] = useState(false);
+  const [showJoinRideModal, setShowJoinRideModal] = useState(false);
+  const [selectedRide, setSelectedRide] = useState<SmartRideMatch | null>(null);
   const { user } = useAuth();
   const { profile } = useUser();
   const { colors, isDarkMode } = useAppTheme();
@@ -100,12 +103,13 @@ export default function MainScreen() {
   };
 
   const handleRouteSelect = (route: SmartRideMatch) => {
-    const driverName = route.driver ? `${route.driver.first_name} ${route.driver.last_name}` : 'Driver';
-    Alert.alert(
-      'Route Selected',
-      `You selected a ride with ${driverName}. This would typically navigate to booking or contact details.`,
-      [{ text: 'OK' }]
-    );
+    setSelectedRide(route);
+    setShowJoinRideModal(true);
+  };
+
+  const handleJoinSuccess = () => {
+    // Refresh the routes list to reflect updated data
+    handleSearchRoutes();
   };
 
   const formatTime = (timeString: string): string => {
@@ -264,6 +268,14 @@ export default function MainScreen() {
 
           {/* Quick Actions */}
           <View style={dynamicStyles.quickActions}>
+            <TouchableOpacity 
+              style={[dynamicStyles.actionButton, dynamicStyles.primaryButton]}
+              onPress={() => router.push('/request')}
+            >
+              <Ionicons name="megaphone" size={wp(6)} color="#FFFFFF" />
+              <Text style={[dynamicStyles.actionText, dynamicStyles.primaryText]}>Request a Ride</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity 
               style={[dynamicStyles.actionButton, dynamicStyles.secondaryButton]}
               onPress={() => router.push('/offer')}
@@ -462,6 +474,17 @@ export default function MainScreen() {
         showHistory={true}
         showNearbyPlaces={false}
       />
+
+      {/* Join Ride Modal */}
+      <JoinRideModal
+        visible={showJoinRideModal}
+        ride={selectedRide}
+        onClose={() => {
+          setShowJoinRideModal(false);
+          setSelectedRide(null);
+        }}
+        onSuccess={handleJoinSuccess}
+      />
     </>
   );
 }
@@ -628,6 +651,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  primaryButton: {
+    backgroundColor: colors.primary.dark,
+  },
   secondaryButton: {
     backgroundColor: colors.background.secondary,
     borderWidth: 2,
@@ -643,6 +669,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  primaryText: {
+    color: '#FFFFFF',
   },
   secondaryText: {
     color: colors.primary.dark,

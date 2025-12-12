@@ -54,6 +54,26 @@ class GeospatialService {
   /**
    * Smart location search with autocomplete and caching
    */
+  async searchLocation(
+    query: string,
+    currentLocation?: { latitude: number; longitude: number },
+    limit?: number
+  ): Promise<ApiResponse<LocationSuggestion[]>> {
+    const result = await this.searchLocations(query, {
+      latitude: currentLocation?.latitude,
+      longitude: currentLocation?.longitude,
+      limit
+    });
+    
+    return {
+      success: true,
+      data: result.suggestions
+    };
+  }
+
+  /**
+   * Smart location search with autocomplete and caching (detailed version)
+   */
   async searchLocations(
     query: string,
     options: {
@@ -94,6 +114,16 @@ class GeospatialService {
         fallbackUsed: true
       };
     }
+  }
+
+  /**
+   * Get location details from coordinates (reverse geocoding)
+   */
+  async reverseGeocode(
+    latitude: number,
+    longitude: number
+  ): Promise<ApiResponse<ReverseGeocodeResponse>> {
+    return locationApiService.reverseGeocode(latitude, longitude);
   }
 
   /**

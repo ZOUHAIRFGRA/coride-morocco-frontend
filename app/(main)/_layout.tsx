@@ -18,6 +18,13 @@ export default function MainLayout() {
         }} 
       />
       <Stack.Screen 
+        name="request" 
+        options={{ 
+          headerShown: false,
+          title: "Request Ride" 
+        }} 
+      />
+      <Stack.Screen 
         name="rides" 
         options={{ 
           headerShown: false,
@@ -36,13 +43,6 @@ export default function MainLayout() {
         options={{ 
           headerShown: false,
           title: "Settings" 
-        }} 
-      />
-      <Stack.Screen 
-        name="tribes" 
-        options={{ 
-          headerShown: false,
-          title: "Trajectory Tribes" 
         }} 
       />
     </Stack>
