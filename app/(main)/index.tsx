@@ -31,6 +31,7 @@ export default function MainScreen() {
 
   // Use profile data or fallback to auth user
   const userData = profile || user;
+  const userRole = userData?.role || 'rider'; // Default to rider if no role
 
   const getWelcomeMessage = () => {
     const firstName = userData?.first_name;
@@ -45,13 +46,11 @@ export default function MainScreen() {
   };
 
   const getSubtitleMessage = () => {
-    const role = userData?.role;
-    
-    switch (role) {
+    switch (userRole) {
       case 'driver':
-        return 'Ready to offer rides or find passengers?';
+        return 'Offer rides and earn money';
       case 'rider':
-        return 'Ready to find your next ride?';
+        return 'Find affordable rides near you';
       default:
         return 'Ready to share a ride?';
     }
@@ -134,12 +133,21 @@ export default function MainScreen() {
           </View>
           <View style={dynamicStyles.headerRight}>
             {/* Role Indicator */}
-            <View style={[dynamicStyles.roleIndicator, { backgroundColor: colors.background.tertiary }]}>
+            <View style={[
+              dynamicStyles.roleIndicator, 
+              { backgroundColor: userRole === 'driver' ? '#10B98120' : '#3B82F620' }
+            ]}>
               <Ionicons 
-                name={userData?.role === 'driver' ? 'car' : 'person'} 
+                name={userRole === 'driver' ? 'car' : 'person'} 
                 size={16} 
-                color={userData?.role === 'driver' ? '#10B981' : '#3B82F6'} 
+                color={userRole === 'driver' ? '#10B981' : '#3B82F6'} 
               />
+              <Text style={[
+                dynamicStyles.roleText,
+                { color: userRole === 'driver' ? '#10B981' : '#3B82F6' }
+              ]}>
+                {userRole === 'driver' ? 'Driver' : 'Rider'}
+              </Text>
             </View>
 
             <TouchableOpacity 
@@ -164,31 +172,32 @@ export default function MainScreen() {
             Where would you like to go today?
           </Text>
 
-          {/* Location Selection Section */}
-          <View style={dynamicStyles.searchSection}>
-            <TouchableOpacity 
-              style={dynamicStyles.locationInput}
-              onPress={() => setShowStartLocationModal(true)}
-            >
-              <Ionicons name="location" size={20} color={colors.primary.light} />
-              <View style={dynamicStyles.locationTextContainer}>
-                {startLocation ? (
-                  <>
-                    <Text style={[dynamicStyles.locationName, { color: colors.text.primary }]} numberOfLines={1}>
-                      {startLocation.display_name}
+          {/* Location Selection Section - Only for Riders */}
+          {userRole === 'rider' && (
+            <View style={dynamicStyles.searchSection}>
+              <TouchableOpacity 
+                style={dynamicStyles.locationInput}
+                onPress={() => setShowStartLocationModal(true)}
+              >
+                <Ionicons name="location" size={20} color={colors.primary.light} />
+                <View style={dynamicStyles.locationTextContainer}>
+                  {startLocation ? (
+                    <>
+                      <Text style={[dynamicStyles.locationName, { color: colors.text.primary }]} numberOfLines={1}>
+                        {startLocation.display_name}
+                      </Text>
+                      <Text style={[dynamicStyles.locationAddress, { color: colors.text.secondary }]} numberOfLines={1}>
+                        {startLocation.address}
+                      </Text>
+                    </>
+                  ) : (
+                    <Text style={[dynamicStyles.locationPlaceholder, { color: colors.text.tertiary }]}>
+                      From where?
                     </Text>
-                    <Text style={[dynamicStyles.locationAddress, { color: colors.text.secondary }]} numberOfLines={1}>
-                      {startLocation.address}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={[dynamicStyles.locationPlaceholder, { color: colors.text.tertiary }]}>
-                    From where?
-                  </Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
-            </TouchableOpacity>
+                  )}
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
+              </TouchableOpacity>
 
             <TouchableOpacity 
               style={dynamicStyles.locationInput}
@@ -265,36 +274,53 @@ export default function MainScreen() {
               </TouchableOpacity>
             )}
           </View>
+          )}
 
-          {/* Quick Actions */}
+          {/* Quick Actions - Role-based */}
           <View style={dynamicStyles.quickActions}>
-            <TouchableOpacity 
-              style={[dynamicStyles.actionButton, dynamicStyles.primaryButton]}
-              onPress={() => router.push('/request')}
-            >
-              <Ionicons name="megaphone" size={wp(6)} color="#FFFFFF" />
-              <Text style={[dynamicStyles.actionText, dynamicStyles.primaryText]}>Request a Ride</Text>
-            </TouchableOpacity>
+            {userRole === 'rider' ? (
+              // Rider Interface
+              <>
+                <TouchableOpacity 
+                  style={[dynamicStyles.actionButton, dynamicStyles.primaryButton]}
+                  onPress={() => router.push('/request')}
+                >
+                  <Ionicons name="megaphone" size={wp(6)} color="#FFFFFF" />
+                  <Text style={[dynamicStyles.actionText, dynamicStyles.primaryText]}>Request a Ride</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={[dynamicStyles.actionButton, dynamicStyles.secondaryButton]}
-              onPress={() => router.push('/offer')}
-            >
-              <Ionicons name="add-circle" size={wp(6)} color={colors.primary.dark} />
-              <Text style={[dynamicStyles.actionText, dynamicStyles.secondaryText]}>Offer a Ride</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[dynamicStyles.actionButton, dynamicStyles.tertiaryButton]}
-              onPress={() => router.push('/rides')}
-            >
-              <Ionicons name="time" size={wp(6)} color={colors.text.secondary} />
-              <Text style={[dynamicStyles.actionText, dynamicStyles.tertiaryText]}>My Rides</Text>
-            </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[dynamicStyles.actionButton, dynamicStyles.tertiaryButton]}
+                  onPress={() => router.push('/rides')}
+                >
+                  <Ionicons name="time" size={wp(6)} color={colors.text.secondary} />
+                  <Text style={[dynamicStyles.actionText, dynamicStyles.tertiaryText]}>My Rides</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              // Driver Interface
+              <>
+                <TouchableOpacity 
+                  style={[dynamicStyles.actionButton, dynamicStyles.primaryButton]}
+                  onPress={() => router.push('/offer')}
+                >
+                  <Ionicons name="add-circle" size={wp(6)} color="#FFFFFF" />
+                  <Text style={[dynamicStyles.actionText, dynamicStyles.primaryText]}>Offer a Ride</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[dynamicStyles.actionButton, dynamicStyles.tertiaryButton]}
+                  onPress={() => router.push('/rides')}
+                >
+                  <Ionicons name="time" size={wp(6)} color={colors.text.secondary} />
+                  <Text style={[dynamicStyles.actionText, dynamicStyles.tertiaryText]}>My Rides</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
 
-          {/* Routes Results */}
-          {startLocation && endLocation && routes.length > 0 && (
+          {/* Routes Results - Only for Riders */}
+          {userRole === 'rider' && startLocation && endLocation && routes.length > 0 && (
             <View style={dynamicStyles.routesSection}>
               <Text style={[dynamicStyles.sectionTitle, { color: colors.text.primary }]}>
                 Available Rides ({routes.length})
@@ -521,13 +547,16 @@ const createStyles = (colors: any) => StyleSheet.create({
     gap: 8,
   },
   roleIndicator: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+  },
+  roleText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   menuButton: {
     padding: 8,

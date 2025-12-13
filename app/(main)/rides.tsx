@@ -16,6 +16,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { useAuth } from '@/contexts/AppStateContext';
+import { useUser } from '@/hooks/useUserProfile';
 import { integratedRideService } from '@/services/integratedRideService';
 import type { RideWithGeospatial } from '@/types/ride';
 import type { RideStatus } from '@/types/ride';
@@ -24,7 +26,12 @@ type RideTab = 'offered' | 'joined';
 
 export default function RidesScreen() {
   const { colors } = useAppTheme();
-  const [activeTab, setActiveTab] = useState<RideTab>('offered');
+  const { user } = useAuth();
+  const { profile } = useUser();
+  const userData = profile || user;
+  const userRole = userData?.role || 'rider';
+  
+  const [activeTab, setActiveTab] = useState<RideTab>(userRole === 'driver' ? 'offered' : 'joined');
   const [offeredRides, setOfferedRides] = useState<RideWithGeospatial[]>([]);
   const [joinedRides, setJoinedRides] = useState<RideWithGeospatial[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -378,55 +385,82 @@ export default function RidesScreen() {
         </View>
         <TouchableOpacity
           style={[dynamicStyles.addButton, { backgroundColor: colors.primary.dark }]}
-          onPress={() => router.push('/offer')}
+          onPress={() => router.push(userRole === 'driver' ? '/offer' : '/request')}
         >
           <Ionicons name="add" size={24} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
-      {/* Tab Selector */}
+      {/* Tab Selector - Show both tabs or single tab based on role */}
       <View style={[dynamicStyles.tabContainer, { backgroundColor: colors.surface.primary }]}>
-        <TouchableOpacity
-          style={[
-            dynamicStyles.tab,
-            activeTab === 'offered' && dynamicStyles.activeTab,
-            activeTab === 'offered' && { backgroundColor: colors.primary.dark }
-          ]}
-          onPress={() => setActiveTab('offered')}
-        >
-          <Ionicons 
-            name="car" 
-            size={20} 
-            color={activeTab === 'offered' ? '#FFFFFF' : colors.text.secondary} 
-          />
-          <Text style={[
-            dynamicStyles.tabText,
-            { color: activeTab === 'offered' ? '#FFFFFF' : colors.text.secondary }
+        {userRole === 'driver' ? (
+          // Driver sees only Offered tab
+          <View style={[
+            dynamicStyles.singleTab,
+            { backgroundColor: colors.primary.dark }
           ]}>
-            Offered ({offeredRides.length})
-          </Text>
-        </TouchableOpacity>
+            <Ionicons name="car" size={20} color="#FFFFFF" />
+            <Text style={[dynamicStyles.tabText, { color: '#FFFFFF' }]}>
+              My Offered Rides ({offeredRides.length})
+            </Text>
+          </View>
+        ) : userRole === 'rider' ? (
+          // Rider sees only Joined tab
+          <View style={[
+            dynamicStyles.singleTab,
+            { backgroundColor: colors.primary.dark }
+          ]}>
+            <Ionicons name="person" size={20} color="#FFFFFF" />
+            <Text style={[dynamicStyles.tabText, { color: '#FFFFFF' }]}>
+              My Booked Rides ({joinedRides.length})
+            </Text>
+          </View>
+        ) : (
+          // Admin/other roles see both tabs
+          <>
+            <TouchableOpacity
+              style={[
+                dynamicStyles.tab,
+                activeTab === 'offered' && dynamicStyles.activeTab,
+                activeTab === 'offered' && { backgroundColor: colors.primary.dark }
+              ]}
+              onPress={() => setActiveTab('offered')}
+            >
+              <Ionicons 
+                name="car" 
+                size={20} 
+                color={activeTab === 'offered' ? '#FFFFFF' : colors.text.secondary} 
+              />
+              <Text style={[
+                dynamicStyles.tabText,
+                { color: activeTab === 'offered' ? '#FFFFFF' : colors.text.secondary }
+              ]}>
+                Offered ({offeredRides.length})
+              </Text>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[
-            dynamicStyles.tab,
-            activeTab === 'joined' && dynamicStyles.activeTab,
-            activeTab === 'joined' && { backgroundColor: colors.primary.dark }
-          ]}
-          onPress={() => setActiveTab('joined')}
-        >
-          <Ionicons 
-            name="person" 
-            size={20} 
-            color={activeTab === 'joined' ? '#FFFFFF' : colors.text.secondary} 
-          />
-          <Text style={[
-            dynamicStyles.tabText,
-            { color: activeTab === 'joined' ? '#FFFFFF' : colors.text.secondary }
-          ]}>
-            Joined ({joinedRides.length})
-          </Text>
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                dynamicStyles.tab,
+                activeTab === 'joined' && dynamicStyles.activeTab,
+                activeTab === 'joined' && { backgroundColor: colors.primary.dark }
+              ]}
+              onPress={() => setActiveTab('joined')}
+            >
+              <Ionicons 
+                name="person" 
+                size={20} 
+                color={activeTab === 'joined' ? '#FFFFFF' : colors.text.secondary} 
+              />
+              <Text style={[
+                dynamicStyles.tabText,
+                { color: activeTab === 'joined' ? '#FFFFFF' : colors.text.secondary }
+              ]}>
+                Joined ({joinedRides.length})
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
 
       {/* Content */}
@@ -501,6 +535,16 @@ const createStyles = (colors: any) => StyleSheet.create({
     gap: 12,
   },
   tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  singleTab: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',

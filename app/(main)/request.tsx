@@ -61,19 +61,14 @@ export default function RequestRideScreen() {
     try {
       const response = await integratedRideService.api.createRideRequest({
         start_address: startLocation.address,
-        start_coordinates: {
-          type: 'Point',
-          coordinates: [startLocation.longitude, startLocation.latitude]
-        },
+        start_latitude: startLocation.latitude,
+        start_longitude: startLocation.longitude,
         end_address: endLocation.address,
-        end_coordinates: {
-          type: 'Point',
-          coordinates: [endLocation.longitude, endLocation.latitude]
-        },
+        end_latitude: endLocation.latitude,
+        end_longitude: endLocation.longitude,
         departure_time: departureDateTime.toISOString(),
-        passengers_count: passengerCount,
-        max_price_per_person: maxPricePerPerson ? parseFloat(maxPricePerPerson) : undefined,
-        flexible_time: flexibleTime,
+        max_cost_per_person: maxPricePerPerson ? parseFloat(maxPricePerPerson) : 0,
+        flexible_time_minutes: flexibleTime ? 30 : undefined,
         notes: notes.trim() || undefined
       });
 

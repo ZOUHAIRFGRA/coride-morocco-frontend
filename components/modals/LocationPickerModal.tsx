@@ -59,7 +59,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [locationHistory, setLocationHistory] = useState<LocationSuggestion[]>([]);
   
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Default region (Morocco center) - zoomed in for city-level view
   const defaultRegion: Region = {
@@ -130,7 +130,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
       if (reverseResponse.success && reverseResponse.data) {
         const data = reverseResponse.data;
         const locationData: LocationSuggestion = {
-          display_name: data.display_name || data.formatted_address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+          display_name: data.formatted_address || data.address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
           address: data.address || data.formatted_address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
           latitude,
           longitude,
@@ -267,7 +267,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
       if (reverseResponse.success && reverseResponse.data) {
         const data = reverseResponse.data;
         const locationData: LocationSuggestion = {
-          display_name: data.display_name || data.formatted_address || `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`,
+          display_name: data.formatted_address || data.address || `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`,
           address: data.address || data.formatted_address || `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`,
           latitude: location.latitude,
           longitude: location.longitude,

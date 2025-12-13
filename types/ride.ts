@@ -10,6 +10,7 @@ export interface User {
   rating_average: number;
   rating_count: number;
   profile_photo_url?: string;
+  phone_number?: string;
 }
 
 export interface Ride {
