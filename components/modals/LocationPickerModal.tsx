@@ -63,6 +63,11 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Log selected location changes
+  useEffect(() => {
+    console.log('[LocationPicker] Selected location changed:', selectedLocation?.display_name);
+  }, [selectedLocation]);
+
   // Default region (Morocco center) - zoomed in for city-level view
   const defaultRegion: Region = {
     latitude: 31.7917,
@@ -326,10 +331,30 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   };
 
   const handleMapLocationSelect = async (location: MapLocation) => {
-    setMapLocation(location);
+    console.log('[LocationPicker] Map location tapped:', location.latitude, location.longitude);
+    
+    // Immediately update the marker position for instant visual feedback
+    const immediateLocation: LocationSuggestion = {
+      display_name: `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`,
+      address: `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      relevance_score: 1.0,
+      distance_km: 0,
+      country: 'Morocco'
+    };
+    
+    console.log('[LocationPicker] Setting immediate location for instant feedback');
+    setSelectedLocation(immediateLocation);
+    setMapLocation({
+      latitude: location.latitude,
+      longitude: location.longitude,
+      address: immediateLocation.address
+    });
 
-    // Reverse geocode to get address
+    // Then reverse geocode to get proper address in background
     try {
+      console.log('[LocationPicker] Starting reverse geocode in background...');
       const reverseResponse = await geospatialService.reverseGeocode(
         location.latitude,
         location.longitude
@@ -346,36 +371,17 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
           distance_km: 0,
           country: data.country || 'Morocco'
         };
+        console.log('[LocationPicker] Updating with proper address:', locationData.display_name);
         setSelectedLocation(locationData);
         setSearchQuery(locationData.display_name);
       } else {
-        // Fallback if reverse geocoding fails
-        const fallbackLocation: LocationSuggestion = {
-          display_name: `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`,
-          address: location.address || `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          relevance_score: 1.0,
-          distance_km: 0,
-          country: 'Morocco'
-        };
-        setSelectedLocation(fallbackLocation);
-        setSearchQuery(fallbackLocation.display_name);
+        console.log('[LocationPicker] Reverse geocode returned no data, keeping coordinates');
+        setSearchQuery(immediateLocation.display_name);
       }
     } catch (error) {
-      console.error('Reverse geocoding error:', error);
-      // Fallback on error
-      const fallbackLocation: LocationSuggestion = {
-        display_name: `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`,
-        address: location.address || `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        relevance_score: 1.0,
-        distance_km: 0,
-        country: 'Morocco'
-      };
-      setSelectedLocation(fallbackLocation);
-      setSearchQuery(fallbackLocation.display_name);
+      console.error('[LocationPicker] Reverse geocoding error:', error);
+      console.log('[LocationPicker] Keeping coordinate-based location');
+      setSearchQuery(immediateLocation.display_name);
     }
   };
 
@@ -453,17 +459,18 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
         <View style={styles.mapContainer}>
           {mapRegion ? (
             <MapViewComponent
+              key={selectedLocation ? `map-${selectedLocation.latitude}-${selectedLocation.longitude}` : 'map-default'}
               initialRegion={mapRegion}
               initialLocation={mapLocation || undefined}
               interactive={true}
               onLocationSelect={handleMapLocationSelect}
               height="100%"
               showCurrentLocationButton={false}
-              markers={
-                selectedLocation
+              markers={(() => {
+                const markers = selectedLocation
                   ? [
                       {
-                        id: 'selected',
+                        id: `selected-${selectedLocation.latitude}-${selectedLocation.longitude}`,
                         coordinate: {
                           latitude: selectedLocation.latitude,
                           longitude: selectedLocation.longitude,
@@ -473,8 +480,10 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                         pinColor: colors.primary.dark,
                       },
                     ]
-                  : []
-              }
+                  : [];
+                console.log('[LocationPicker] Rendering markers:', markers.length, markers[0]?.id);
+                return markers;
+              })()}
             />
           ) : (
             <View style={[styles.loadingMapContainer, { backgroundColor: colors.background.secondary }]}>

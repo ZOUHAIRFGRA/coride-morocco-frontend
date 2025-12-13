@@ -33,6 +33,11 @@ export default function MainScreen() {
   const userData = profile || user;
   const userRole = userData?.role || 'rider'; // Default to rider if no role
 
+  console.log(
+    userData
+  );
+  
+
   const getWelcomeMessage = () => {
     const firstName = userData?.first_name;
     const hour = new Date().getHours();

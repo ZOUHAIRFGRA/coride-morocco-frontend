@@ -56,6 +56,8 @@ export default function RidesScreen() {
       if (requestsResponse.success && requestsResponse.data) {
         setJoinedRides(requestsResponse.data);
       }
+      console.log("Rides",joinedRides);
+      
     } catch (error) {
       console.error('Error loading rides:', error);
       Alert.alert('Error', 'Failed to load rides. Please try again.');

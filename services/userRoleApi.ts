@@ -81,7 +81,9 @@ class UserRoleApiService extends BaseApiService {
         };
       }
 
-      const response = await this.put<RoleSwitchResponse>('/users/role', role);
+      const response = await this.put<RoleSwitchResponse>('/users/role', {
+        new_role: role
+      });
       
       return response;
     } catch (error: any) {

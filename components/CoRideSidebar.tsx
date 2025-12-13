@@ -96,7 +96,41 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
   };
 
   const handleRoleSwitch = async (newRole: 'rider' | 'driver') => {
-    if (isRoleSwitching || !roleInfo || newRole === roleInfo.current_role) {
+    // Prevent multiple simultaneous switches
+    if (isRoleSwitching || !roleInfo) {
+      return;
+    }
+
+    // Prevent switching to same role
+    if (newRole === roleInfo.current_role) {
+      return;
+    }
+
+    // Validate role - only RIDER and DRIVER allowed
+    if (newRole !== 'rider' && newRole !== 'driver') {
+      Alert.alert(
+        'Invalid Role',
+        'You can only switch between Rider and Driver roles.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    // Prevent switching to driver if not eligible
+    if (newRole === 'driver' && !roleInfo.can_drive) {
+      Alert.alert(
+        'Cannot Switch to Driver',
+        'You need to complete driver verification first:\n\n• Verified identity document\n• Valid driver\'s license\n• License verification approval\n\nTap "Verify Now" to start the verification process.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Verify Now', 
+            onPress: () => {
+              handleNavigation('/settings/verification');
+            }
+          }
+        ]
+      );
       return;
     }
 
@@ -399,44 +433,84 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
             <View style={styles.menuContainer}>
               <Text style={styles.menuHeader}>MAIN MENU</Text>
 
-              {/* Find Rides */}
+              {/* Home */}
               <TouchableOpacity
-                style={[styles.menuItem, isActive("/rides") && styles.menuItemActive]}
-                onPress={() => handleNavigation("/rides/find")}
+                style={[styles.menuItem, pathname === "/(main)" && styles.menuItemActive]}
+                onPress={() => handleNavigation("/(main)")}
               >
-                <View style={[styles.menuIcon, isActive("/rides") && styles.menuIconActive]}>
+                <View style={[styles.menuIcon, pathname === "/(main)" && styles.menuIconActive]}>
                   <Ionicons
-                    name="search"
+                    name="home"
                     size={wp(5)}
-                    color={isActive("/rides") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
+                    color={pathname === "/(main)" ? "#FFFFFF" : COLORS.primary.oceanBlue700}
                   />
                 </View>
-                <Text style={[styles.menuText, isActive("/rides") && styles.menuTextActive]}>
-                  Find Rides
+                <Text style={[styles.menuText, pathname === "/(main)" && styles.menuTextActive]}>
+                  Home
                 </Text>
               </TouchableOpacity>
 
-              {/* Offer Ride */}
-              <TouchableOpacity
-                style={[styles.menuItem, isActive("/offer") && styles.menuItemActive]}
-                onPress={() => handleNavigation("/rides/offer")}
-              >
-                <View style={[styles.menuIcon, isActive("/offer") && styles.menuIconActive]}>
-                  <Ionicons
-                    name="car"
-                    size={wp(5)}
-                    color={isActive("/offer") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
-                  />
-                </View>
-                <Text style={[styles.menuText, isActive("/offer") && styles.menuTextActive]}>
-                  Offer Ride
-                </Text>
-              </TouchableOpacity>
+              {/* Find Rides - Rider Only */}
+              {roleInfo?.current_role === 'rider' && (
+                <TouchableOpacity
+                  style={[styles.menuItem, isActive("/rides") && styles.menuItemActive]}
+                  onPress={() => handleNavigation("/rides/find")}
+                >
+                  <View style={[styles.menuIcon, isActive("/rides") && styles.menuIconActive]}>
+                    <Ionicons
+                      name="search"
+                      size={wp(5)}
+                      color={isActive("/rides") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
+                    />
+                  </View>
+                  <Text style={[styles.menuText, isActive("/rides") && styles.menuTextActive]}>
+                    Find Rides
+                  </Text>
+                </TouchableOpacity>
+              )}
 
-              {/* My Rides */}
+              {/* Request Ride - Rider Only */}
+              {roleInfo?.current_role === 'rider' && (
+                <TouchableOpacity
+                  style={[styles.menuItem, isActive("/request") && styles.menuItemActive]}
+                  onPress={() => handleNavigation("/request")}
+                >
+                  <View style={[styles.menuIcon, isActive("/request") && styles.menuIconActive]}>
+                    <Ionicons
+                      name="megaphone"
+                      size={wp(5)}
+                      color={isActive("/request") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
+                    />
+                  </View>
+                  <Text style={[styles.menuText, isActive("/request") && styles.menuTextActive]}>
+                    Request a Ride
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Offer Ride - Driver Only */}
+              {roleInfo?.current_role === 'driver' && (
+                <TouchableOpacity
+                  style={[styles.menuItem, isActive("/offer") && styles.menuItemActive]}
+                  onPress={() => handleNavigation("/offer")}
+                >
+                  <View style={[styles.menuIcon, isActive("/offer") && styles.menuIconActive]}>
+                    <Ionicons
+                      name="car"
+                      size={wp(5)}
+                      color={isActive("/offer") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
+                    />
+                  </View>
+                  <Text style={[styles.menuText, isActive("/offer") && styles.menuTextActive]}>
+                    Offer a Ride
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* My Rides - Both roles */}
               <TouchableOpacity
                 style={[styles.menuItem, isActive("/my-rides") && styles.menuItemActive]}
-                onPress={() => handleNavigation("/rides/my-rides")}
+                onPress={() => handleNavigation("/(main)/rides")}
               >
                 <View style={[styles.menuIcon, isActive("/my-rides") && styles.menuIconActive]}>
                   <Ionicons
@@ -446,7 +520,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   />
                 </View>
                 <Text style={[styles.menuText, isActive("/my-rides") && styles.menuTextActive]}>
-                  My Rides
+                  My {roleInfo?.current_role === 'driver' ? 'Offered' : 'Booked'} Rides
                 </Text>
               </TouchableOpacity>
 
