@@ -1,0 +1,24 @@
+---
+applyTo: '**'
+---
+- always check codebase and understand how code work before start coding.
+- always never edit something i didn't say, follow my instructions don't add things from your own.
+- always when you use Monicon library add or edit or delete update icon name in @metro.config.js.
+- always examine project structure.
+- always use theme and colors from @tailwind.config.js or @theme.ts.
+- always check other screens style and do when coding new screen.
+- always when coding UI always look at other screens style like bg color etc.. and keep same style when creating new screen.
+- always use nativewind if possible.
+- always when using nativewind classes always check if the component is supporting className if not use style props.
+- always before coding UI, examine app UI to have idea how UI should look like for better accurancy.
+- always add a comment for each function what it do.
+- always examine and read project folders and files for better understanding .
+- always use nativewind in styling.
+- always use React Native Reanimated on animations and transitions
+- don't use text-base istead use text-md
+- always when dealing with location display names, ensure to provide a fallback using latitude and longitude if the address is unavailable.
+- always when setting drawer width, use a maximum width to ensure it doesn't occupy the full screen
+- always when implementing role-based UI, ensure clear separation of driver and rider functionalities.
+- always when switching roles in the app, ensure the UI updates immediately without requiring an app restart
+- always when adding new properties to types, ensure they are optional if not always present.
+- always when using timeouts in React Native, use ReturnType<typeof setTimeout> for better compatibility.
