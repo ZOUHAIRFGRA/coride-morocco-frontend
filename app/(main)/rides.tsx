@@ -161,7 +161,7 @@ export default function RidesScreen() {
     return (
       <TouchableOpacity
         key={ride.id}
-        style={[styles.rideCard, { 
+        style={[dynamicStyles.rideCard, { 
           backgroundColor: colors.surface.primary,
           borderColor: colors.border.primary
         }]}
@@ -169,32 +169,32 @@ export default function RidesScreen() {
         activeOpacity={0.7}
       >
         {/* Status Badge */}
-        <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
+        <View style={[dynamicStyles.statusBadge, { backgroundColor: statusColor }]}>
           <Ionicons name={statusIcon} size={14} color="#FFFFFF" />
-          <Text style={styles.statusText}>
+          <Text style={dynamicStyles.statusText}>
             {ride.status.replace('_', ' ').toUpperCase()}
           </Text>
         </View>
 
         {/* Route Information */}
-        <View style={styles.routeSection}>
-          <View style={styles.locationRow}>
-            <View style={[styles.locationDot, { backgroundColor: colors.primary.light }]} />
-            <View style={styles.locationInfo}>
-              <Text style={[styles.locationLabel, { color: colors.text.secondary }]}>From</Text>
-              <Text style={[styles.locationText, { color: colors.text.primary }]} numberOfLines={1}>
+        <View style={dynamicStyles.routeSection}>
+          <View style={dynamicStyles.locationRow}>
+            <View style={[dynamicStyles.locationDot, { backgroundColor: colors.primary.light }]} />
+            <View style={dynamicStyles.locationInfo}>
+              <Text style={[dynamicStyles.locationLabel, { color: colors.text.secondary }]}>From</Text>
+              <Text style={[dynamicStyles.locationText, { color: colors.text.primary }]} numberOfLines={1}>
                 {ride.start_address}
               </Text>
             </View>
           </View>
 
-          <View style={[styles.routeLine, { backgroundColor: colors.border.primary }]} />
+          <View style={[dynamicStyles.routeLine, { backgroundColor: colors.border.primary }]} />
 
-          <View style={styles.locationRow}>
-            <View style={[styles.locationDot, { backgroundColor: colors.primary.dark }]} />
-            <View style={styles.locationInfo}>
-              <Text style={[styles.locationLabel, { color: colors.text.secondary }]}>To</Text>
-              <Text style={[styles.locationText, { color: colors.text.primary }]} numberOfLines={1}>
+          <View style={dynamicStyles.locationRow}>
+            <View style={[dynamicStyles.locationDot, { backgroundColor: colors.primary.dark }]} />
+            <View style={dynamicStyles.locationInfo}>
+              <Text style={[dynamicStyles.locationLabel, { color: colors.text.secondary }]}>To</Text>
+              <Text style={[dynamicStyles.locationText, { color: colors.text.primary }]} numberOfLines={1}>
                 {ride.end_address}
               </Text>
             </View>
@@ -202,26 +202,26 @@ export default function RidesScreen() {
         </View>
 
         {/* Ride Details */}
-        <View style={styles.detailsSection}>
-          <View style={styles.detailRow}>
+        <View style={dynamicStyles.detailsSection}>
+          <View style={dynamicStyles.detailRow}>
             <Ionicons name="calendar-outline" size={16} color={colors.text.secondary} />
-            <Text style={[styles.detailText, { color: colors.text.secondary }]}>
+            <Text style={[dynamicStyles.detailText, { color: colors.text.secondary }]}>
               {formatDateTime(ride.departure_time)}
             </Text>
           </View>
 
-          <View style={styles.detailRow}>
+          <View style={dynamicStyles.detailRow}>
             <Ionicons name="people-outline" size={16} color={colors.text.secondary} />
-            <Text style={[styles.detailText, { color: colors.text.secondary }]}>
+            <Text style={[dynamicStyles.detailText, { color: colors.text.secondary }]}>
               {isOffered 
                 ? `${ride.available_seats} seats available` 
                 : `${ride.available_seats - ride.occupied_seats} seats left`}
             </Text>
           </View>
 
-          <View style={styles.detailRow}>
+          <View style={dynamicStyles.detailRow}>
             <Ionicons name="cash-outline" size={16} color={colors.primary.dark} />
-            <Text style={[styles.detailText, { color: colors.primary.dark, fontWeight: '600' }]}>
+            <Text style={[dynamicStyles.detailText, { color: colors.primary.dark, fontWeight: '600' }]}>
               {ride.cost_per_person} MAD/person
             </Text>
           </View>
@@ -229,16 +229,16 @@ export default function RidesScreen() {
 
         {/* Route Info if available */}
         {ride.routeInfo && (
-          <View style={[styles.routeInfo, { backgroundColor: colors.background.secondary }]}>
-            <View style={styles.routeInfoItem}>
+          <View style={[dynamicStyles.routeInfo, { backgroundColor: colors.background.secondary }]}>
+            <View style={dynamicStyles.routeInfoItem}>
               <Ionicons name="navigate" size={14} color={colors.text.secondary} />
-              <Text style={[styles.routeInfoText, { color: colors.text.secondary }]}>
+              <Text style={[dynamicStyles.routeInfoText, { color: colors.text.secondary }]}>
                 {ride.routeInfo.distance.toFixed(1)} km
               </Text>
             </View>
-            <View style={styles.routeInfoItem}>
+            <View style={dynamicStyles.routeInfoItem}>
               <Ionicons name="time" size={14} color={colors.text.secondary} />
-              <Text style={[styles.routeInfoText, { color: colors.text.secondary }]}>
+              <Text style={[dynamicStyles.routeInfoText, { color: colors.text.secondary }]}>
                 ~{ride.routeInfo.estimatedDuration} min
               </Text>
             </View>
@@ -246,67 +246,67 @@ export default function RidesScreen() {
         )}
 
         {/* Action Buttons */}
-        <View style={styles.actionsSection}>
+        <View style={dynamicStyles.actionsSection}>
           {canStart && (
             <TouchableOpacity
-              style={[styles.actionButton, styles.primaryButton, { backgroundColor: colors.primary.dark }]}
+              style={[dynamicStyles.actionButton, dynamicStyles.primaryButton, { backgroundColor: colors.primary.dark }]}
               onPress={() => handleUpdateStatus(ride.id, 'in_progress')}
             >
               <Ionicons name="play" size={16} color="#FFFFFF" />
-              <Text style={styles.actionButtonText}>Start Ride</Text>
+              <Text style={dynamicStyles.actionButtonText}>Start Ride</Text>
             </TouchableOpacity>
           )}
 
           {canComplete && (
             <TouchableOpacity
-              style={[styles.actionButton, styles.successButton, { backgroundColor: colors.success.dark }]}
+              style={[dynamicStyles.actionButton, dynamicStyles.successButton, { backgroundColor: colors.success.dark }]}
               onPress={() => handleUpdateStatus(ride.id, 'completed')}
             >
               <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-              <Text style={styles.actionButtonText}>Complete</Text>
+              <Text style={dynamicStyles.actionButtonText}>Complete</Text>
             </TouchableOpacity>
           )}
 
           {canCancel && (
             <TouchableOpacity
-              style={[styles.actionButton, styles.dangerButton, { 
+              style={[dynamicStyles.actionButton, dynamicStyles.dangerButton, { 
                 borderColor: colors.error.light,
                 backgroundColor: colors.background.primary
               }]}
               onPress={() => handleCancelRide(ride.id)}
             >
               <Ionicons name="close" size={16} color={colors.error.light} />
-              <Text style={[styles.actionButtonText, { color: colors.error.light }]}>Cancel</Text>
+              <Text style={[dynamicStyles.actionButtonText, { color: colors.error.light }]}>Cancel</Text>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity
-            style={[styles.actionButton, styles.secondaryButton, { 
+            style={[dynamicStyles.actionButton, dynamicStyles.secondaryButton, { 
               borderColor: colors.border.primary,
               backgroundColor: colors.background.tertiary
             }]}
             onPress={() => handleRidePress(ride)}
           >
-            <Text style={[styles.actionButtonText, { color: colors.text.primary }]}>View Details</Text>
+            <Text style={[dynamicStyles.actionButtonText, { color: colors.text.primary }]}>View Details</Text>
             <Ionicons name="chevron-forward" size={16} color={colors.text.primary} />
           </TouchableOpacity>
         </View>
 
         {/* Rider/Driver Info */}
         {!isOffered && ride.driver && (
-          <View style={[styles.userInfo, { borderTopColor: colors.border.primary }]}>
-            <View style={[styles.avatar, { backgroundColor: colors.background.primary }]}>
-              <Text style={[styles.avatarText, { color: colors.primary.dark }]}>
+          <View style={[dynamicStyles.userInfo, { borderTopColor: colors.border.primary }]}>
+            <View style={[dynamicStyles.avatar, { backgroundColor: colors.background.primary }]}>
+              <Text style={[dynamicStyles.avatarText, { color: colors.primary.dark }]}>
                 {ride.driver.first_name.charAt(0)}
               </Text>
             </View>
-            <View style={styles.userDetails}>
-              <Text style={[styles.userName, { color: colors.text.primary }]}>
+            <View style={dynamicStyles.userDetails}>
+              <Text style={[dynamicStyles.userName, { color: colors.text.primary }]}>
                 {ride.driver.first_name} {ride.driver.last_name}
               </Text>
-              <View style={styles.ratingRow}>
+              <View style={dynamicStyles.ratingRow}>
                 <Ionicons name="star" size={12} color="#FFD700" />
-                <Text style={[styles.ratingText, { color: colors.text.secondary }]}>
+                <Text style={[dynamicStyles.ratingText, { color: colors.text.secondary }]}>
                   {ride.driver.rating_average?.toFixed(1) || '--'} ({ride.driver.rating_count || 0})
                 </Text>
               </View>
@@ -315,19 +315,19 @@ export default function RidesScreen() {
         )}
 
         {isOffered && ride.rider && (
-          <View style={[styles.userInfo, { borderTopColor: colors.border.primary }]}>
-            <View style={[styles.avatar, { backgroundColor: colors.background.primary }]}>
-              <Text style={[styles.avatarText, { color: colors.primary.dark }]}>
+          <View style={[dynamicStyles.userInfo, { borderTopColor: colors.border.primary }]}>
+            <View style={[dynamicStyles.avatar, { backgroundColor: colors.background.primary }]}>
+              <Text style={[dynamicStyles.avatarText, { color: colors.primary.dark }]}>
                 {ride.rider.first_name.charAt(0)}
               </Text>
             </View>
-            <View style={styles.userDetails}>
-              <Text style={[styles.userName, { color: colors.text.primary }]}>
+            <View style={dynamicStyles.userDetails}>
+              <Text style={[dynamicStyles.userName, { color: colors.text.primary }]}>
                 Passenger: {ride.rider.first_name} {ride.rider.last_name}
               </Text>
-              <View style={styles.ratingRow}>
+              <View style={dynamicStyles.ratingRow}>
                 <Ionicons name="star" size={12} color="#FFD700" />
-                <Text style={[styles.ratingText, { color: colors.text.secondary }]}>
+                <Text style={[dynamicStyles.ratingText, { color: colors.text.secondary }]}>
                   {ride.rider.rating_average?.toFixed(1) || '--'}
                 </Text>
               </View>
@@ -339,28 +339,28 @@ export default function RidesScreen() {
   };
 
   const renderEmptyState = () => (
-    <View style={styles.emptyState}>
-      <View style={[styles.emptyIcon, { backgroundColor: colors.background.secondary }]}>
+    <View style={dynamicStyles.emptyState}>
+      <View style={[dynamicStyles.emptyIcon, { backgroundColor: colors.background.secondary }]}>
         <Ionicons 
           name={activeTab === 'offered' ? 'car-outline' : 'search-outline'} 
           size={48} 
           color={colors.text.tertiary} 
         />
       </View>
-      <Text style={[styles.emptyTitle, { color: colors.text.primary }]}>
+      <Text style={[dynamicStyles.emptyTitle, { color: colors.text.primary }]}>
         {activeTab === 'offered' ? 'No offered rides' : 'No joined rides'}
       </Text>
-      <Text style={[styles.emptyDescription, { color: colors.text.secondary }]}>
+      <Text style={[dynamicStyles.emptyDescription, { color: colors.text.secondary }]}>
         {activeTab === 'offered' 
           ? 'Start by offering a ride to help others get around'
           : 'Search for available rides and join one to get started'}
       </Text>
       <TouchableOpacity
-        style={[styles.emptyButton, { backgroundColor: colors.primary.dark }]}
+        style={[dynamicStyles.emptyButton, { backgroundColor: colors.primary.dark }]}
         onPress={() => router.push(activeTab === 'offered' ? '/offer' : '/')}
       >
         <Ionicons name="add" size={20} color="#FFFFFF" />
-        <Text style={styles.emptyButtonText}>
+        <Text style={dynamicStyles.emptyButtonText}>
           {activeTab === 'offered' ? 'Offer a Ride' : 'Find a Ride'}
         </Text>
       </TouchableOpacity>

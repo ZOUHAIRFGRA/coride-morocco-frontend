@@ -202,7 +202,20 @@ const DocumentVerification = () => {
     );
   };
 
+  // TODO: Backend support needed for passport and residence_permit verification
+  // Currently only national_id is implemented in the backend OCR processing
   const handleUploadIdentityDocument = (documentType: DocumentType) => {
+    // Check if document type is supported
+    if (documentType === 'passport' || documentType === 'residence_permit') {
+      const documentLabel = documentType === 'passport' ? 'Passport' : 'Residence Permit';
+      Alert.alert(
+        'Coming Soon',
+        `${documentLabel} verification is not yet available. We're working on adding support for this document type. Please check back soon!`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     let frontImage: any = null;
     let backImage: any = null;
 
@@ -210,27 +223,22 @@ const DocumentVerification = () => {
       showImagePicker((asset) => {
         frontImage = asset;
         
-        if (documentType === 'passport') {
-          // Passport only needs front image
-          performIdentityUpload(documentType, frontImage, null);
-        } else {
-          // Ask for back image for ID and residence permit
-          Alert.alert(
-            'Back Side Required',
-            'Please also upload the back side of your document',
-            [
-              { text: 'Take Back Photo', onPress: () => {
-                showImagePicker((backAsset) => {
-                  backImage = backAsset;
-                  performIdentityUpload(documentType, frontImage, backImage);
-                });
-              }},
-              { text: 'Skip Back Photo', onPress: () => {
-                performIdentityUpload(documentType, frontImage, null);
-              }}
-            ]
-          );
-        }
+        // National ID requires back image
+        Alert.alert(
+          'Back Side Required',
+          'Please also upload the back side of your document',
+          [
+            { text: 'Take Back Photo', onPress: () => {
+              showImagePicker((backAsset) => {
+                backImage = backAsset;
+                performIdentityUpload(documentType, frontImage, backImage);
+              });
+            }},
+            { text: 'Skip Back Photo', onPress: () => {
+              performIdentityUpload(documentType, frontImage, null);
+            }}
+          ]
+        );
       });
     };
 
@@ -741,20 +749,18 @@ const DocumentVerification = () => {
           </Text>
         )}
 
-        {/* Only show button-style upload for documents that already exist (have status) */}
-        {status && (
+        {/* Only show upload button for non-verified documents */}
+        {status && status !== 'VERIFIED' ? (
           <TouchableOpacity
             className={`py-4 px-4 rounded-xl flex-row items-center justify-center ${
-              status === 'VERIFIED' 
-                ? 'bg-green-50 border-2 border-green-200' 
-                : status === 'PENDING'
+              status === 'PENDING'
                 ? 'bg-amber-50 border-2 border-amber-200'
                 : 'bg-primary-oceanBlue600 border-2 border-primary-oceanBlue600'
             } ${isUploading ? 'opacity-50' : ''}`}
             onPress={onUpload}
             disabled={isUploading}
             style={{
-              shadowColor: status === 'VERIFIED' || status === 'PENDING' ? '#000' : '#006389',
+              shadowColor: status === 'PENDING' ? '#000' : '#006389',
               shadowOffset: { width: 0, height: 2 },
               shadowOpacity: 0.1,
               shadowRadius: 4,
@@ -763,46 +769,49 @@ const DocumentVerification = () => {
           >
             {/* Upload Icon */}
             <Ionicons 
-              name={
-                status === 'VERIFIED' ? 'refresh-circle' : 
-                status === 'PENDING' ? 'cloud-upload' : 
-                'camera'
-              } 
+              name={status === 'PENDING' ? 'cloud-upload' : 'camera'} 
               size={20} 
-              color={
-                status === 'VERIFIED' ? '#047857' : 
-                status === 'PENDING' ? '#D97706' : 'text-dark'              } 
+              color={status === 'PENDING' ? '#D97706' : 'white'} 
             />
             
             {/* Upload Text */}
             <Text className={`ml-2 text-center font-semiBold ${
-              status === 'VERIFIED' 
-                ? 'text-green-700' 
-                : status === 'PENDING'
-                ? 'text-amber-700'
-                : 'text-dark'
+              status === 'PENDING' ? 'text-amber-700' : 'text-dark'
             }`}>
-              {status === 'VERIFIED' 
-                ? 'Re-upload Document' 
-                : status === 'PENDING'
-                ? 'Upload New Version'
-                : 'Tap to Upload Document'
-              }
+              {status === 'PENDING' ? 'Upload New Version' : 'Tap to Upload Document'}
             </Text>
 
             {/* Arrow indicating action */}
             <Ionicons 
               name="chevron-forward" 
               size={16} 
-              color={
-                status === 'VERIFIED' ? '#047857' : 
-                status === 'PENDING' ? '#D97706' : 
-                'white'
-              }
+              color={status === 'PENDING' ? '#D97706' : 'white'}
               style={{ marginLeft: 4 }}
             />
           </TouchableOpacity>
-        )}
+        ) : status === 'VERIFIED' ? (
+          <View className="py-4 px-4 rounded-xl bg-green-50 border-2 border-green-200">
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="shield-checkmark" size={20} color="#047857" />
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '600',
+                marginLeft: 8,
+                color: '#047857'
+              }}>
+                Document Verified
+              </Text>
+            </View>
+            <Text style={{
+              fontSize: 13,
+              color: '#059669',
+              textAlign: 'center',
+              marginTop: 8
+            }}>
+              This document has been verified and cannot be changed. Contact support if you need assistance.
+            </Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );

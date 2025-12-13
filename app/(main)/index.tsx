@@ -83,13 +83,25 @@ export default function MainScreen() {
         passengerCount
       );
 
-      if (routeResponse.success && routeResponse.data) {
+      console.log('Route search response:', routeResponse);
+
+      if (routeResponse.success && routeResponse.data && routeResponse.data.length > 0) {
         setRoutes(routeResponse.data);
       } else {
         setRoutes([]);
         Alert.alert(
           'No Routes Found',
-          routeResponse.error?.message || 'No matching routes found for your criteria. Try adjusting your locations.'
+          'No drivers are currently offering rides for this route. Would you like to request a ride? You\'ll be the first to initiate this trip!',
+          [
+            {
+              text: 'Request a Ride',
+              onPress: () => router.push('/request')
+            },
+            {
+              text: 'Maybe Later',
+              style: 'cancel'
+            }
+          ]
         );
       }
     } catch (error) {

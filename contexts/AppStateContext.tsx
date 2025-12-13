@@ -2,7 +2,10 @@
 // Provides similar functionality to Redux with RTK Query using React Context
 
 import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Location from 'expo-location';
 import { authService } from '../services/auth';
+import { geospatialService } from '../services/geospatialService';
 import { ridesApiService } from '../services/ridesApi';
 import { userApiService } from '../services/userApi';
 import type { 
@@ -48,10 +51,24 @@ export interface UserProfileState {
   error: string | null;
 }
 
+export interface CachedLocation {
+  latitude: number;
+  longitude: number;
+  address: string;
+  timestamp: number;
+}
+
+export interface LocationState {
+  cachedLocation: CachedLocation | null;
+  isLoading: boolean;
+  error: string | null;
+}
+
 export interface AppState {
   auth: AuthState;
   rides: RidesState;
   userProfile: UserProfileState;
+  location: LocationState;
 }
 
 // Action types
@@ -77,7 +94,13 @@ type UserProfileAction =
   | { type: 'PROFILE_ERROR'; payload: string }
   | { type: 'PROFILE_CLEAR_ERROR' };
 
-type AppAction = AuthAction | RidesAction | UserProfileAction | { type: 'RESET_APP' };
+type LocationAction =
+  | { type: 'LOCATION_LOADING'; payload: boolean }
+  | { type: 'LOCATION_SUCCESS'; payload: CachedLocation }
+  | { type: 'LOCATION_ERROR'; payload: string }
+  | { type: 'LOCATION_CLEAR' };
+
+type AppAction = AuthAction | RidesAction | UserProfileAction | LocationAction | { type: 'RESET_APP' };
 
 // Initial states
 const initialAuthState: AuthState = {
@@ -103,10 +126,17 @@ const initialUserProfileState: UserProfileState = {
   error: null,
 };
 
+const initialLocationState: LocationState = {
+  cachedLocation: null,
+  isLoading: false,
+  error: null,
+};
+
 const initialState: AppState = {
   auth: initialAuthState,
   rides: initialRidesState,
   userProfile: initialUserProfileState,
+  location: initialLocationState,
 };
 
 // Reducers
@@ -177,6 +207,21 @@ const userProfileReducer = (state: UserProfileState, action: UserProfileAction):
   }
 };
 
+const locationReducer = (state: LocationState, action: LocationAction): LocationState => {
+  switch (action.type) {
+    case 'LOCATION_LOADING':
+      return { ...state, isLoading: action.payload, error: null };
+    case 'LOCATION_SUCCESS':
+      return { ...state, cachedLocation: action.payload, isLoading: false, error: null };
+    case 'LOCATION_ERROR':
+      return { ...state, error: action.payload, isLoading: false };
+    case 'LOCATION_CLEAR':
+      return initialLocationState;
+    default:
+      return state;
+  }
+};
+
 const appReducer = (state: AppState, action: AppAction): AppState => {
   if (action.type === 'RESET_APP') {
     return initialState;
@@ -186,6 +231,7 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     auth: authReducer(state.auth, action as AuthAction),
     rides: ridesReducer(state.rides, action as RidesAction),
     userProfile: userProfileReducer(state.userProfile, action as UserProfileAction),
+    location: locationReducer(state.location, action as LocationAction),
   };
 };
 
@@ -195,9 +241,87 @@ const AppContext = createContext<{
   dispatch: React.Dispatch<AppAction>;
 } | null>(null);
 
+// AsyncStorage keys
+const CACHED_LOCATION_KEY = '@coride_cached_location';
+const LOCATION_CACHE_DURATION = 15 * 60 * 1000; // 15 minutes in milliseconds
+
 // Provider component
 export const AppStateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
+
+  // Fetch and cache user's current location
+  const fetchAndCacheLocation = useCallback(async () => {
+    dispatch({ type: 'LOCATION_LOADING', payload: true });
+    
+    try {
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Location permission not granted');
+        dispatch({ type: 'LOCATION_LOADING', payload: false });
+        return;
+      }
+
+      // Get current position
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const { latitude, longitude } = location.coords;
+      
+      // Reverse geocode to get address
+      const reverseResponse = await geospatialService.reverseGeocode(latitude, longitude);
+      
+      const address = reverseResponse.success && reverseResponse.data 
+        ? reverseResponse.data.formatted_address || reverseResponse.data.address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+        : `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+
+      const cachedLocation: CachedLocation = {
+        latitude,
+        longitude,
+        address,
+        timestamp: Date.now(),
+      };
+
+      // Save to state
+      dispatch({ type: 'LOCATION_SUCCESS', payload: cachedLocation });
+      
+      // Persist to AsyncStorage
+      await AsyncStorage.setItem(CACHED_LOCATION_KEY, JSON.stringify(cachedLocation));
+      
+      console.log('Location cached successfully:', address);
+    } catch (error) {
+      console.error('Error fetching location:', error);
+      dispatch({ type: 'LOCATION_ERROR', payload: 'Failed to fetch location' });
+    }
+  }, []);
+
+  // Load cached location from AsyncStorage on app start
+  useEffect(() => {
+    const loadCachedLocation = async () => {
+      try {
+        const cachedData = await AsyncStorage.getItem(CACHED_LOCATION_KEY);
+        if (cachedData) {
+          const cached: CachedLocation = JSON.parse(cachedData);
+          const age = Date.now() - cached.timestamp;
+          
+          // If cache is still fresh (< 15 minutes), use it
+          if (age < LOCATION_CACHE_DURATION) {
+            dispatch({ type: 'LOCATION_SUCCESS', payload: cached });
+            console.log('Loaded cached location from storage:', cached.address);
+            return;
+          }
+        }
+      } catch (error) {
+        console.error('Error loading cached location:', error);
+      }
+      
+      // If no cache or cache is stale, fetch fresh location
+      fetchAndCacheLocation();
+    };
+
+    loadCachedLocation();
+  }, [fetchAndCacheLocation]);
 
   // Initialize auth state from stored tokens
   useEffect(() => {
@@ -445,6 +569,72 @@ export const useAuth = () => {
     changePassword,
     verifyEmail,
     clearError,
+  };
+};
+
+// useLocation hook - provides access to cached location and refresh functionality
+export const useLocation = () => {
+  const { state, dispatch } = useAppState();
+
+  const refreshLocation = useCallback(async () => {
+    dispatch({ type: 'LOCATION_LOADING', payload: true });
+    
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        console.log('Location permission not granted');
+        dispatch({ type: 'LOCATION_LOADING', payload: false });
+        return { success: false, error: 'Location permission denied' };
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const { latitude, longitude } = location.coords;
+      
+      const reverseResponse = await geospatialService.reverseGeocode(latitude, longitude);
+      
+      const address = reverseResponse.success && reverseResponse.data 
+        ? reverseResponse.data.formatted_address || reverseResponse.data.address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`
+        : `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+
+      const cachedLocation: CachedLocation = {
+        latitude,
+        longitude,
+        address,
+        timestamp: Date.now(),
+      };
+
+      dispatch({ type: 'LOCATION_SUCCESS', payload: cachedLocation });
+      await AsyncStorage.setItem(CACHED_LOCATION_KEY, JSON.stringify(cachedLocation));
+      
+      return { success: true, data: cachedLocation };
+    } catch (error) {
+      console.error('Error refreshing location:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to refresh location';
+      dispatch({ type: 'LOCATION_ERROR', payload: errorMessage });
+      return { success: false, error: errorMessage };
+    }
+  }, [dispatch]);
+
+  const clearLocation = useCallback(() => {
+    dispatch({ type: 'LOCATION_CLEAR' });
+    AsyncStorage.removeItem(CACHED_LOCATION_KEY).catch(console.error);
+  }, [dispatch]);
+
+  // Check if cached location is stale (older than 15 minutes)
+  const isCacheStale = useCallback(() => {
+    if (!state.location.cachedLocation) return true;
+    const age = Date.now() - state.location.cachedLocation.timestamp;
+    return age >= LOCATION_CACHE_DURATION;
+  }, [state.location.cachedLocation]);
+
+  return {
+    ...state.location,
+    refreshLocation,
+    clearLocation,
+    isCacheStale,
   };
 };
 

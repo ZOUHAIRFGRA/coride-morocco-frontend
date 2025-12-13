@@ -18,6 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { useLocation } from '@/contexts/AppStateContext';
 import { MapViewComponent, type MapLocation } from '@/components/ui/EnhancedMapView';
 import { geospatialService } from '@/services/geospatialService';
 import type { LocationSuggestion } from '@/types/geospatial';
@@ -47,6 +48,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   showHistory = true
 }) => {
   const { colors } = useAppTheme();
+  const { cachedLocation, refreshLocation, isLoading: isLoadingCachedLocation, isCacheStale } = useLocation();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<LocationSuggestion[]>([]);
@@ -69,27 +71,61 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
     longitudeDelta: 0.1,
   };
 
-  // Load user's current location on modal open
+  // Load user's current location on modal open - use cached location for instant display
   useEffect(() => {
     if (visible && !hasLoadedInitialLocation) {
-      if (useCurrentLocation) {
-        loadCurrentLocation();
-      } else if (initialLocation) {
+      if (initialLocation) {
+        // Use provided initial location if available
         setSelectedLocation(initialLocation);
         setMapLocation({
           latitude: initialLocation.latitude,
           longitude: initialLocation.longitude,
           address: initialLocation.address
         });
-        // Zoom into the initial location
         setMapRegion({
           latitude: initialLocation.latitude,
           longitude: initialLocation.longitude,
           latitudeDelta: 0.05,
           longitudeDelta: 0.05,
         });
-      } else {
-        // If no initial location and not using current location, load current location anyway for map center
+      } else if (cachedLocation) {
+        // Use cached location from context for instant display - NO LOADING NEEDED!
+        console.log('Using cached location:', cachedLocation.address);
+        const locationData: LocationSuggestion = {
+          display_name: cachedLocation.address,
+          address: cachedLocation.address,
+          latitude: cachedLocation.latitude,
+          longitude: cachedLocation.longitude,
+          relevance_score: 1.0,
+          distance_km: 0,
+          country: 'Morocco'
+        };
+        
+        if (useCurrentLocation) {
+          setSelectedLocation(locationData);
+        }
+        
+        setMapLocation({
+          latitude: cachedLocation.latitude,
+          longitude: cachedLocation.longitude,
+          address: cachedLocation.address
+        });
+        
+        setMapRegion({
+          latitude: cachedLocation.latitude,
+          longitude: cachedLocation.longitude,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        });
+        
+        // Optionally refresh location if cache is stale (but don't block UI)
+        if (isCacheStale()) {
+          console.log('Cache is stale, refreshing in background...');
+          refreshLocation();
+        }
+      } else if (useCurrentLocation) {
+        // Fallback: fetch fresh location only if no cache exists
+        console.log('No cached location, fetching fresh...');
         loadCurrentLocation();
       }
       setHasLoadedInitialLocation(true);
@@ -106,7 +142,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
       setShowSearchResults(false);
       setHasLoadedInitialLocation(false);
     }
-  }, [visible]);
+  }, [visible, cachedLocation, initialLocation, useCurrentLocation]);
 
   const loadCurrentLocation = async () => {
     setIsLoadingCurrentLocation(true);
@@ -163,6 +199,41 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
     } catch (error) {
       console.error('Error getting current location:', error);
     }
+    setIsLoadingCurrentLocation(false);
+  };
+
+  // Manual refresh location button handler
+  const handleRefreshLocation = async () => {
+    console.log('Manually refreshing location...');
+    setIsLoadingCurrentLocation(true);
+    const result = await refreshLocation();
+    
+    if (result.success && result.data) {
+      const locationData: LocationSuggestion = {
+        display_name: result.data.address,
+        address: result.data.address,
+        latitude: result.data.latitude,
+        longitude: result.data.longitude,
+        relevance_score: 1.0,
+        distance_km: 0,
+        country: 'Morocco'
+      };
+      
+      setSelectedLocation(locationData);
+      setMapLocation({
+        latitude: result.data.latitude,
+        longitude: result.data.longitude,
+        address: result.data.address
+      });
+      
+      setMapRegion({
+        latitude: result.data.latitude,
+        longitude: result.data.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      });
+    }
+    
     setIsLoadingCurrentLocation(false);
   };
 
@@ -367,7 +438,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
           {/* Current Location Button */}
           <TouchableOpacity
             style={[styles.currentLocationButton, { backgroundColor: colors.primary.light }]}
-            onPress={loadCurrentLocation}
+            onPress={handleRefreshLocation}
             disabled={isLoadingCurrentLocation}
           >
             {isLoadingCurrentLocation ? (
@@ -421,6 +492,16 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
               Tap on the map to select a location
             </Text>
           </View>
+          
+          {/* Cache Status Indicator - shown if using stale cache */}
+          {cachedLocation && isCacheStale() && (
+            <View style={[styles.cacheStatusBadge, { backgroundColor: colors.warning.light + 'DD' }]}>
+              <Ionicons name="time-outline" size={14} color="#FFFFFF" />
+              <Text style={styles.cacheStatusText}>
+                Using cached location • Tap refresh to update
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Search Results or History */}
@@ -611,6 +692,22 @@ const styles = StyleSheet.create({
   mapInstructionText: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  cacheStatusBadge: {
+    position: 'absolute',
+    bottom: 16,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    borderRadius: 12,
+    gap: 6,
+  },
+  cacheStatusText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#FFFFFF',
   },
   resultsContainer: {
     maxHeight: height * 0.35,

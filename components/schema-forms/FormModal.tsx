@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
     flex: 1,
     pointerEvents: "box-none",
     zIndex: Platform.OS === 'ios' ? 999999999 : 9999,
-  },
+  }, 
   modalContent: {
     flex: 1,
     backgroundColor: "#FFFFFF",
