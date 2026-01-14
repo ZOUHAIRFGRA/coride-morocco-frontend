@@ -5,6 +5,12 @@ const { withMonicon } = require("@monicon/metro");
 
 const config = getDefaultConfig(__dirname);
 
+// Add buffer polyfill for react-native-svg
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  buffer: require.resolve('buffer/'),
+};
+
 const configWithMonicon = withMonicon(config, {
     icons: [
         "simple-icons:actualbudget",

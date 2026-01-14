@@ -67,6 +67,7 @@
     "@rtk-query/graphql-request-base-query": "^2.3.1",
     "@types/react-native-modal": "^3.1.1",
     "babel-plugin-module-resolver": "^5.0.2",
+    "buffer": "^6.0.3",
     "date-fns": "^4.1.0",
     "eslint": "^9.37.0",
     "eslint-config-expo": "~8.0.1",

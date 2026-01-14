@@ -1,0 +1,28 @@
+<!-- 
+  iOS App Transport Security Configuration
+  Add this to your ios/YourApp/Info.plist inside the <dict> tag
+  to allow insecure connections for development
+-->
+<key>NSAppTransportSecurity</key>
+<dict>
+    <!-- Allow all insecure loads (development only) -->
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+    
+    <!-- Or configure specific domains -->
+    <key>NSExceptionDomains</key>
+    <dict>
+        <key>79.72.60.38</key>
+        <dict>
+            <key>NSExceptionAllowsInsecureHTTPLoads</key>
+            <true/>
+            <key>NSIncludesSubdomains</key>
+            <true/>
+        </dict>
+        <key>localhost</key>
+        <dict>
+            <key>NSExceptionAllowsInsecureHTTPLoads</key>
+            <true/>
+        </dict>
+    </dict>
+</dict>
