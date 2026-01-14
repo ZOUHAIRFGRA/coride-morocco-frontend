@@ -78,8 +78,16 @@ export class BaseApiService {
     options: RequestInit = {},
     requiresAuth: boolean = true
   ): Promise<ApiResponse<T>> {
+    const startTime = Date.now();
+    const method = options.method || 'GET';
+    const url = this.buildUrl(endpoint);
+
+    console.log(`🌐 [API Request] ${method} ${url}`);
+    if (options.body) {
+      console.log('📤 [Request Body]:', JSON.parse(options.body as string));
+    }
+
     try {
-      const url = this.buildUrl(endpoint);
       const headers = await this.buildHeaders(options.headers, requiresAuth);
       
       const requestOptions: RequestInit = {
@@ -89,22 +97,45 @@ export class BaseApiService {
       };
 
       let response = await fetch(url, requestOptions);
+      const duration = Date.now() - startTime;
 
       // Handle token refresh for 401 errors
       if (response.status === 401 && requiresAuth && !endpoint.includes('/refresh')) {
+        console.log('🔄 [Token Refresh] Attempting to refresh tokens...');
         const refreshed = await this.refreshTokens();
         if (refreshed) {
+          console.log('✅ [Token Refresh] Success - Retrying request');
           // Retry with new token
           const newHeaders = await this.buildHeaders(options.headers, requiresAuth);
           response = await fetch(url, {
             ...requestOptions,
             headers: newHeaders,
           });
+        } else {
+          console.log('❌ [Token Refresh] Failed');
         }
       }
 
-      return await this.handleResponse<T>(response);
+      const result = await this.handleResponse<T>(response);
+      
+      // Log response
+      if (result.success) {
+        console.log(`✅ [API Success] ${method} ${url} (${duration}ms) - Status: ${response.status}`);
+        if (result.data) {
+          console.log('📥 [Response Data]:', result.data);
+        }
+      } else {
+        console.log(`❌ [API Error] ${method} ${url} (${duration}ms) - Status: ${response.status}`);
+        if (result.error) {
+          console.log('🚫 [Error Details]:', result.error);
+        }
+      }
+      
+      return result;
     } catch (error) {
+      const duration = Date.now() - startTime;
+      console.log(`💥 [API Exception] ${method} ${url} (${duration}ms)`);
+      console.error('🔥 [Exception Details]:', error);
       return this.handleError(error);
     }
   }
@@ -268,6 +299,7 @@ export class BaseApiService {
    */
   private handleError<T>(error: any): ApiResponse<T> {
     if (error.name === 'AbortError') {
+      console.log('⏱️ [Timeout] Request exceeded timeout limit');
       return {
         success: false,
         error: {
@@ -279,6 +311,7 @@ export class BaseApiService {
     }
 
     if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.log('📡 [Network Error] Unable to reach server');
       return {
         success: false,
         error: {
@@ -289,6 +322,7 @@ export class BaseApiService {
       };
     }
 
+    console.log('⚠️ [Unexpected Error]:', error);
     return {
       success: false,
       error: {

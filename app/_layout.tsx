@@ -1,3 +1,4 @@
+import "../polyfills";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useState } from "react";
 import { useColorScheme, Platform, StatusBar, View, StyleSheet } from "react-native";
