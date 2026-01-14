@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, Alert, ActivityIndicator, StyleSheet, Dimensions, Pressable, ScrollView } from "react-native";
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator, StyleSheet, Dimensions, Pressable, ScrollView, Platform } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { widthPercentageToDP as wp } from "react-native-responsive-screen";
@@ -15,6 +15,7 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
 } from "react-native-reanimated";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 // Use 80% of screen width, but cap at 320dp to follow platform guidelines
@@ -31,6 +32,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
   isVisible,
   onClose,
 }) => {
+  const { colors, isDarkMode } = useAppTheme();
   const router = useRouter();
   const pathname = usePathname();
   const { logout, user } = useAuth();
@@ -95,7 +97,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
     }
   };
 
-  const handleRoleSwitch = async (newRole: 'rider' | 'driver') => {
+  const handleRoleSwitch = async (newRole: 'RIDER' | 'DRIVER') => {
     // Prevent multiple simultaneous switches
     if (isRoleSwitching || !roleInfo) {
       return;
@@ -107,7 +109,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
     }
 
     // Validate role - only RIDER and DRIVER allowed
-    if (newRole !== 'rider' && newRole !== 'driver') {
+    if (newRole !== 'RIDER' && newRole !== 'DRIVER') {
       Alert.alert(
         'Invalid Role',
         'You can only switch between Rider and Driver roles.',
@@ -116,11 +118,11 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
       return;
     }
 
-    // Prevent switching to driver if not eligible
-    if (newRole === 'driver' && !roleInfo.can_drive) {
+    // Prevent switching to DRIVER if not eligible
+    if (newRole === 'DRIVER' && !roleInfo.can_drive) {
       Alert.alert(
         'Cannot Switch to Driver',
-        'You need to complete driver verification first:\n\n• Verified identity document\n• Valid driver\'s license\n• License verification approval\n\nTap "Verify Now" to start the verification process.',
+        'You need to complete DRIVER verification first:\n\n• Verified identity document\n• Valid DRIVER\'s license\n• License verification approval\n\nTap "Verify Now" to start the verification process.',
         [
           { text: 'Cancel', style: 'cancel' },
           { 
@@ -151,7 +153,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
 
         Alert.alert(
           'Role Switched',
-          `You are now a ${newRole}. ${newRole === 'driver' ? 'You can now offer rides to passengers.' : 'You can now search and book rides.'}`,
+          `You are now a ${newRole}. ${newRole === 'DRIVER' ? 'You can now offer rides to passengers.' : 'You can now search and book rides.'}`,
           [{ text: 'OK' }]
         );
       } else {
@@ -204,8 +206,8 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
     if (!role) return null;
 
     const roleConfig = {
-      driver: { icon: "car", color: "#10B981", label: "Driver" },
-      rider: { icon: "person", color: "#3B82F6", label: "Rider" },
+      DRIVER: { icon: "car", color: "#10B981", label: "Driver" },
+      RIDER: { icon: "person", color: "#3B82F6", label: "Rider" },
       admin: { icon: "shield-checkmark", color: "#F59E0B", label: "Admin" },
       moderator: { icon: "settings", color: "#8B5CF6", label: "Moderator" }
     };
@@ -261,8 +263,8 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
       </Animated.View>
 
       {/* Drawer */}
-      <Animated.View style={[styles.drawer, drawerStyle]}>
-        <SafeAreaView style={styles.safeArea}>
+      <Animated.View style={[styles.drawer, { backgroundColor: colors.background.primary, height: Platform.OS === 'android' ? '100%' : SCREEN_HEIGHT }, drawerStyle]}>
+        <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { flex: 1 }]} edges={Platform.OS === 'android' ? ['top'] : undefined}>
           <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
             {/* Header */}
             <View style={styles.header}>
@@ -322,28 +324,28 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                     <TouchableOpacity
                       style={[
                         styles.roleButton,
-                        roleInfo.current_role === 'rider' && styles.roleButtonActive
+                        roleInfo.current_role === 'RIDER' && styles.roleButtonActive
                       ]}
                       onPress={(e) => {
                         e.stopPropagation();
-                        handleRoleSwitch('rider');
+                        handleRoleSwitch('RIDER');
                       }}
-                      disabled={isRoleSwitching || roleInfo.current_role === 'rider'}
+                      disabled={isRoleSwitching || roleInfo.current_role === 'RIDER'}
                       activeOpacity={0.7}
                     >
-                      {isRoleSwitching && roleInfo.current_role !== 'rider' ? (
+                      {isRoleSwitching && roleInfo.current_role !== 'RIDER' ? (
                         <ActivityIndicator size="small" color="#3B82F6" />
                       ) : (
                         <>
                           <Ionicons 
                             name="person" 
                             size={14} 
-                            color={roleInfo.current_role === 'rider' ? '#3B82F6' : '#6B7280'} 
+                            color={roleInfo.current_role === 'RIDER' ? '#3B82F6' : '#6B7280'} 
                           />
                           <Text 
                             style={[
                               styles.roleButtonText,
-                              roleInfo.current_role === 'rider' && styles.roleButtonTextActive
+                              roleInfo.current_role === 'RIDER' && styles.roleButtonTextActive
                             ]}
                           >
                             Rider
@@ -356,16 +358,16 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                     <TouchableOpacity
                       style={[
                         styles.roleButton,
-                        roleInfo.current_role === 'driver' && styles.roleButtonActiveDriver
+                        roleInfo.current_role === 'DRIVER' && styles.roleButtonActiveDriver
                       ]}
                       onPress={(e) => {
                         e.stopPropagation();
-                        handleRoleSwitch('driver');
+                        handleRoleSwitch('DRIVER');
                       }}
-                      disabled={isRoleSwitching || roleInfo.current_role === 'driver' || !roleInfo.can_drive}
+                      disabled={isRoleSwitching || roleInfo.current_role === 'DRIVER' || !roleInfo.can_drive}
                       activeOpacity={0.7}
                     >
-                      {isRoleSwitching && roleInfo.current_role !== 'driver' ? (
+                      {isRoleSwitching && roleInfo.current_role !== 'DRIVER' ? (
                         <ActivityIndicator size="small" color="#10B981" />
                       ) : (
                         <>
@@ -373,7 +375,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                             name="car" 
                             size={14} 
                             color={
-                              roleInfo.current_role === 'driver' 
+                              roleInfo.current_role === 'DRIVER' 
                                 ? '#10B981' 
                                 : roleInfo.can_drive 
                                   ? '#6B7280' 
@@ -383,7 +385,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                           <Text 
                             style={[
                               styles.roleButtonText,
-                              roleInfo.current_role === 'driver' && styles.roleButtonTextActiveDriver,
+                              roleInfo.current_role === 'DRIVER' && styles.roleButtonTextActiveDriver,
                               !roleInfo.can_drive && styles.roleButtonTextDisabled
                             ]}
                           >
@@ -397,12 +399,12 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   {/* Driver Requirements Info */}
                   {!roleInfo.can_drive && (
                     <TouchableOpacity 
-                      style={styles.driverRequirementsButton}
+                      style={styles.DRIVERRequirementsButton}
                       onPress={(e) => {
                         e.stopPropagation();
                         Alert.alert(
                           'Driver Requirements',
-                          'To become a driver, you need:\n\n• Verified identity document\n• Valid driver\'s license\n• License verification approval\n\nTap to go to verification settings.',
+                          'To become a DRIVER, you need:\n\n• Verified identity document\n• Valid DRIVER\'s license\n• License verification approval\n\nTap to go to verification settings.',
                           [
                             { text: 'Cancel', style: 'cancel' },
                             { 
@@ -416,9 +418,9 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                       }}
                       activeOpacity={0.7}
                     >
-                      <View style={styles.driverRequirementsContent}>
+                      <View style={styles.DRIVERRequirementsContent}>
                         <Ionicons name="information-circle" size={12} color="#F59E0B" />
-                        <Text style={styles.driverRequirementsText}>
+                        <Text style={styles.DRIVERRequirementsText}>
                           Complete verification to drive
                         </Text>
                         <Ionicons name="chevron-forward" size={10} color="#F59E0B" />
@@ -451,7 +453,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
               </TouchableOpacity>
 
               {/* Find Rides - Rider Only */}
-              {roleInfo?.current_role === 'rider' && (
+              {roleInfo?.current_role === 'RIDER' && (
                 <TouchableOpacity
                   style={[styles.menuItem, isActive("/rides") && styles.menuItemActive]}
                   onPress={() => handleNavigation("/rides/find")}
@@ -470,7 +472,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
               )}
 
               {/* Request Ride - Rider Only */}
-              {roleInfo?.current_role === 'rider' && (
+              {roleInfo?.current_role === 'RIDER' && (
                 <TouchableOpacity
                   style={[styles.menuItem, isActive("/request") && styles.menuItemActive]}
                   onPress={() => handleNavigation("/request")}
@@ -489,7 +491,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
               )}
 
               {/* Offer Ride - Driver Only */}
-              {roleInfo?.current_role === 'driver' && (
+              {roleInfo?.current_role === 'DRIVER' && (
                 <TouchableOpacity
                   style={[styles.menuItem, isActive("/offer") && styles.menuItemActive]}
                   onPress={() => handleNavigation("/offer")}
@@ -520,7 +522,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   />
                 </View>
                 <Text style={[styles.menuText, isActive("/my-rides") && styles.menuTextActive]}>
-                  My {roleInfo?.current_role === 'driver' ? 'Offered' : 'Booked'} Rides
+                  My {roleInfo?.current_role === 'DRIVER' ? 'Offered' : 'Booked'} Rides
                 </Text>
               </TouchableOpacity>
 
@@ -643,9 +645,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 0,
     right: 0,
+    bottom: 0,
     width: DRAWER_WIDTH,
-    height: SCREEN_HEIGHT,
-    backgroundColor: "#FFFFFF",
     shadowColor: "#000",
     shadowOffset: { width: -2, height: 0 },
     shadowOpacity: 0.25,
@@ -659,10 +660,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 20,
+    padding: 16,
     alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
   },
   profileImageContainer: {
     width: 64,
@@ -791,17 +791,17 @@ const styles = StyleSheet.create({
   roleButtonTextDisabled: {
     color: "#D1D5DB",
   },
-  driverRequirementsButton: {
+  DRIVERRequirementsButton: {
     marginTop: 8,
     padding: 8,
     backgroundColor: "#FFFBEB",
     borderRadius: 8,
   },
-  driverRequirementsContent: {
+  DRIVERRequirementsContent: {
     flexDirection: "row",
     alignItems: "center",
   },
-  driverRequirementsText: {
+  DRIVERRequirementsText: {
     fontSize: 11,
     color: "#D97706",
     marginLeft: 4,
