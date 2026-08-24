@@ -466,7 +466,7 @@ import ENV from '../env';
 
 // Default configuration
 export const defaultApiConfig: ApiConfig = {
-  baseUrl: process.env.EXPO_PUBLIC_API_URL || ENV.API_URL || 'http://localhost:8000',
+  baseUrl: process.env.EXPO_PUBLIC_API_URL || ENV.API_URL ,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
