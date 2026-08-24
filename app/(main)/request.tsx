@@ -18,6 +18,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import LocationPickerModal from '@/components/modals/LocationPickerModal';
+import { SimpleDatePicker } from '@/components/ui/SimpleDatePicker';
+import { SimpleTimePicker } from '@/components/ui/SimpleTimePicker';
 import { integratedRideService } from '@/services/integratedRideService';
 import type { LocationSuggestion } from '@/types/geospatial';
 
@@ -228,43 +230,27 @@ export default function RequestRideScreen() {
               When do you want to travel?
             </Text>
 
-            <View style={styles.row}>
-              {/* Date Input */}
-              <View style={styles.halfWidth}>
-                <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
-                  Date *
-                </Text>
-                <TextInput
-                  style={[styles.input, { 
-                    color: colors.text.primary,
-                    backgroundColor: colors.background.tertiary,
-                    borderColor: colors.border.primary
-                  }]}
-                  value={departureDate}
-                  onChangeText={setDepartureDate}
-                  placeholder={getTomorrowDate()}
-                  placeholderTextColor={colors.text.tertiary}
-                />
-              </View>
+            {/* Date Picker */}
+            <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
+              Date *
+            </Text>
+            <SimpleDatePicker
+              value={departureDate}
+              onChange={setDepartureDate}
+              placeholder="Select departure date"
+              minimumDate={new Date()}
+            />
 
-              {/* Time Input */}
-              <View style={styles.halfWidth}>
-                <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
-                  Time *
-                </Text>
-                <TextInput
-                  style={[styles.input, { 
-                    color: colors.text.primary,
-                    backgroundColor: colors.background.tertiary,
-                    borderColor: colors.border.primary
-                  }]}
-                  value={departureTime}
-                  onChangeText={setDepartureTime}
-                  placeholder={getDefaultTime()}
-                  placeholderTextColor={colors.text.tertiary}
-                />
-              </View>
-            </View>
+            {/* Time Picker */}
+            <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
+              Time *
+            </Text>
+            <SimpleTimePicker
+              value={departureTime}
+              onChange={setDepartureTime}
+              placeholder="Select departure time"
+              selectedDate={departureDate ? new Date(`${departureDate}T00:00:00`) : new Date()}
+            />
 
             {/* Flexible Time Toggle */}
             <View style={styles.toggleRow}>
