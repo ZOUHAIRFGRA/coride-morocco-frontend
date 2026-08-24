@@ -31,7 +31,7 @@ export default function MainScreen() {
 
   // Use profile data or fallback to auth user
   const userData = profile || user;
-  const userRole = userData?.role || 'rider'; // Default to rider if no role
+  const userRole = userData?.role || 'RIDER'; // Default to rider if no role
 
   console.log(
     userData
@@ -52,9 +52,9 @@ export default function MainScreen() {
 
   const getSubtitleMessage = () => {
     switch (userRole) {
-      case 'driver':
+      case 'DRIVER':
         return 'Offer rides and earn money';
-      case 'rider':
+      case 'RIDER':
         return 'Find affordable rides near you';
       default:
         return 'Ready to share a ride?';
@@ -152,18 +152,18 @@ export default function MainScreen() {
             {/* Role Indicator */}
             <View style={[
               dynamicStyles.roleIndicator, 
-              { backgroundColor: userRole === 'driver' ? '#10B98120' : '#3B82F620' }
+              { backgroundColor: userRole === 'DRIVER' ? '#10B98120' : '#3B82F620' }
             ]}>
               <Ionicons 
-                name={userRole === 'driver' ? 'car' : 'person'} 
+                name={userRole === 'DRIVER' ? 'car' : 'person'} 
                 size={16} 
-                color={userRole === 'driver' ? '#10B981' : '#3B82F6'} 
+                color={userRole === 'DRIVER' ? '#10B981' : '#3B82F6'} 
               />
               <Text style={[
                 dynamicStyles.roleText,
-                { color: userRole === 'driver' ? '#10B981' : '#3B82F6' }
+                { color: userRole === 'DRIVER' ? '#10B981' : '#3B82F6' }
               ]}>
-                {userRole === 'driver' ? 'Driver' : 'Rider'}
+                {userRole === 'DRIVER' ? 'Driver' : 'Rider'}
               </Text>
             </View>
 
@@ -190,7 +190,7 @@ export default function MainScreen() {
           </Text>
 
           {/* Location Selection Section - Only for Riders */}
-          {userRole === 'rider' && (
+          {userRole === 'RIDER' && (
             <View style={dynamicStyles.searchSection}>
               <TouchableOpacity 
                 style={dynamicStyles.locationInput}
@@ -295,7 +295,7 @@ export default function MainScreen() {
 
           {/* Quick Actions - Role-based */}
           <View style={dynamicStyles.quickActions}>
-            {userRole === 'rider' ? (
+            {userRole === 'RIDER' ? (
               // Rider Interface
               <>
                 <TouchableOpacity 
@@ -337,7 +337,7 @@ export default function MainScreen() {
           </View>
 
           {/* Routes Results - Only for Riders */}
-          {userRole === 'rider' && startLocation && endLocation && routes.length > 0 && (
+          {userRole === 'RIDER' && startLocation && endLocation && routes.length > 0 && (
             <View style={dynamicStyles.routesSection}>
               <Text style={[dynamicStyles.sectionTitle, { color: colors.text.primary }]}>
                 Available Rides ({routes.length})

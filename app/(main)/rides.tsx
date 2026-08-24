@@ -29,9 +29,10 @@ export default function RidesScreen() {
   const { user } = useAuth();
   const { profile } = useUser();
   const userData = profile || user;
-  const userRole = userData?.role || 'rider';
+  const userRole = userData?.role || 'RIDER';
+  console.log("User Role:", userData?.role);
   
-  const [activeTab, setActiveTab] = useState<RideTab>(userRole === 'driver' ? 'offered' : 'joined');
+  const [activeTab, setActiveTab] = useState<RideTab>(userRole === 'DRIVER' ? 'offered' : 'joined');
   const [offeredRides, setOfferedRides] = useState<RideWithGeospatial[]>([]);
   const [joinedRides, setJoinedRides] = useState<RideWithGeospatial[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -387,7 +388,7 @@ export default function RidesScreen() {
         </View>
         <TouchableOpacity
           style={[dynamicStyles.addButton, { backgroundColor: colors.primary.dark }]}
-          onPress={() => router.push(userRole === 'driver' ? '/offer' : '/request')}
+          onPress={() => router.push(userRole === 'DRIVER' ? '/offer' : '/request')}
         >
           <Ionicons name="add" size={24} color="#FFFFFF" />
         </TouchableOpacity>
@@ -395,7 +396,7 @@ export default function RidesScreen() {
 
       {/* Tab Selector - Show both tabs or single tab based on role */}
       <View style={[dynamicStyles.tabContainer, { backgroundColor: colors.surface.primary }]}>
-        {userRole === 'driver' ? (
+        {userRole === 'DRIVER' ? (
           // Driver sees only Offered tab
           <View style={[
             dynamicStyles.singleTab,
@@ -406,7 +407,7 @@ export default function RidesScreen() {
               My Offered Rides ({offeredRides.length})
             </Text>
           </View>
-        ) : userRole === 'rider' ? (
+        ) : userRole === 'RIDER' ? (
           // Rider sees only Joined tab
           <View style={[
             dynamicStyles.singleTab,

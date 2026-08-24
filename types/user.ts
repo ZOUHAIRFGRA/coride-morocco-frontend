@@ -7,7 +7,7 @@ export interface UserProfile {
   phone?: string;
   first_name: string;
   last_name: string;
-  role: 'rider' | 'driver' | 'admin';
+  role: 'RIDER' | 'DRIVER' | 'ADMIN';
   is_verified: boolean;
   email_verified: boolean;
   phone_verified: boolean;
@@ -44,16 +44,16 @@ export interface UserProfile {
 
 // Role management types
 export interface UserRoleInfo {
-  current_role: 'rider' | 'driver' | 'admin';
+  current_role: 'RIDER' | 'DRIVER' | 'ADMIN';
   can_drive: boolean;
   driver_license_verified: boolean;
   identity_verified: boolean;
-  available_roles: string[];
+  available_roles: ('rider' | 'driver')[];
 }
 
 export interface RoleSwitchResponse {
   message: string;
-  new_role: 'rider' | 'driver';
+  new_role: 'RIDER' | 'DRIVER';
   can_drive: boolean;
   driver_license_verified: boolean;
 }

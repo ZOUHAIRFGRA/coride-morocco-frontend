@@ -16,11 +16,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { useAuth } from '@/contexts/AppStateContext';
 import { integratedRideService } from '@/services/integratedRideService';
 import type { Ride, RideStatus } from '@/types/ride';
 
 export default function RideDetailScreen() {
   const { colors } = useAppTheme();
+  const { user } = useAuth();
+  console.log('Current user in RideDetailScreen:', user);
   const { id } = useLocalSearchParams<{ id: string }>();
   const [ride, setRide] = useState<Ride | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -454,7 +457,7 @@ export default function RideDetailScreen() {
         )}
 
         {/* Driver/Rider Information */}
-        {ride.driver && (
+        {ride.driver && ride.driver.id !== user?.id && (
           <View style={[styles.section, { backgroundColor: colors.surface.primary }]}>
             <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
               Driver
@@ -486,7 +489,7 @@ export default function RideDetailScreen() {
           </View>
         )}
 
-        {ride.rider && (
+        {ride.rider && ride.rider.id !== user?.id && (
           <View style={[styles.section, { backgroundColor: colors.surface.primary }]}>
             <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
               Passenger

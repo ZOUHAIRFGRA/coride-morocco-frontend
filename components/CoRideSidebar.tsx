@@ -452,25 +452,6 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                 </Text>
               </TouchableOpacity>
 
-              {/* Find Rides - Rider Only */}
-              {roleInfo?.current_role === 'RIDER' && (
-                <TouchableOpacity
-                  style={[styles.menuItem, isActive("/rides") && styles.menuItemActive]}
-                  onPress={() => handleNavigation("/rides/find")}
-                >
-                  <View style={[styles.menuIcon, isActive("/rides") && styles.menuIconActive]}>
-                    <Ionicons
-                      name="search"
-                      size={wp(5)}
-                      color={isActive("/rides") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
-                    />
-                  </View>
-                  <Text style={[styles.menuText, isActive("/rides") && styles.menuTextActive]}>
-                    Find Rides
-                  </Text>
-                </TouchableOpacity>
-              )}
-
               {/* Request Ride - Rider Only */}
               {roleInfo?.current_role === 'RIDER' && (
                 <TouchableOpacity
