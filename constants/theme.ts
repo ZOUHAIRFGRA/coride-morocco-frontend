@@ -68,6 +68,13 @@ export const LIGHT_COLORS = {
     placeholder: "#9CA3AF",
   },
   overlay: "rgba(0, 0, 0, 0.5)",
+  shadow: "#000000",
+  role: {
+    driver: { bg: "#10B98120", fg: "#10B981" },
+    rider: { bg: "#3B82F620", fg: "#3B82F6" },
+    admin: { bg: "#F59E0B20", fg: "#F59E0B" },
+    moderator: { bg: "#8B5CF620", fg: "#8B5CF6" },
+  },
 };
 
 // Dark theme colors
@@ -138,6 +145,13 @@ export const DARK_COLORS = {
     placeholder: "#9CA3AF",
   },
   overlay: "rgba(0, 0, 0, 0.8)",
+  shadow: "#000000",
+  role: {
+    driver: { bg: "#34D39930", fg: "#34D399" },
+    rider: { bg: "#60A5FA30", fg: "#60A5FA" },
+    admin: { bg: "#FBBF2430", fg: "#FBBF24" },
+    moderator: { bg: "#A78BFA30", fg: "#A78BFA" },
+  },
 };
 
 // Backward compatibility - default to light theme

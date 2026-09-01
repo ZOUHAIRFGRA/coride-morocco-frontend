@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, Platform, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { COLORS, FONTS } from "@/constants/theme";
+import { FONTS } from "@/constants/theme";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 interface SimpleTimePickerProps {
   value: string;
@@ -25,6 +26,7 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
   disabled = false,
   selectedDate,
 }) => {
+  const { colors } = useAppTheme();
   const [showPicker, setShowPicker] = useState(false);
   const [pickerInitialValue, setPickerInitialValue] = useState<Date | null>(null);
   
@@ -45,16 +47,14 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
         const [hours, minutes] = value.split(':').map(Number);
         if (!isNaN(hours) && !isNaN(minutes) && hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
           base.setHours(hours, minutes, 0, 0);
-          console.log('Time picker initialized with:', hours, minutes, '- Date:', base.toISOString());
           return base;
         }
       } catch (e) {
-        console.log('Time picker init error:', e);
+        // Invalid stored value, fall back to default below
       }
     }
     // Default to 9:00 AM on base date
     base.setHours(9, 0, 0, 0);
-    console.log('Time picker initialized with default 9:00 AM - Date:', base.toISOString());
     return base;
   });
 
@@ -73,12 +73,11 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
         const [hours, minutes] = value.split(':').map(Number);
         if (!isNaN(hours) && !isNaN(minutes) && hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
           base.setHours(hours, minutes, 0, 0);
-          console.log('Time picker syncing with prop value:', value, '- Date:', base.toISOString());
           setCurrentTime(base);
           return;
         }
       } catch (e) {
-        console.log('Time picker sync error:', e);
+        // Invalid stored value, fall through to default below
       }
     }
     
@@ -108,9 +107,6 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
   };
 
   const handleTimeChange = (event: any, selectedTime?: Date) => {
-    console.log('Time picker event:', event.type, 'Selected time:', selectedTime?.toISOString());
-    console.log('Selected hours:', selectedTime?.getHours(), 'minutes:', selectedTime?.getMinutes());
-    
     // On Android, picker closes automatically on selection or dismissal
     if (Platform.OS === 'android') {
       setShowPicker(false);
@@ -125,8 +121,6 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
         // Apply to the correct base date
         const base = getBaseDate();
         base.setHours(hours, minutes, 0, 0);
-        
-        console.log('Android selection - updating to:', base.toISOString());
         setCurrentTime(base);
         
         const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
@@ -145,14 +139,10 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
 
   const openPicker = () => {
     if (disabled) return;
-    
+
     // Set the initial value for the picker - this won't change while picker is open
     const initialValue = new Date(currentTime);
     setPickerInitialValue(initialValue);
-    
-    console.log('Opening time picker with initial value:', initialValue.toISOString());
-    console.log('currentTime is valid?', !isNaN(currentTime.getTime()));
-    console.log('selectedDate prop:', selectedDate);
     setShowPicker(true);
   };
 
@@ -188,25 +178,30 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
     <View>
       <TouchableOpacity
         onPress={openPicker}
-        className={`border rounded-lg px-3 py-3 ${
-          error ? "border-red-500" : "border-gray-300"
-        } bg-gray-50`}
-        style={{ opacity: disabled ? 0.5 : 1 }}
+        style={{
+          borderWidth: 1,
+          borderRadius: 8,
+          paddingHorizontal: 12,
+          paddingVertical: 12,
+          borderColor: error ? "#ef4444" : colors.border.primary,
+          backgroundColor: colors.background.tertiary,
+          opacity: disabled ? 0.5 : 1,
+        }}
       >
         <View className="flex-row items-center justify-between">
-          <Text 
-            style={{ 
-              fontFamily: FONTS.regular, 
-              color: value ? COLORS.text.primary : "#999",
-              fontSize: 16 
+          <Text
+            style={{
+              fontFamily: FONTS.regular,
+              color: value ? colors.text.primary : colors.text.tertiary,
+              fontSize: 16
             }}
           >
             {value ? formatDisplayTime(value) : placeholder}
           </Text>
-          <Ionicons 
-            name="time-outline" 
-            size={20} 
-            color={error ? "#ef4444" : COLORS.primary.dark} 
+          <Ionicons
+            name="time-outline"
+            size={20}
+            color={error ? "#ef4444" : colors.primary.dark}
           />
         </View>
       </TouchableOpacity>
@@ -216,8 +211,8 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
         onPress={handleManualEntry}
         className="mt-1"
       >
-        <Text 
-          className="text-blue-600 text-sm text-center" 
+        <Text
+          className="text-blue-600 text-sm text-center"
           style={{ fontFamily: FONTS.regular }}
         >
           Enter manually
@@ -226,15 +221,12 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
 
       {/* Native Time Picker */}
       {showPicker && pickerInitialValue && (
-        <>
-          {console.log('Rendering DateTimePicker with value:', pickerInitialValue.toISOString(), 'isValid:', !isNaN(pickerInitialValue.getTime()))}
-          <DateTimePicker
-            value={pickerInitialValue}
-            mode="time"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            onChange={handleTimeChange}
-          />
-        </>
+        <DateTimePicker
+          value={pickerInitialValue}
+          mode="time"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleTimeChange}
+        />
       )}
 
       {/* iOS: Add done button for spinner mode */}

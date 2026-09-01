@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Platform, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { COLORS, FONTS } from "@/constants/theme";
+import { FONTS } from "@/constants/theme";
+import { useAppTheme } from "@/hooks/useAppTheme";
 
 interface SimpleDatePickerProps {
   value: string;
@@ -27,6 +28,7 @@ export const SimpleDatePicker: React.FC<SimpleDatePickerProps> = ({
   minimumDate,
   maximumDate,
 }) => {
+  const { colors } = useAppTheme();
   const [showPicker, setShowPicker] = useState(false);
   const [currentDate, setCurrentDate] = useState(() => {
     try {
@@ -134,25 +136,30 @@ export const SimpleDatePicker: React.FC<SimpleDatePickerProps> = ({
     <View>
       <TouchableOpacity
         onPress={openPicker}
-        className={`border rounded-lg px-3 py-3 ${
-          error ? "border-red-500" : "border-gray-300"
-        } bg-gray-50`}
-        style={{ opacity: disabled ? 0.5 : 1 }}
+        style={{
+          borderWidth: 1,
+          borderRadius: 8,
+          paddingHorizontal: 12,
+          paddingVertical: 12,
+          borderColor: error ? "#ef4444" : colors.border.primary,
+          backgroundColor: colors.background.tertiary,
+          opacity: disabled ? 0.5 : 1,
+        }}
       >
         <View className="flex-row items-center justify-between">
-          <Text 
-            style={{ 
-              fontFamily: FONTS.regular, 
-              color: value ? COLORS.text.primary : "#999",
-              fontSize: 16 
+          <Text
+            style={{
+              fontFamily: FONTS.regular,
+              color: value ? colors.text.primary : colors.text.tertiary,
+              fontSize: 16
             }}
           >
             {value ? formatDisplayDate(value) : placeholder}
           </Text>
-          <Ionicons 
-            name="calendar-outline" 
-            size={20} 
-            color={error ? "#ef4444" : COLORS.primary.dark} 
+          <Ionicons
+            name="calendar-outline"
+            size={20}
+            color={error ? "#ef4444" : colors.primary.dark}
           />
         </View>
       </TouchableOpacity>

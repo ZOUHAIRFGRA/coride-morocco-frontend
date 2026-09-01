@@ -20,6 +20,8 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import LocationPickerModal from '@/components/modals/LocationPickerModal';
 import { SimpleDatePicker } from '@/components/ui/SimpleDatePicker';
 import { SimpleTimePicker } from '@/components/ui/SimpleTimePicker';
+import { LocationSelectorRow } from '@/components/ui/LocationSelectorRow';
+import { PassengerStepper } from '@/components/ui/PassengerStepper';
 import { integratedRideService } from '@/services/integratedRideService';
 import type { LocationSuggestion } from '@/types/geospatial';
 
@@ -110,18 +112,6 @@ export default function RequestRideScreen() {
     setIsSubmitting(false);
   };
 
-  // Helper to generate date input (YYYY-MM-DD format)
-  const getTomorrowDate = (): string => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
-  };
-
-  // Helper to generate default time (9:00 AM)
-  const getDefaultTime = (): string => {
-    return '09:00';
-  };
-
   return (
     <>
       <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
@@ -165,63 +155,23 @@ export default function RequestRideScreen() {
             <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
               Pickup Location *
             </Text>
-            <TouchableOpacity
-              style={[styles.locationSelector, { 
-                backgroundColor: colors.background.tertiary,
-                borderColor: colors.border.primary
-              }]}
+            <LocationSelectorRow
+              icon="location"
+              value={startLocation}
+              placeholder="Where do you want to be picked up?"
               onPress={() => setShowStartModal(true)}
-            >
-              <Ionicons name="location" size={20} color={colors.primary.dark} />
-              <View style={styles.locationContent}>
-                {startLocation ? (
-                  <>
-                    <Text style={[styles.locationName, { color: colors.text.primary }]} numberOfLines={1}>
-                      {startLocation.display_name}
-                    </Text>
-                    <Text style={[styles.locationAddress, { color: colors.text.secondary }]} numberOfLines={1}>
-                      {startLocation.address}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={[styles.locationPlaceholder, { color: colors.text.tertiary }]}>
-                    Where do you want to be picked up?
-                  </Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
-            </TouchableOpacity>
+            />
 
             {/* End Location */}
             <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
               Destination *
             </Text>
-            <TouchableOpacity
-              style={[styles.locationSelector, { 
-                backgroundColor: colors.background.tertiary,
-                borderColor: colors.border.primary
-              }]}
+            <LocationSelectorRow
+              icon="flag"
+              value={endLocation}
+              placeholder="Where are you going?"
               onPress={() => setShowEndModal(true)}
-            >
-              <Ionicons name="flag" size={20} color={colors.primary.dark} />
-              <View style={styles.locationContent}>
-                {endLocation ? (
-                  <>
-                    <Text style={[styles.locationName, { color: colors.text.primary }]} numberOfLines={1}>
-                      {endLocation.display_name}
-                    </Text>
-                    <Text style={[styles.locationAddress, { color: colors.text.secondary }]} numberOfLines={1}>
-                      {endLocation.address}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={[styles.locationPlaceholder, { color: colors.text.tertiary }]}>
-                    Where are you going?
-                  </Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
-            </TouchableOpacity>
+            />
           </View>
 
           {/* Time and Date Section */}
@@ -284,40 +234,7 @@ export default function RequestRideScreen() {
             <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
               Number of Passengers *
             </Text>
-            <View style={styles.passengerControls}>
-              <TouchableOpacity
-                style={[styles.passengerButton, { 
-                  backgroundColor: colors.background.tertiary,
-                  borderColor: colors.border.primary,
-                  opacity: passengerCount <= 1 ? 0.5 : 1
-                }]}
-                onPress={() => setPassengerCount(Math.max(1, passengerCount - 1))}
-                disabled={passengerCount <= 1}
-              >
-                <Ionicons name="remove" size={20} color={colors.text.primary} />
-              </TouchableOpacity>
-
-              <View style={styles.passengerCountContainer}>
-                <Text style={[styles.passengerCount, { color: colors.text.primary }]}>
-                  {passengerCount}
-                </Text>
-                <Text style={[styles.passengerLabel, { color: colors.text.secondary }]}>
-                  {passengerCount === 1 ? 'passenger' : 'passengers'}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.passengerButton, { 
-                  backgroundColor: colors.background.tertiary,
-                  borderColor: colors.border.primary,
-                  opacity: passengerCount >= 4 ? 0.5 : 1
-                }]}
-                onPress={() => setPassengerCount(Math.min(4, passengerCount + 1))}
-                disabled={passengerCount >= 4}
-              >
-                <Ionicons name="add" size={20} color={colors.text.primary} />
-              </TouchableOpacity>
-            </View>
+            <PassengerStepper value={passengerCount} onChange={setPassengerCount} />
 
             {/* Max Price */}
             <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
@@ -367,8 +284,9 @@ export default function RequestRideScreen() {
 
           {/* Submit Button */}
           <TouchableOpacity
-            style={[styles.submitButton, { 
+            style={[styles.submitButton, {
               backgroundColor: colors.primary.dark,
+              shadowColor: colors.shadow,
               opacity: (!startLocation || !endLocation || !departureDate || !departureTime || isSubmitting) ? 0.5 : 1
             }]}
             onPress={handleSubmitRequest}

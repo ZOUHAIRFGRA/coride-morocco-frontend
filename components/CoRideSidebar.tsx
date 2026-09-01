@@ -3,7 +3,6 @@ import { View, Text, TouchableOpacity, Alert, ActivityIndicator, StyleSheet, Dim
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { widthPercentageToDP as wp } from "react-native-responsive-screen";
-import { COLORS } from "@/constants/theme";
 import { useRouter, usePathname } from "expo-router";
 import { useAuth } from "@/contexts/AppStateContext";
 import { useUser } from "@/hooks/useUserProfile";
@@ -32,7 +31,8 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
   isVisible,
   onClose,
 }) => {
-  const { colors, isDarkMode } = useAppTheme();
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const router = useRouter();
   const pathname = usePathname();
   const { logout, user } = useAuth();
@@ -54,7 +54,6 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
   const userData = profile || user;
 
   useEffect(() => {
-    console.log('CoRideSidebar Reanimated - visibility:', isVisible);
     if (isVisible) {
       // Animate in
       translateX.value = withTiming(0, { duration: 300 });
@@ -85,12 +84,9 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
   const loadUserRoleInfo = async () => {
     try {
       const response = await userRoleApiService.getUserRole();
-      console.log('Loaded role info:', response);
       if (response.success && response.data) {
         setRoleInfo(response.data);
-        console.log('setShowRoleSwitcher', response.data.available_roles.length >= 1);
-        setShowRoleSwitcher(response.data.available_roles.length >= 1);
-        console.log('Role Info:', roleInfo);
+        setShowRoleSwitcher(response.data.available_roles.length >= 2);
       }
     } catch (error) {
       console.error('Error loading role info:', error);
@@ -206,19 +202,19 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
     if (!role) return null;
 
     const roleConfig = {
-      DRIVER: { icon: "car", color: "#10B981", label: "Driver" },
-      RIDER: { icon: "person", color: "#3B82F6", label: "Rider" },
-      admin: { icon: "shield-checkmark", color: "#F59E0B", label: "Admin" },
-      moderator: { icon: "settings", color: "#8B5CF6", label: "Moderator" }
+      DRIVER: { icon: "car", ...colors.role.driver, label: "Driver" },
+      RIDER: { icon: "person", ...colors.role.rider, label: "Rider" },
+      admin: { icon: "shield-checkmark", ...colors.role.admin, label: "Admin" },
+      moderator: { icon: "settings", ...colors.role.moderator, label: "Moderator" }
     };
 
     const config = roleConfig[role as keyof typeof roleConfig];
     if (!config) return null;
 
     return (
-      <View className="flex-row items-center justify-center px-2 py-1 rounded-lg mt-2 self-center" style={{ backgroundColor: `${config.color}15` }}>
-        <Ionicons name={config.icon as any} size={wp(3)} color={config.color} />
-        <Text className="text-sm font-semiBold ml-1" style={{ color: config.color }}>
+      <View className="flex-row items-center justify-center px-2 py-1 rounded-lg mt-2 self-center" style={{ backgroundColor: config.bg }}>
+        <Ionicons name={config.icon as any} size={wp(3)} color={config.fg} />
+        <Text className="text-sm font-semiBold ml-1" style={{ color: config.fg }}>
           {config.label}
         </Text>
       </View>
@@ -251,8 +247,6 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
       onClose();
     }
   };
-  console.log({showRoleSwitcher, roleInfo});
-
   if (!isVisible) return null;
 
   return (
@@ -444,7 +438,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   <Ionicons
                     name="home"
                     size={wp(5)}
-                    color={pathname === "/(main)" ? "#FFFFFF" : COLORS.primary.oceanBlue700}
+                    color={pathname === "/(main)" ? "#FFFFFF" : colors.primary.dark}
                   />
                 </View>
                 <Text style={[styles.menuText, pathname === "/(main)" && styles.menuTextActive]}>
@@ -462,7 +456,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                     <Ionicons
                       name="megaphone"
                       size={wp(5)}
-                      color={isActive("/request") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
+                      color={isActive("/request") ? "#FFFFFF" : colors.primary.dark}
                     />
                   </View>
                   <Text style={[styles.menuText, isActive("/request") && styles.menuTextActive]}>
@@ -481,7 +475,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                     <Ionicons
                       name="car"
                       size={wp(5)}
-                      color={isActive("/offer") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
+                      color={isActive("/offer") ? "#FFFFFF" : colors.primary.dark}
                     />
                   </View>
                   <Text style={[styles.menuText, isActive("/offer") && styles.menuTextActive]}>
@@ -499,7 +493,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   <Ionicons
                     name="list"
                     size={wp(5)}
-                    color={isActive("/my-rides") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
+                    color={isActive("/my-rides") ? "#FFFFFF" : colors.primary.dark}
                   />
                 </View>
                 <Text style={[styles.menuText, isActive("/my-rides") && styles.menuTextActive]}>
@@ -516,7 +510,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   <Ionicons
                     name="chatbubbles"
                     size={wp(5)}
-                    color={isActive("/messages") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
+                    color={isActive("/messages") ? "#FFFFFF" : colors.primary.dark}
                   />
                 </View>
                 <Text style={[styles.menuText, isActive("/messages") && styles.menuTextActive]}>
@@ -533,7 +527,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   <Ionicons
                     name="calendar"
                     size={wp(5)}
-                    color={isActive("/bookings") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
+                    color={isActive("/bookings") ? "#FFFFFF" : colors.primary.dark}
                   />
                 </View>
                 <Text style={[styles.menuText, isActive("/bookings") && styles.menuTextActive]}>
@@ -550,7 +544,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   <Ionicons
                     name="people"
                     size={wp(5)}
-                    color={isActive("/tribes") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
+                    color={isActive("/tribes") ? "#FFFFFF" : colors.primary.dark}
                   />
                 </View>
                 <Text style={[styles.menuText, isActive("/tribes") && styles.menuTextActive]}>
@@ -569,7 +563,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   <Ionicons
                     name="person"
                     size={wp(5)}
-                    color={isActive("/profile") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
+                    color={isActive("/profile") ? "#FFFFFF" : colors.primary.dark}
                   />
                 </View>
                 <Text style={[styles.menuText, isActive("/profile") && styles.menuTextActive]}>
@@ -586,7 +580,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   <Ionicons
                     name="settings"
                     size={wp(5)}
-                    color={isActive("/settings") ? "#FFFFFF" : COLORS.primary.oceanBlue700}
+                    color={isActive("/settings") ? "#FFFFFF" : colors.primary.dark}
                   />
                 </View>
                 <Text style={[styles.menuText, isActive("/settings") && styles.menuTextActive]}>
@@ -609,7 +603,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     position: "absolute",
     top: 0,
@@ -620,7 +614,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    backgroundColor: colors.overlay,
   },
   drawer: {
     position: "absolute",
@@ -628,7 +622,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     width: DRAWER_WIDTH,
-    shadowColor: "#000",
+    shadowColor: colors.shadow,
     shadowOffset: { width: -2, height: 0 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -644,17 +638,18 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: "center",
     borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
   },
   profileImageContainer: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: colors.primary.oceanBlue50,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,
     borderWidth: 2,
-    borderColor: COLORS.primary.oceanBlue700,
+    borderColor: colors.primary.dark,
     position: "relative",
   },
   profileImage: {
@@ -666,32 +661,32 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 0,
     right: 0,
-    backgroundColor: COLORS.primary.oceanBlue700,
+    backgroundColor: colors.primary.dark,
     width: 20,
     height: 20,
     borderRadius: 10,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "#FFFFFF",
+    borderColor: colors.background.primary,
   },
   userName: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#333",
+    color: colors.text.primary,
     marginBottom: 4,
     textAlign: "center",
   },
   userPhone: {
     fontSize: 14,
     fontWeight: "500",
-    color: COLORS.primary.oceanBlue700,
+    color: colors.primary.dark,
     textAlign: "center",
     marginTop: 4,
   },
   userEmail: {
     fontSize: 13,
-    color: "#6B7280",
+    color: colors.text.secondary,
     textAlign: "center",
     marginTop: 4,
   },
@@ -699,7 +694,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#D1FAE5",
+    backgroundColor: `${colors.success.light}20`,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -709,7 +704,7 @@ const styles = StyleSheet.create({
   verifiedText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#059669",
+    color: colors.success.dark,
     marginLeft: 4,
   },
   roleSwitcherContainer: {
@@ -719,14 +714,14 @@ const styles = StyleSheet.create({
   roleSwitcherTitle: {
     fontSize: 11,
     fontWeight: "500",
-    color: "#9CA3AF",
+    color: colors.text.tertiary,
     textAlign: "center",
     marginBottom: 12,
     textTransform: "uppercase",
   },
   roleSwitcherButtons: {
     flexDirection: "row",
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.background.tertiary,
     borderRadius: 8,
     padding: 4,
   },
@@ -740,16 +735,16 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   roleButtonActive: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
+    backgroundColor: colors.background.primary,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
   roleButtonActiveDriver: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000",
+    backgroundColor: colors.background.primary,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -758,24 +753,24 @@ const styles = StyleSheet.create({
   roleButtonText: {
     fontSize: 12,
     fontWeight: "500",
-    color: "#6B7280",
+    color: colors.text.secondary,
     marginLeft: 4,
   },
   roleButtonTextActive: {
-    color: "#3B82F6",
+    color: colors.role.rider.fg,
     fontWeight: "600",
   },
   roleButtonTextActiveDriver: {
-    color: "#10B981",
+    color: colors.role.driver.fg,
     fontWeight: "600",
   },
   roleButtonTextDisabled: {
-    color: "#D1D5DB",
+    color: colors.text.tertiary,
   },
   DRIVERRequirementsButton: {
     marginTop: 8,
     padding: 8,
-    backgroundColor: "#FFFBEB",
+    backgroundColor: `${colors.warning.light}20`,
     borderRadius: 8,
   },
   DRIVERRequirementsContent: {
@@ -784,7 +779,7 @@ const styles = StyleSheet.create({
   },
   DRIVERRequirementsText: {
     fontSize: 11,
-    color: "#D97706",
+    color: colors.warning.dark,
     marginLeft: 4,
     flex: 1,
   },
@@ -796,7 +791,7 @@ const styles = StyleSheet.create({
   menuHeader: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#9CA3AF",
+    color: colors.text.tertiary,
     marginBottom: 12,
     paddingHorizontal: 4,
   },
@@ -809,38 +804,38 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   menuItemActive: {
-    backgroundColor: "#EFF6FF",
+    backgroundColor: colors.primary.oceanBlue50,
   },
   menuIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#EFF6FF",
+    backgroundColor: colors.primary.oceanBlue50,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
   menuIconActive: {
-    backgroundColor: COLORS.primary.oceanBlue700,
+    backgroundColor: colors.primary.dark,
   },
   menuText: {
     fontSize: 15,
     fontWeight: "500",
-    color: "#414141",
+    color: colors.text.primary,
   },
   menuTextActive: {
     fontWeight: "600",
-    color: COLORS.primary.oceanBlue700,
+    color: colors.primary.dark,
   },
   divider: {
     height: 1,
-    backgroundColor: "#E5E7EB",
+    backgroundColor: colors.border.primary,
     marginVertical: 16,
   },
   footer: {
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: "#E5E7EB",
+    borderTopColor: colors.border.primary,
   },
   logoutButton: {
     flexDirection: "row",
@@ -848,7 +843,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 14,
     paddingHorizontal: 20,
-    backgroundColor: "#EF4444",
+    backgroundColor: colors.error.dark,
     borderRadius: 12,
   },
   logoutText: {

@@ -10,6 +10,8 @@ import CoRideSidebar from '@/components/CoRideSidebar';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import LocationSearchModal from '@/components/modals/LocationSearchModal';
 import JoinRideModal from '@/components/modals/JoinRideModal';
+import { LocationSelectorRow } from '@/components/ui/LocationSelectorRow';
+import { PassengerStepper } from '@/components/ui/PassengerStepper';
 import { integratedRideService } from '@/services/integratedRideService';
 import type { LocationSuggestion } from '@/types/geospatial';
 import type { SmartRideMatch } from '@/types/ride';
@@ -27,16 +29,11 @@ export default function MainScreen() {
   const [selectedRide, setSelectedRide] = useState<SmartRideMatch | null>(null);
   const { user } = useAuth();
   const { profile } = useUser();
-  const { colors, isDarkMode } = useAppTheme();
+  const { colors } = useAppTheme();
 
   // Use profile data or fallback to auth user
   const userData = profile || user;
   const userRole = userData?.role || 'RIDER'; // Default to rider if no role
-
-  console.log(
-    userData
-  );
-  
 
   const getWelcomeMessage = () => {
     const firstName = userData?.first_name;
@@ -87,8 +84,6 @@ export default function MainScreen() {
         searchDepartureTime,
         passengerCount
       );
-
-      console.log('Route search response:', routeResponse);
 
       if (routeResponse.success && routeResponse.data && routeResponse.data.length > 0) {
         setRoutes(routeResponse.data);
@@ -151,17 +146,17 @@ export default function MainScreen() {
           <View style={dynamicStyles.headerRight}>
             {/* Role Indicator */}
             <View style={[
-              dynamicStyles.roleIndicator, 
-              { backgroundColor: userRole === 'DRIVER' ? '#10B98120' : '#3B82F620' }
+              dynamicStyles.roleIndicator,
+              { backgroundColor: userRole === 'DRIVER' ? colors.role.driver.bg : colors.role.rider.bg }
             ]}>
-              <Ionicons 
-                name={userRole === 'DRIVER' ? 'car' : 'person'} 
-                size={16} 
-                color={userRole === 'DRIVER' ? '#10B981' : '#3B82F6'} 
+              <Ionicons
+                name={userRole === 'DRIVER' ? 'car' : 'person'}
+                size={16}
+                color={userRole === 'DRIVER' ? colors.role.driver.fg : colors.role.rider.fg}
               />
               <Text style={[
                 dynamicStyles.roleText,
-                { color: userRole === 'DRIVER' ? '#10B981' : '#3B82F6' }
+                { color: userRole === 'DRIVER' ? colors.role.driver.fg : colors.role.rider.fg }
               ]}>
                 {userRole === 'DRIVER' ? 'Driver' : 'Rider'}
               </Text>
@@ -192,87 +187,28 @@ export default function MainScreen() {
           {/* Location Selection Section - Only for Riders */}
           {userRole === 'RIDER' && (
             <View style={dynamicStyles.searchSection}>
-              <TouchableOpacity 
-                style={dynamicStyles.locationInput}
+              <LocationSelectorRow
+                icon="location"
+                value={startLocation}
+                placeholder="From where?"
                 onPress={() => setShowStartLocationModal(true)}
-              >
-                <Ionicons name="location" size={20} color={colors.primary.light} />
-                <View style={dynamicStyles.locationTextContainer}>
-                  {startLocation ? (
-                    <>
-                      <Text style={[dynamicStyles.locationName, { color: colors.text.primary }]} numberOfLines={1}>
-                        {startLocation.display_name}
-                      </Text>
-                      <Text style={[dynamicStyles.locationAddress, { color: colors.text.secondary }]} numberOfLines={1}>
-                        {startLocation.address}
-                      </Text>
-                    </>
-                  ) : (
-                    <Text style={[dynamicStyles.locationPlaceholder, { color: colors.text.tertiary }]}>
-                      From where?
-                    </Text>
-                  )}
-                </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
-              </TouchableOpacity>
+              />
 
-            <TouchableOpacity 
-              style={dynamicStyles.locationInput}
-              onPress={() => setShowEndLocationModal(true)}
-            >
-              <Ionicons name="flag" size={20} color={colors.primary.light} />
-              <View style={dynamicStyles.locationTextContainer}>
-                {endLocation ? (
-                  <>
-                    <Text style={[dynamicStyles.locationName, { color: colors.text.primary }]} numberOfLines={1}>
-                      {endLocation.display_name}
-                    </Text>
-                    <Text style={[dynamicStyles.locationAddress, { color: colors.text.secondary }]} numberOfLines={1}>
-                      {endLocation.address}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={[dynamicStyles.locationPlaceholder, { color: colors.text.tertiary }]}>
-                    Where to?
-                  </Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
-            </TouchableOpacity>
+              <LocationSelectorRow
+                icon="flag"
+                value={endLocation}
+                placeholder="Where to?"
+                onPress={() => setShowEndLocationModal(true)}
+              />
 
-            {/* Passenger Selection */}
-            <View style={dynamicStyles.passengerSection}>
-              <Text style={[dynamicStyles.passengerLabel, { color: colors.text.secondary }]}>Passengers</Text>
-              <View style={dynamicStyles.passengerControls}>
-                <TouchableOpacity
-                  style={[dynamicStyles.passengerButton, { 
-                    backgroundColor: colors.background.primary,
-                    borderColor: colors.border.primary,
-                    opacity: passengerCount <= 1 ? 0.5 : 1
-                  }]}
-                  onPress={() => setPassengerCount(Math.max(1, passengerCount - 1))}
-                  disabled={passengerCount <= 1}
-                >
-                  <Ionicons name="remove" size={16} color={colors.text.primary} />
-                </TouchableOpacity>
-                
-                <Text style={[dynamicStyles.passengerCount, { color: colors.text.primary }]}>
-                  {passengerCount}
-                </Text>
-                
-                <TouchableOpacity
-                  style={[dynamicStyles.passengerButton, { 
-                    backgroundColor: colors.background.primary,
-                    borderColor: colors.border.primary,
-                    opacity: passengerCount >= 4 ? 0.5 : 1
-                  }]}
-                  onPress={() => setPassengerCount(Math.min(4, passengerCount + 1))}
-                  disabled={passengerCount >= 4}
-                >
-                  <Ionicons name="add" size={16} color={colors.text.primary} />
-                </TouchableOpacity>
+              {/* Passenger Selection */}
+              <View style={dynamicStyles.passengerSection}>
+                <PassengerStepper
+                  label="Passengers"
+                  value={passengerCount}
+                  onChange={setPassengerCount}
+                />
               </View>
-            </View>
 
             {startLocation && endLocation && (
               <TouchableOpacity 
@@ -626,7 +562,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 30,
-    shadowColor: colors.primary.dark,
+    shadowColor: colors.shadow,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -819,6 +755,14 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
+    shadowColor: colors.shadow,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   sectionTitle: {
     fontSize: 18,

@@ -18,12 +18,12 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useAuth } from '@/contexts/AppStateContext';
 import { integratedRideService } from '@/services/integratedRideService';
+import { getStatusColor, getStatusIcon, getStatusLabel } from '@/utils/rideStatus';
 import type { Ride, RideStatus } from '@/types/ride';
 
 export default function RideDetailScreen() {
   const { colors } = useAppTheme();
   const { user } = useAuth();
-  console.log('Current user in RideDetailScreen:', user);
   const { id } = useLocalSearchParams<{ id: string }>();
   const [ride, setRide] = useState<Ride | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -149,30 +149,6 @@ export default function RideDetailScreen() {
     );
   };
 
-  const getStatusColor = (status: RideStatus): string => {
-    const statusColors: Record<RideStatus, string> = {
-      offered: colors.success.light,
-      requested: colors.primary.light,
-      matched: colors.warning.light,
-      in_progress: colors.primary.dark,
-      completed: colors.success.dark,
-      cancelled: colors.error.light
-    };
-    return statusColors[status] || colors.text.secondary;
-  };
-
-  const getStatusIcon = (status: RideStatus): keyof typeof Ionicons.glyphMap => {
-    const statusIcons: Record<RideStatus, keyof typeof Ionicons.glyphMap> = {
-      offered: 'checkmark-circle',
-      requested: 'time',
-      matched: 'people',
-      in_progress: 'car',
-      completed: 'checkmark-done',
-      cancelled: 'close-circle'
-    };
-    return statusIcons[status] || 'help-circle';
-  };
-
   const formatDateTime = (dateString: string): { date: string; time: string } => {
     const date = new Date(dateString);
     return {
@@ -207,7 +183,7 @@ export default function RideDetailScreen() {
     return null;
   }
 
-  const statusColor = getStatusColor(ride.status);
+  const statusColor = getStatusColor(ride.status, colors);
   const statusIcon = getStatusIcon(ride.status);
   const departureDateTime = formatDateTime(ride.departure_time);
   const arrivalDateTime = ride.arrival_time_estimated ? formatDateTime(ride.arrival_time_estimated) : null;
@@ -245,7 +221,7 @@ export default function RideDetailScreen() {
           <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
             <Ionicons name={statusIcon} size={20} color="#FFFFFF" />
             <Text style={styles.statusText}>
-              {ride.status.replace('_', ' ').toUpperCase()}
+              {getStatusLabel(ride.status)}
             </Text>
           </View>
         </View>
@@ -525,7 +501,7 @@ export default function RideDetailScreen() {
         <View style={styles.actionsContainer}>
           {canStart && (
             <TouchableOpacity
-              style={[styles.actionButton, styles.primaryAction, { backgroundColor: colors.primary.dark }]}
+              style={[styles.actionButton, styles.primaryAction, { backgroundColor: colors.primary.dark, shadowColor: colors.shadow }]}
               onPress={() => handleUpdateStatus('in_progress')}
               disabled={isUpdating}
             >
@@ -542,7 +518,7 @@ export default function RideDetailScreen() {
 
           {canComplete && (
             <TouchableOpacity
-              style={[styles.actionButton, styles.successAction, { backgroundColor: colors.success.dark }]}
+              style={[styles.actionButton, styles.successAction, { backgroundColor: colors.success.dark, shadowColor: colors.shadow }]}
               onPress={() => handleUpdateStatus('completed')}
               disabled={isUpdating}
             >
@@ -559,10 +535,11 @@ export default function RideDetailScreen() {
 
           {canCancel && (
             <TouchableOpacity
-              style={[styles.actionButton, styles.dangerAction, { 
+              style={[styles.actionButton, styles.dangerAction, {
                 backgroundColor: colors.background.primary,
                 borderColor: colors.error.light,
-                borderWidth: 2
+                borderWidth: 2,
+                shadowColor: colors.shadow
               }]}
               onPress={handleCancelRide}
               disabled={isUpdating}

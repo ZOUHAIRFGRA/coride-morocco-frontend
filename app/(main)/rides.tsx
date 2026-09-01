@@ -19,6 +19,7 @@ import { useAppTheme } from '@/hooks/useAppTheme';
 import { useAuth } from '@/contexts/AppStateContext';
 import { useUser } from '@/hooks/useUserProfile';
 import { integratedRideService } from '@/services/integratedRideService';
+import { getStatusColor, getStatusIcon, getStatusLabel } from '@/utils/rideStatus';
 import type { RideWithGeospatial } from '@/types/ride';
 import type { RideStatus } from '@/types/ride';
 
@@ -30,8 +31,7 @@ export default function RidesScreen() {
   const { profile } = useUser();
   const userData = profile || user;
   const userRole = userData?.role || 'RIDER';
-  console.log("User Role:", userData?.role);
-  
+
   const [activeTab, setActiveTab] = useState<RideTab>(userRole === 'DRIVER' ? 'offered' : 'joined');
   const [offeredRides, setOfferedRides] = useState<RideWithGeospatial[]>([]);
   const [joinedRides, setJoinedRides] = useState<RideWithGeospatial[]>([]);
@@ -57,8 +57,6 @@ export default function RidesScreen() {
       if (requestsResponse.success && requestsResponse.data) {
         setJoinedRides(requestsResponse.data);
       }
-      console.log("Rides",joinedRides);
-      
     } catch (error) {
       console.error('Error loading rides:', error);
       Alert.alert('Error', 'Failed to load rides. Please try again.');
@@ -119,30 +117,6 @@ export default function RidesScreen() {
     }
   };
 
-  const getStatusColor = (status: RideStatus): string => {
-    const statusColors: Record<RideStatus, string> = {
-      offered: colors.success.light,
-      requested: colors.primary.light,
-      matched: colors.warning.light,
-      in_progress: colors.primary.dark,
-      completed: colors.success.dark,
-      cancelled: colors.error.light
-    };
-    return statusColors[status] || colors.text.secondary;
-  };
-
-  const getStatusIcon = (status: RideStatus): keyof typeof Ionicons.glyphMap => {
-    const statusIcons: Record<RideStatus, keyof typeof Ionicons.glyphMap> = {
-      offered: 'checkmark-circle',
-      requested: 'time',
-      matched: 'people',
-      in_progress: 'car',
-      completed: 'checkmark-done',
-      cancelled: 'close-circle'
-    };
-    return statusIcons[status] || 'help-circle';
-  };
-
   const formatDateTime = (dateString: string): string => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -155,7 +129,7 @@ export default function RidesScreen() {
   };
 
   const renderRideCard = (ride: RideWithGeospatial, isOffered: boolean) => {
-    const statusColor = getStatusColor(ride.status);
+    const statusColor = getStatusColor(ride.status, colors);
     const statusIcon = getStatusIcon(ride.status);
     const canCancel = isOffered && (ride.status === 'offered' || ride.status === 'matched');
     const canStart = isOffered && ride.status === 'matched';
@@ -175,7 +149,7 @@ export default function RidesScreen() {
         <View style={[dynamicStyles.statusBadge, { backgroundColor: statusColor }]}>
           <Ionicons name={statusIcon} size={14} color="#FFFFFF" />
           <Text style={dynamicStyles.statusText}>
-            {ride.status.replace('_', ' ').toUpperCase()}
+            {getStatusLabel(ride.status)}
           </Text>
         </View>
 
@@ -525,7 +499,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -558,7 +532,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     gap: 8,
   },
   activeTab: {
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -588,7 +562,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -690,14 +664,14 @@ const createStyles = (colors: any) => StyleSheet.create({
     minWidth: '48%',
   },
   primaryButton: {
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
   },
   successButton: {
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -785,7 +759,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 24,
     borderRadius: 12,
     gap: 8,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -796,43 +770,4 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-});
-
-const styles = StyleSheet.create({
-  rideCard: {},
-  statusBadge: {},
-  statusText: {},
-  routeSection: {},
-  locationRow: {},
-  locationDot: {},
-  locationInfo: {},
-  locationLabel: {},
-  locationText: {},
-  routeLine: {},
-  detailsSection: {},
-  detailRow: {},
-  detailText: {},
-  routeInfo: {},
-  routeInfoItem: {},
-  routeInfoText: {},
-  actionsSection: {},
-  actionButton: {},
-  primaryButton: {},
-  successButton: {},
-  dangerButton: {},
-  secondaryButton: {},
-  actionButtonText: {},
-  userInfo: {},
-  avatar: {},
-  avatarText: {},
-  userDetails: {},
-  userName: {},
-  ratingRow: {},
-  ratingText: {},
-  emptyState: {},
-  emptyIcon: {},
-  emptyTitle: {},
-  emptyDescription: {},
-  emptyButton: {},
-  emptyButtonText: {},
 });
