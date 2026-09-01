@@ -1,15 +1,11 @@
 // Development Environment Configuration
-const USING_NGROK = process.env.EXPO_PUBLIC_USING_NGROK === "true" || false;
-const WIFI_IP = process.env.EXPO_PUBLIC_WIFI_IP || "192.168.1.2"; // Fallback IP if script fails
-const BACKEND_HOST = USING_NGROK ? "trusted-frank-mudfish.ngrok-free.app" : WIFI_IP;
-const BACKEND_PORT = USING_NGROK ? 80 : 8000;
-const PROTOCOL = USING_NGROK ? "https" : "http"
+const BACKEND_HOST = "coride-api.fouiguira.com";
 const ENV_DEV = {
   ENVIRONMENT: "development",
   BACKEND_WS_HOST: BACKEND_HOST,
-  BACKEND_WS_PORT: USING_NGROK ? 80 : 8000,
-  WS_PROTOCOL: USING_NGROK ? "wss" : "ws",
-  API_URL: `${PROTOCOL}://${BACKEND_HOST}${USING_NGROK ? '' : ':' + BACKEND_PORT}/api`,
+  BACKEND_WS_PORT: 443,
+  WS_PROTOCOL: "wss",
+  API_URL: `https://${BACKEND_HOST}/api`,
   WS_CONFIG: {
     AUTO_CONNECT: true,
     MAX_RETRY_ATTEMPTS: 5,

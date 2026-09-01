@@ -2,10 +2,10 @@
 
 const ENV_PROD = {
   ENVIRONMENT: "production",
-  BACKEND_WS_HOST: "79.72.60.38",
-  BACKEND_WS_PORT: 9443,
-  API_URL: "http://79.72.60.38:9001/api", // Changed to HTTP for development - use HTTPS in real production
-  WS_PROTOCOL: "ws", // Changed to ws for development
+  BACKEND_WS_HOST: "coride-api.fouiguira.com",
+  BACKEND_WS_PORT: 443,
+  API_URL: "https://coride-api.fouiguira.com/api",
+  WS_PROTOCOL: "wss",
   WS_CONFIG: {
     AUTO_CONNECT: true,
     MAX_RETRY_ATTEMPTS: 5,
