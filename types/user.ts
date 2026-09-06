@@ -28,7 +28,7 @@ export interface UserProfile {
   can_drive: boolean;
   driver_license_verified: boolean;
   identity_verified: boolean;
-  available_roles: ('rider' | 'driver')[];
+  available_roles: string[];
   // Additional properties for compatibility
   verification_status: {
     identity_verified: boolean;
@@ -42,21 +42,10 @@ export interface UserProfile {
   };
 }
 
-// Role management types
-export interface UserRoleInfo {
-  current_role: 'RIDER' | 'DRIVER' | 'ADMIN';
-  can_drive: boolean;
-  driver_license_verified: boolean;
-  identity_verified: boolean;
-  available_roles: ('rider' | 'driver')[];
-}
-
-export interface RoleSwitchResponse {
-  message: string;
-  new_role: 'RIDER' | 'DRIVER';
-  can_drive: boolean;
-  driver_license_verified: boolean;
-}
+// Role management types — single source of truth lives in services/userRoleApi.ts
+// (this used to be a separate, drifted copy with a lowercase available_roles type
+// that didn't match what the API actually returns).
+export type { UserRoleInfo, RoleSwitchResponse } from '@/services/userRoleApi';
 
 export interface UpdateProfileRequest {
   first_name?: string;

@@ -7,7 +7,7 @@ import { useRouter, usePathname } from "expo-router";
 import { useAuth } from "@/contexts/AppStateContext";
 import { useUser } from "@/hooks/useUserProfile";
 import { userRoleApiService } from "@/services/userRoleApi";
-import type { UserRoleInfo } from "@/types/user";
+import type { UserRoleInfo } from "@/services/userRoleApi";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Animated, {
   useSharedValue,
@@ -101,16 +101,6 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
 
     // Prevent switching to same role
     if (newRole === roleInfo.current_role) {
-      return;
-    }
-
-    // Validate role - only RIDER and DRIVER allowed
-    if (newRole !== 'RIDER' && newRole !== 'DRIVER') {
-      Alert.alert(
-        'Invalid Role',
-        'You can only switch between Rider and Driver roles.',
-        [{ text: 'OK' }]
-      );
       return;
     }
 
