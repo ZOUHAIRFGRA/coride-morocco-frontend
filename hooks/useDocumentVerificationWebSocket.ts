@@ -1,7 +1,7 @@
 // React Hook for Document Verification WebSocket
 // Provides real-time document verification status updates
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { documentVerificationWebSocket, VerificationStatus } from '@/services/documentVerificationWebSocket';
 
 export interface UseDocumentVerificationWebSocketReturn {
@@ -22,27 +22,20 @@ export const useDocumentVerificationWebSocket = (): UseDocumentVerificationWebSo
   });
 
   const [isConnected, setIsConnected] = useState(false);
-  const isInitialized = useRef(false);
 
   useEffect(() => {
-    if (!isInitialized.current) {
-      isInitialized.current = true;
+    // Each mounted consumer subscribes with its own callback, so updates
+    // reach every component using this hook (not just the last one mounted).
+    const unsubscribeVerification = documentVerificationWebSocket.subscribeVerificationUpdate(setVerificationStatus);
+    const unsubscribeConnection = documentVerificationWebSocket.subscribeConnectionStatus(setIsConnected);
 
-      // Set up callbacks
-      documentVerificationWebSocket.setVerificationUpdateCallback((status: VerificationStatus) => {
-        setVerificationStatus(status);
-      });
+    connect();
 
-      documentVerificationWebSocket.setConnectionStatusCallback((connected: boolean) => {
-        setIsConnected(connected);
-      });
-
-      // Auto-connect
-      connect();
-    }
-
-    // Cleanup on unmount
+    // Cleanup on unmount — unsubscribe this consumer, then disconnect() is a
+    // no-op unless it was the last one, so other mounted consumers keep working.
     return () => {
+      unsubscribeVerification();
+      unsubscribeConnection();
       documentVerificationWebSocket.disconnect();
     };
   }, []);
