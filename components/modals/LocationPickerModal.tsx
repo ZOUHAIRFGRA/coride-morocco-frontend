@@ -16,7 +16,6 @@ import {
   StyleSheet
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useLocation } from '@/contexts/AppStateContext';
 import { MapViewComponent, type MapLocation } from '@/components/ui/EnhancedMapView';
@@ -129,9 +128,8 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
           refreshLocation();
         }
       } else if (useCurrentLocation) {
-        // Fallback: fetch fresh location only if no cache exists
-        console.log('No cached location, fetching fresh...');
-        loadCurrentLocation();
+        // No cache exists yet — fetch fresh location via the shared context helper
+        handleRefreshLocation();
       }
       setHasLoadedInitialLocation(true);
     }
@@ -149,65 +147,8 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
     }
   }, [visible, cachedLocation, initialLocation, useCurrentLocation]);
 
-  const loadCurrentLocation = async () => {
-    setIsLoadingCurrentLocation(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        console.log('Location permission not granted');
-        setIsLoadingCurrentLocation(false);
-        return;
-      }
-
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const { latitude, longitude } = location.coords;
-      
-      // Reverse geocode to get address
-      const reverseResponse = await geospatialService.reverseGeocode(latitude, longitude);
-      
-      if (reverseResponse.success && reverseResponse.data) {
-        const data = reverseResponse.data;
-        const locationData: LocationSuggestion = {
-          display_name: data.formatted_address || data.address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
-          address: data.address || data.formatted_address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
-          latitude,
-          longitude,
-          relevance_score: 1.0,
-          distance_km: 0,
-          country: data.country || 'Morocco'
-        };
-        
-        setSelectedLocation(locationData);
-        setMapLocation({ latitude, longitude, address: locationData.address });
-        
-        // Update map region to zoom into user's location (city-level view: ~5-10km radius)
-        setMapRegion({
-          latitude,
-          longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        });
-      } else {
-        // If reverse geocoding fails, still set the coordinates and zoom
-        const fallbackAddress = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-        setMapLocation({ latitude, longitude, address: fallbackAddress });
-        setMapRegion({
-          latitude,
-          longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
-        });
-      }
-    } catch (error) {
-      console.error('Error getting current location:', error);
-    }
-    setIsLoadingCurrentLocation(false);
-  };
-
-  // Manual refresh location button handler
+  // Manual refresh location button handler — also used as the fallback fetch
+  // when the modal opens with useCurrentLocation and no cache exists yet.
   const handleRefreshLocation = async () => {
     console.log('Manually refreshing location...');
     setIsLoadingCurrentLocation(true);

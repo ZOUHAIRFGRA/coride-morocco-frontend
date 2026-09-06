@@ -17,16 +17,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import LocationSearchModal from '@/components/modals/LocationSearchModal';
+import { useLocation } from '@/contexts/AppStateContext';
+import { useRideDraft } from '@/contexts/RideDraftContext';
+import LocationPickerModal from '@/components/modals/LocationPickerModal';
 import { integratedRideService } from '@/services/integratedRideService';
 import type { LocationSuggestion } from '@/types/geospatial';
 
 export default function OfferRideScreen() {
   const { colors } = useAppTheme();
-  
-  // Location state
-  const [startLocation, setStartLocation] = useState<LocationSuggestion | null>(null);
-  const [endLocation, setEndLocation] = useState<LocationSuggestion | null>(null);
+
+  // Location state (shared draft — persists across Home/Request/Offer)
+  const { pickup: startLocation, destination: endLocation, setPickup: setStartLocation, setDestination: setEndLocation, clearDraft } = useRideDraft();
+  const { cachedLocation, refreshLocation } = useLocation();
   const [showStartLocationModal, setShowStartLocationModal] = useState(false);
   const [showEndLocationModal, setShowEndLocationModal] = useState(false);
   
@@ -54,6 +56,26 @@ export default function OfferRideScreen() {
       loadRouteInsights();
     }
   }, [startLocation, endLocation]);
+
+  // Default pickup to the user's current location, like Uber/InDrive, unless
+  // something has already been picked (persisted via the shared ride draft).
+  useEffect(() => {
+    if (startLocation) return;
+    if (cachedLocation) {
+      setStartLocation({
+        display_name: cachedLocation.address,
+        address: cachedLocation.address,
+        latitude: cachedLocation.latitude,
+        longitude: cachedLocation.longitude,
+        relevance_score: 1.0,
+        distance_km: 0,
+        country: 'Morocco',
+      });
+    } else {
+      refreshLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cachedLocation]);
 
   const loadRouteInsights = async () => {
     if (!startLocation || !endLocation) return;
@@ -117,8 +139,7 @@ export default function OfferRideScreen() {
               text: 'Create Another',
               onPress: () => {
                 // Reset form
-                setStartLocation(null);
-                setEndLocation(null);
+                clearDraft();
                 setNotes('');
                 setVehicleInfo('');
               }
@@ -478,28 +499,26 @@ export default function OfferRideScreen() {
       </ScrollView>
 
       {/* Location Selection Modals */}
-      <LocationSearchModal
+      <LocationPickerModal
         visible={showStartLocationModal}
         onClose={() => setShowStartLocationModal(false)}
         onLocationSelect={setStartLocation}
         title="Select Pickup Location"
         placeholder="Where will you start your journey?"
+        initialLocation={startLocation || undefined}
+        useCurrentLocation={true}
         showHistory={true}
-        showNearbyPlaces={true}
       />
 
-      <LocationSearchModal
+      <LocationPickerModal
         visible={showEndLocationModal}
         onClose={() => setShowEndLocationModal(false)}
         onLocationSelect={setEndLocation}
         title="Select Destination"
         placeholder="Where are you going?"
-        currentLocation={startLocation ? {
-          latitude: startLocation.latitude,
-          longitude: startLocation.longitude
-        } : undefined}
+        initialLocation={endLocation || undefined}
+        useCurrentLocation={false}
         showHistory={true}
-        showNearbyPlaces={false}
       />
     </SafeAreaView>
   );

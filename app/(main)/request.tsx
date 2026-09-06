@@ -1,7 +1,7 @@
 // Request Ride Screen - For passengers to create ride requests
 // Allows passengers to specify their journey needs and find matching drivers
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -17,18 +17,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { useLocation } from '@/contexts/AppStateContext';
+import { useRideDraft } from '@/contexts/RideDraftContext';
 import LocationPickerModal from '@/components/modals/LocationPickerModal';
 import { SimpleDatePicker } from '@/components/ui/SimpleDatePicker';
 import { SimpleTimePicker } from '@/components/ui/SimpleTimePicker';
 import { LocationSelectorRow } from '@/components/ui/LocationSelectorRow';
 import { PassengerStepper } from '@/components/ui/PassengerStepper';
 import { integratedRideService } from '@/services/integratedRideService';
-import type { LocationSuggestion } from '@/types/geospatial';
 
 export default function RequestRideScreen() {
   const { colors } = useAppTheme();
-  const [startLocation, setStartLocation] = useState<LocationSuggestion | null>(null);
-  const [endLocation, setEndLocation] = useState<LocationSuggestion | null>(null);
+  const { pickup: startLocation, destination: endLocation, setPickup: setStartLocation, setDestination: setEndLocation, clearDraft } = useRideDraft();
+  const { cachedLocation, refreshLocation } = useLocation();
   const [showStartModal, setShowStartModal] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
   const [passengerCount, setPassengerCount] = useState(1);
@@ -38,6 +39,35 @@ export default function RequestRideScreen() {
   const [notes, setNotes] = useState('');
   const [flexibleTime, setFlexibleTime] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const todayString = (() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  })();
+  const isDepartureDateToday = departureDate === todayString;
+
+  // Default pickup to the user's current location, like Uber/InDrive, unless
+  // something has already been picked (persisted via the shared ride draft).
+  useEffect(() => {
+    if (startLocation) return;
+    if (cachedLocation) {
+      setStartLocation({
+        display_name: cachedLocation.address,
+        address: cachedLocation.address,
+        latitude: cachedLocation.latitude,
+        longitude: cachedLocation.longitude,
+        relevance_score: 1.0,
+        distance_km: 0,
+        country: 'Morocco',
+      });
+    } else {
+      refreshLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cachedLocation]);
 
   const handleSubmitRequest = async () => {
     // Validation
@@ -93,8 +123,7 @@ export default function RequestRideScreen() {
         );
 
         // Reset form
-        setStartLocation(null);
-        setEndLocation(null);
+        clearDraft();
         setPassengerCount(1);
         setDepartureDate('');
         setDepartureTime('');
@@ -200,6 +229,7 @@ export default function RequestRideScreen() {
               onChange={setDepartureTime}
               placeholder="Select departure time"
               selectedDate={departureDate ? new Date(`${departureDate}T00:00:00`) : new Date()}
+              minimumDateTime={isDepartureDateToday ? new Date() : undefined}
             />
 
             {/* Flexible Time Toggle */}
@@ -319,6 +349,7 @@ export default function RequestRideScreen() {
         }}
         title="Select Pickup Location"
         placeholder="Search for pickup location..."
+        initialLocation={startLocation || undefined}
         useCurrentLocation={true}
         showHistory={true}
       />
@@ -332,7 +363,7 @@ export default function RequestRideScreen() {
         }}
         title="Select Destination"
         placeholder="Search for destination..."
-        initialLocation={startLocation || undefined}
+        initialLocation={endLocation || undefined}
         useCurrentLocation={false}
         showHistory={true}
       />

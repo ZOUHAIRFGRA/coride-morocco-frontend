@@ -5,17 +5,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { router } from 'expo-router';
-import { useAuth } from '@/contexts/AppStateContext';
+import { useAuth, useLocation } from '@/contexts/AppStateContext';
+import { useRideDraft } from '@/contexts/RideDraftContext';
 import { useUser } from '@/hooks/useUserProfile';
 import CoRideSidebar from '@/components/CoRideSidebar';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { GRADIENTS } from '@/constants/theme';
-import LocationSearchModal from '@/components/modals/LocationSearchModal';
+import LocationPickerModal from '@/components/modals/LocationPickerModal';
 import JoinRideModal from '@/components/modals/JoinRideModal';
 import { LocationSelectorRow } from '@/components/ui/LocationSelectorRow';
 import { PassengerStepper } from '@/components/ui/PassengerStepper';
 import { integratedRideService } from '@/services/integratedRideService';
-import type { LocationSuggestion } from '@/types/geospatial';
 import type { SmartRideMatch } from '@/types/ride';
 
 const ROLE_ILLUSTRATIONS = {
@@ -25,8 +25,8 @@ const ROLE_ILLUSTRATIONS = {
 
 export default function MainScreen() {
   const [sidebarVisible, setSidebarVisible] = useState(false);
-  const [startLocation, setStartLocation] = useState<LocationSuggestion | null>(null);
-  const [endLocation, setEndLocation] = useState<LocationSuggestion | null>(null);
+  const { pickup: startLocation, destination: endLocation, setPickup: setStartLocation, setDestination: setEndLocation, clearDraft } = useRideDraft();
+  const { cachedLocation, refreshLocation } = useLocation();
   const [passengerCount, setPassengerCount] = useState(1);
   const [routes, setRoutes] = useState<SmartRideMatch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -41,6 +41,26 @@ export default function MainScreen() {
   // Use profile data or fallback to auth user
   const userData = profile || user;
   const userRole = userData?.role || 'RIDER'; // Default to rider if no role
+
+  // Default pickup to the user's current location, like Uber/InDrive, unless
+  // something has already been picked (persisted via the shared ride draft).
+  useEffect(() => {
+    if (startLocation) return;
+    if (cachedLocation) {
+      setStartLocation({
+        display_name: cachedLocation.address,
+        address: cachedLocation.address,
+        latitude: cachedLocation.latitude,
+        longitude: cachedLocation.longitude,
+        relevance_score: 1.0,
+        distance_km: 0,
+        country: 'Morocco',
+      });
+    } else {
+      refreshLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cachedLocation]);
 
   const getWelcomeMessage = () => {
     const firstName = userData?.first_name;
@@ -126,8 +146,10 @@ export default function MainScreen() {
   };
 
   const handleJoinSuccess = () => {
-    // Refresh the routes list to reflect updated data
-    handleSearchRoutes();
+    // Ride secured — clear the shared draft so a stale pickup/destination
+    // doesn't linger into the next unrelated search.
+    clearDraft();
+    setRoutes([]);
   };
 
   const formatTime = (timeString: string): string => {
@@ -457,28 +479,26 @@ export default function MainScreen() {
       />
 
       {/* Location Selection Modals */}
-      <LocationSearchModal
+      <LocationPickerModal
         visible={showStartLocationModal}
         onClose={() => setShowStartLocationModal(false)}
         onLocationSelect={setStartLocation}
         title="Select Pickup Location"
         placeholder="Where should the driver pick you up?"
+        initialLocation={startLocation || undefined}
+        useCurrentLocation={true}
         showHistory={true}
-        showNearbyPlaces={true}
       />
 
-      <LocationSearchModal
+      <LocationPickerModal
         visible={showEndLocationModal}
         onClose={() => setShowEndLocationModal(false)}
         onLocationSelect={setEndLocation}
         title="Select Destination"
         placeholder="Where do you want to go?"
-        currentLocation={startLocation ? {
-          latitude: startLocation.latitude,
-          longitude: startLocation.longitude
-        } : undefined}
+        initialLocation={endLocation || undefined}
+        useCurrentLocation={false}
         showHistory={true}
-        showNearbyPlaces={false}
       />
 
       {/* Join Ride Modal */}

@@ -178,7 +178,7 @@ export default function LiveTrackingScreen() {
       <MapView
         ref={mapRef}
         provider={PROVIDER_DEFAULT}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         initialRegion={{
           latitude: driverLocation?.latitude || tracking.current_latitude || 33.5731,
           longitude: driverLocation?.longitude || tracking.current_longitude || -7.5898,

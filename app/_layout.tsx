@@ -6,6 +6,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import StatusBarManagerComponent from "@/components/ui/StatusBarManager";
 import { UIProvider } from "@/contexts/UIContext";
+import { RideDraftProvider } from "@/contexts/RideDraftContext";
 import { AppStateProvider } from "@/contexts/AppStateContext";
 import { useAuth } from "@/contexts/AppStateContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -163,9 +164,11 @@ export default function RootLayout() {
           <AppStateProvider>
             <SafeAreaProvider>
                 <UIProvider>
-                  <AppInitializer>
-                    <RootLayoutNav />
-                  </AppInitializer>
+                  <RideDraftProvider>
+                    <AppInitializer>
+                      <RootLayoutNav />
+                    </AppInitializer>
+                  </RideDraftProvider>
                 </UIProvider>
             </SafeAreaProvider>
           </AppStateProvider>

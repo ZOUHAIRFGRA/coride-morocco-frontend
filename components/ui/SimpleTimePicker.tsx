@@ -12,6 +12,8 @@ interface SimpleTimePickerProps {
   error?: boolean;
   disabled?: boolean;
   selectedDate?: Date;
+  /** Earliest allowed date+time (e.g. "now" when selectedDate is today) — times before this are rejected. */
+  minimumDateTime?: Date;
 }
 
 /**
@@ -25,6 +27,7 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
   error = false,
   disabled = false,
   selectedDate,
+  minimumDateTime,
 }) => {
   const { colors } = useAppTheme();
   const [showPicker, setShowPicker] = useState(false);
@@ -106,29 +109,43 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
     }
   };
 
+  // True if hours:minutes on `base` would fall before minimumDateTime (same calendar day only)
+  const isBeforeMinimum = (base: Date, hours: number, minutes: number): boolean => {
+    if (!minimumDateTime) return false;
+    const candidate = new Date(base);
+    candidate.setHours(hours, minutes, 0, 0);
+    return candidate < minimumDateTime;
+  };
+
   const handleTimeChange = (event: any, selectedTime?: Date) => {
     // On Android, picker closes automatically on selection or dismissal
     if (Platform.OS === 'android') {
       setShowPicker(false);
       setPickerInitialValue(null);
-      
+
       // Only process valid selections, not dismissals
       if (event.type !== 'dismissed' && selectedTime && !isNaN(selectedTime.getTime())) {
         // Extract just the hours and minutes (ignore the date part from picker)
         const hours = selectedTime.getHours();
         const minutes = selectedTime.getMinutes();
-        
+
         // Apply to the correct base date
         const base = getBaseDate();
+
+        if (isBeforeMinimum(base, hours, minutes)) {
+          Alert.alert('Time already passed', 'Please choose a time later than now for today\'s date.');
+          return;
+        }
+
         base.setHours(hours, minutes, 0, 0);
         setCurrentTime(base);
-        
+
         const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
         onChange(formattedTime);
       }
       return;
     }
-    
+
     // iOS: Store the selected time but don't update currentTime yet
     // We'll update when user taps Done
     if (selectedTime && !isNaN(selectedTime.getTime())) {
@@ -141,7 +158,10 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
     if (disabled) return;
 
     // Set the initial value for the picker - this won't change while picker is open
-    const initialValue = new Date(currentTime);
+    // Clamp to the minimum if the current value has since become invalid (e.g. date changed to today)
+    const initialValue = minimumDateTime && currentTime < minimumDateTime
+      ? new Date(minimumDateTime)
+      : new Date(currentTime);
     setPickerInitialValue(initialValue);
     setShowPicker(true);
   };
@@ -156,11 +176,17 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
             // Parse HH:MM format
             const [hours, minutes] = text.split(':').map(Number);
             if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
-              const date = new Date();
-              date.setHours(hours, minutes, 0, 0);
+              const base = getBaseDate();
+
+              if (isBeforeMinimum(base, hours, minutes)) {
+                Alert.alert('Time already passed', 'Please choose a time later than now for today\'s date.');
+                return;
+              }
+
+              base.setHours(hours, minutes, 0, 0);
               const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
               onChange(formattedTime);
-              setCurrentTime(date);
+              setCurrentTime(base);
               return;
             }
           } catch (error) {
@@ -226,6 +252,7 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
           mode="time"
           display={Platform.OS === 'ios' ? 'spinner' : 'default'}
           onChange={handleTimeChange}
+          minimumDate={minimumDateTime}
         />
       )}
 
@@ -236,13 +263,21 @@ export const SimpleTimePicker: React.FC<SimpleTimePickerProps> = ({
             onPress={() => {
               // Use the last selected time from the picker
               if (pickerInitialValue) {
+                const hours = pickerInitialValue.getHours();
+                const minutes = pickerInitialValue.getMinutes();
                 const base = getBaseDate();
-                base.setHours(pickerInitialValue.getHours(), pickerInitialValue.getMinutes(), 0, 0);
+
+                if (isBeforeMinimum(base, hours, minutes)) {
+                  Alert.alert('Time already passed', 'Please choose a time later than now for today\'s date.');
+                  setShowPicker(false);
+                  setPickerInitialValue(null);
+                  return;
+                }
+
+                base.setHours(hours, minutes, 0, 0);
                 setCurrentTime(base);
-                
-                const hours = String(pickerInitialValue.getHours()).padStart(2, '0');
-                const minutes = String(pickerInitialValue.getMinutes()).padStart(2, '0');
-                const formattedTime = `${hours}:${minutes}`;
+
+                const formattedTime = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
                 onChange(formattedTime);
               }
               setShowPicker(false);

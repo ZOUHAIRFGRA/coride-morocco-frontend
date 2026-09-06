@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { useAuth } from '@/contexts/AppStateContext';
@@ -185,6 +186,18 @@ export default function RideDetailScreen() {
 
   const statusColor = getStatusColor(ride.status, colors);
   const statusIcon = getStatusIcon(ride.status);
+
+  const minLat = Math.min(ride.start_latitude, ride.end_latitude);
+  const maxLat = Math.max(ride.start_latitude, ride.end_latitude);
+  const minLng = Math.min(ride.start_longitude, ride.end_longitude);
+  const maxLng = Math.max(ride.start_longitude, ride.end_longitude);
+  const mapRegion = {
+    latitude: (minLat + maxLat) / 2,
+    longitude: (minLng + maxLng) / 2,
+    latitudeDelta: Math.max((maxLat - minLat) * 1.8, 0.02),
+    longitudeDelta: Math.max((maxLng - minLng) * 1.8, 0.02),
+  };
+
   const departureDateTime = formatDateTime(ride.departure_time);
   const arrivalDateTime = ride.arrival_time_estimated ? formatDateTime(ride.arrival_time_estimated) : null;
 
@@ -216,10 +229,41 @@ export default function RideDetailScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Status Badge */}
-        <View style={[styles.statusSection, { backgroundColor: colors.surface.primary }]}>
+        {/* Route Map */}
+        <View style={styles.mapContainer}>
+          <MapView
+            provider={PROVIDER_DEFAULT}
+            style={StyleSheet.absoluteFill}
+            initialRegion={mapRegion}
+            scrollEnabled={false}
+            zoomEnabled={false}
+            pitchEnabled={false}
+            rotateEnabled={false}
+          >
+            <Marker
+              coordinate={{ latitude: ride.start_latitude, longitude: ride.start_longitude }}
+              title="Pickup"
+              description={ride.start_address}
+              pinColor={colors.primary.light}
+            />
+            <Marker
+              coordinate={{ latitude: ride.end_latitude, longitude: ride.end_longitude }}
+              title="Destination"
+              description={ride.end_address}
+              pinColor={colors.primary.dark}
+            />
+            <Polyline
+              coordinates={[
+                { latitude: ride.start_latitude, longitude: ride.start_longitude },
+                { latitude: ride.end_latitude, longitude: ride.end_longitude },
+              ]}
+              strokeColor={colors.primary.dark}
+              strokeWidth={3}
+            />
+          </MapView>
+
           <View style={[styles.statusBadge, { backgroundColor: statusColor }]}>
-            <Ionicons name={statusIcon} size={20} color="#FFFFFF" />
+            <Ionicons name={statusIcon} size={16} color="#FFFFFF" />
             <Text style={styles.statusText}>
               {getStatusLabel(ride.status)}
             </Text>
@@ -597,25 +641,28 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
-  statusSection: {
+  mapContainer: {
+    height: 220,
     borderRadius: 16,
-    padding: 20,
+    overflow: 'hidden',
     marginBottom: 16,
-    alignItems: 'center',
   },
   statusBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     borderRadius: 20,
-    gap: 8,
+    gap: 6,
   },
   statusText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   section: {
     borderRadius: 16,
@@ -696,8 +743,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   detailItem: {
-    flex: 1,
-    minWidth: '45%',
+    width: '47%',
     alignItems: 'center',
     padding: 16,
   },
