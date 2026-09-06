@@ -604,6 +604,23 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   Settings
                 </Text>
               </TouchableOpacity>
+
+              {/* Emergency */}
+              <TouchableOpacity
+                style={[styles.menuItem, isActive("/emergency") && styles.menuItemActive]}
+                onPress={() => handleNavigation("/emergency")}
+              >
+                <View style={[styles.menuIcon, { backgroundColor: `${colors.error.light}20` }, isActive("/emergency") && { backgroundColor: colors.error.dark }]}>
+                  <Ionicons
+                    name="warning"
+                    size={wp(5)}
+                    color={isActive("/emergency") ? "#FFFFFF" : colors.error.light}
+                  />
+                </View>
+                <Text style={[styles.menuText, { color: colors.error.light }, isActive("/emergency") && styles.menuTextActive]}>
+                  Emergency
+                </Text>
+              </TouchableOpacity>
             </View>
           </ScrollView>
 

@@ -2,6 +2,7 @@
 // Phase 6: Intelligent recommendation system
 
 import { BaseApiService } from './BaseApiService';
+import { InteractionType } from '../types/recommendation';
 import type {
   RecommendationsResponse,
   RideRecommendation,
@@ -128,7 +129,7 @@ class RecommendationsApiService extends BaseApiService {
    */
   async trackRideView(rideId: number, metadata?: Record<string, any>): Promise<void> {
     await this.trackInteraction({
-      interaction_type: 'view_ride',
+      interaction_type: InteractionType.VIEW_RIDE,
       target_type: 'ride',
       target_id: rideId,
       metadata,
@@ -143,7 +144,7 @@ class RecommendationsApiService extends BaseApiService {
     locationData?: { latitude: number; longitude: number }
   ): Promise<void> {
     await this.trackInteraction({
-      interaction_type: 'search_ride',
+      interaction_type: InteractionType.SEARCH_RIDE,
       target_type: 'ride',
       search_query: searchQuery,
       location_data: locationData,
@@ -155,7 +156,7 @@ class RecommendationsApiService extends BaseApiService {
    */
   async trackRideJoin(rideId: number): Promise<void> {
     await this.trackInteraction({
-      interaction_type: 'join_ride',
+      interaction_type: InteractionType.JOIN_RIDE,
       target_type: 'ride',
       target_id: rideId,
     });
@@ -166,7 +167,7 @@ class RecommendationsApiService extends BaseApiService {
    */
   async trackRideComplete(rideId: number): Promise<void> {
     await this.trackInteraction({
-      interaction_type: 'complete_ride',
+      interaction_type: InteractionType.COMPLETE_RIDE,
       target_type: 'ride',
       target_id: rideId,
     });
@@ -177,7 +178,7 @@ class RecommendationsApiService extends BaseApiService {
    */
   async trackRideCancel(rideId: number, reason?: string): Promise<void> {
     await this.trackInteraction({
-      interaction_type: 'cancel_ride',
+      interaction_type: InteractionType.CANCEL_RIDE,
       target_type: 'ride',
       target_id: rideId,
       metadata: reason ? { reason } : undefined,
@@ -189,7 +190,7 @@ class RecommendationsApiService extends BaseApiService {
    */
   async trackProfileView(userId: number): Promise<void> {
     await this.trackInteraction({
-      interaction_type: 'view_profile',
+      interaction_type: InteractionType.VIEW_PROFILE,
       target_type: 'user',
       target_id: userId,
     });
@@ -200,7 +201,7 @@ class RecommendationsApiService extends BaseApiService {
    */
   async trackLocationSearch(locationData: { latitude: number; longitude: number }, address?: string): Promise<void> {
     await this.trackInteraction({
-      interaction_type: 'search_location',
+      interaction_type: InteractionType.SEARCH_LOCATION,
       target_type: 'location',
       location_data: locationData,
       metadata: address ? { address } : undefined,
@@ -212,7 +213,7 @@ class RecommendationsApiService extends BaseApiService {
    */
   async trackLocationSave(locationData: { latitude: number; longitude: number }, address: string): Promise<void> {
     await this.trackInteraction({
-      interaction_type: 'save_location',
+      interaction_type: InteractionType.SAVE_LOCATION,
       target_type: 'location',
       location_data: locationData,
       metadata: { address },
@@ -224,7 +225,7 @@ class RecommendationsApiService extends BaseApiService {
    */
   async trackTribeJoin(tribeId: number): Promise<void> {
     await this.trackInteraction({
-      interaction_type: 'join_tribe',
+      interaction_type: InteractionType.JOIN_TRIBE,
       target_type: 'tribe',
       target_id: tribeId,
     });
@@ -235,7 +236,7 @@ class RecommendationsApiService extends BaseApiService {
    */
   async trackMessageSend(targetType: 'tribe' | 'user', targetId: number): Promise<void> {
     await this.trackInteraction({
-      interaction_type: 'send_message',
+      interaction_type: InteractionType.SEND_MESSAGE,
       target_type: targetType,
       target_id: targetId,
     });
@@ -246,7 +247,7 @@ class RecommendationsApiService extends BaseApiService {
    */
   async trackUserRating(userId: number, rating: number): Promise<void> {
     await this.trackInteraction({
-      interaction_type: 'rate_user',
+      interaction_type: InteractionType.RATE_USER,
       target_type: 'user',
       target_id: userId,
       metadata: { rating },

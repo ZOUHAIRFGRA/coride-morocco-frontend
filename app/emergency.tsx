@@ -8,7 +8,8 @@ import { useRouter } from 'expo-router';
 import { liveTrackingApiService } from '@/services/liveTrackingApi';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import type { EmergencyAlert, EmergencyType, EmergencyStatus } from '@/types/liveTracking';
+import { EmergencyType } from '@/types/liveTracking';
+import type { EmergencyAlert, EmergencyStatus } from '@/types/liveTracking';
 import { Text } from 'react-native';
 
 export default function EmergencyScreen() {
@@ -21,7 +22,7 @@ export default function EmergencyScreen() {
   
   // New alert form
   const [showForm, setShowForm] = useState(false);
-  const [selectedType, setSelectedType] = useState<EmergencyType>('panic_button');
+  const [selectedType, setSelectedType] = useState<EmergencyType>(EmergencyType.PANIC_BUTTON);
   const [description, setDescription] = useState('');
   
   useEffect(() => {
@@ -200,7 +201,7 @@ export default function EmergencyScreen() {
             label="Accident"
             color="#f59e0b"
             onPress={() => {
-              setSelectedType('accident');
+              setSelectedType(EmergencyType.ACCIDENT);
               setShowForm(true);
             }}
           />
@@ -209,7 +210,7 @@ export default function EmergencyScreen() {
             label="Breakdown"
             color="#8b5cf6"
             onPress={() => {
-              setSelectedType('vehicle_breakdown');
+              setSelectedType(EmergencyType.VEHICLE_BREAKDOWN);
               setShowForm(true);
             }}
           />
@@ -218,7 +219,7 @@ export default function EmergencyScreen() {
             label="Medical"
             color="#ef4444"
             onPress={() => {
-              setSelectedType('medical_emergency');
+              setSelectedType(EmergencyType.MEDICAL_EMERGENCY);
               setShowForm(true);
             }}
           />
