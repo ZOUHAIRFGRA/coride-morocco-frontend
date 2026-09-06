@@ -486,17 +486,17 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
 
               {/* My Rides - Both roles */}
               <TouchableOpacity
-                style={[styles.menuItem, isActive("/my-rides") && styles.menuItemActive]}
+                style={[styles.menuItem, isActive("/rides") && styles.menuItemActive]}
                 onPress={() => handleNavigation("/(main)/rides")}
               >
-                <View style={[styles.menuIcon, isActive("/my-rides") && styles.menuIconActive]}>
+                <View style={[styles.menuIcon, isActive("/rides") && styles.menuIconActive]}>
                   <Ionicons
                     name="list"
                     size={wp(5)}
-                    color={isActive("/my-rides") ? "#FFFFFF" : colors.primary.dark}
+                    color={isActive("/rides") ? "#FFFFFF" : colors.primary.dark}
                   />
                 </View>
-                <Text style={[styles.menuText, isActive("/my-rides") && styles.menuTextActive]}>
+                <Text style={[styles.menuText, isActive("/rides") && styles.menuTextActive]}>
                   My {roleInfo?.current_role === 'DRIVER' ? 'Offered' : 'Booked'} Rides
                 </Text>
               </TouchableOpacity>

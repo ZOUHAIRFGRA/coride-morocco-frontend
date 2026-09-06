@@ -883,9 +883,11 @@ const DocumentVerification = () => {
           </View>
         </View>
         <View className="flex-row items-center space-x-3">
-          <TouchableOpacity onPress={runWebSocketDiagnostics}>
-            <Ionicons name="bug" size={20} color={colors.primary.dark} />
-          </TouchableOpacity>
+          {__DEV__ && (
+            <TouchableOpacity onPress={runWebSocketDiagnostics}>
+              <Ionicons name="bug" size={20} color={colors.primary.dark} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={loadDocuments}>
             <Ionicons name="refresh" size={24} color={colors.primary.dark} />
           </TouchableOpacity>

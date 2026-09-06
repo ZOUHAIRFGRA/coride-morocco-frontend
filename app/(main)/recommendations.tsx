@@ -18,12 +18,12 @@ import { COLORS } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/useAppTheme';
 import { recommendationsApiService } from '@/services/recommendationsApi';
 import { useLocation } from '@/contexts/AppStateContext';
+import { RecommendationType } from '@/types/recommendation';
 import type {
   RecommendationsResponse,
   RideRecommendation,
   TribeRecommendation,
   UserRecommendation,
-  RecommendationType,
 } from '@/types/recommendation';
 
 export default function RecommendationsScreen() {
@@ -79,25 +79,20 @@ export default function RecommendationsScreen() {
     loadRecommendations();
   }, []);
 
-  const handleRidePress = async (ride: RideRecommendation) => {
-    // Mark as clicked
-    await recommendationsApiService.markRecommendationClicked('ride', ride.ride_id);
-    
+  const handleRidePress = (ride: RideRecommendation) => {
+    // Fire-and-forget: don't let a slow/failed feedback call block navigation
+    recommendationsApiService.markRecommendationClicked(RecommendationType.RIDE, ride.ride_id).catch(() => {});
     router.push(`/rides/${ride.ride_id}` as any);
   };
 
-  const handleTribePress = async (tribe: TribeRecommendation) => {
-    // Mark as clicked
-    await recommendationsApiService.markRecommendationClicked('tribe', tribe.tribe_id);
-    
+  const handleTribePress = (tribe: TribeRecommendation) => {
+    recommendationsApiService.markRecommendationClicked(RecommendationType.TRIBE, tribe.tribe_id).catch(() => {});
     router.push(`/tribes/${tribe.tribe_id}` as any);
   };
 
-  const handleUserPress = async (user: UserRecommendation) => {
-    // Mark as clicked
-    await recommendationsApiService.markRecommendationClicked('user', user.user_id);
-    
-    router.push(`/profile/${user.user_id}` as any);
+  const handleUserPress = (user: UserRecommendation) => {
+    recommendationsApiService.markRecommendationClicked(RecommendationType.USER, user.user_id).catch(() => {});
+    router.push({ pathname: '/settings/public-profile', params: { userId: String(user.user_id) } } as any);
   };
 
   // Render ride recommendation card
@@ -167,7 +162,7 @@ export default function RecommendationsScreen() {
           </Text>
           {ride.ride.driver.average_rating && (
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="star" size={14} color={COLORS.warning.warning500} />
+              <Ionicons name="star" size={14} color={colors.warning.light} />
               <Text style={{ fontSize: 13, color: colors.text.secondary, marginLeft: 4 }}>
                 {ride.ride.driver.average_rating.toFixed(1)}
               </Text>
@@ -179,7 +174,7 @@ export default function RecommendationsScreen() {
       {/* Route Info */}
       <View style={{ marginBottom: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-          <Ionicons name="location" size={16} color={COLORS.success.success500} />
+          <Ionicons name="location" size={16} color={colors.success.light} />
           <Text
             style={{ fontSize: 14, color: colors.text.primary, marginLeft: 8, flex: 1 }}
             numberOfLines={1}
@@ -188,7 +183,7 @@ export default function RecommendationsScreen() {
           </Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Ionicons name="location" size={16} color={COLORS.danger.danger500} />
+          <Ionicons name="location" size={16} color={colors.error.light} />
           <Text
             style={{ fontSize: 14, color: colors.text.primary, marginLeft: 8, flex: 1 }}
             numberOfLines={1}
@@ -289,7 +284,7 @@ export default function RecommendationsScreen() {
           position: 'absolute',
           top: 8,
           right: 8,
-          backgroundColor: COLORS.accent.purple100,
+          backgroundColor: colors.role.moderator.bg,
           borderRadius: 12,
           paddingHorizontal: 8,
           paddingVertical: 4,
@@ -297,12 +292,12 @@ export default function RecommendationsScreen() {
           alignItems: 'center',
         }}
       >
-        <Ionicons name="sparkles" size={12} color={COLORS.accent.purple700} />
+        <Ionicons name="sparkles" size={12} color={colors.role.moderator.fg} />
         <Text
           style={{
             fontSize: 11,
             fontWeight: '600',
-            color: COLORS.accent.purple700,
+            color: colors.role.moderator.fg,
             marginLeft: 4,
           }}
         >
@@ -317,13 +312,13 @@ export default function RecommendationsScreen() {
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: COLORS.accent.purple100,
+            backgroundColor: colors.role.moderator.bg,
             justifyContent: 'center',
             alignItems: 'center',
             marginRight: 12,
           }}
         >
-          <Ionicons name="people" size={20} color={COLORS.accent.purple700} />
+          <Ionicons name="people" size={20} color={colors.role.moderator.fg} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text.primary }}>
@@ -338,7 +333,7 @@ export default function RecommendationsScreen() {
       {/* Route */}
       <View style={{ marginBottom: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-          <Ionicons name="location" size={14} color={COLORS.success.success500} />
+          <Ionicons name="location" size={14} color={colors.success.light} />
           <Text
             style={{ fontSize: 13, color: colors.text.primary, marginLeft: 6, flex: 1 }}
             numberOfLines={1}
@@ -347,7 +342,7 @@ export default function RecommendationsScreen() {
           </Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Ionicons name="location" size={14} color={COLORS.danger.danger500} />
+          <Ionicons name="location" size={14} color={colors.error.light} />
           <Text
             style={{ fontSize: 13, color: colors.text.primary, marginLeft: 6, flex: 1 }}
             numberOfLines={1}
@@ -371,7 +366,7 @@ export default function RecommendationsScreen() {
       {tribe.reasons && tribe.reasons.length > 0 && (
         <View
           style={{
-            backgroundColor: COLORS.accent.purple50,
+            backgroundColor: colors.role.moderator.bg,
             borderRadius: 8,
             padding: 10,
           }}
@@ -380,7 +375,7 @@ export default function RecommendationsScreen() {
             style={{
               fontSize: 12,
               fontWeight: '600',
-              color: COLORS.accent.purple700,
+              color: colors.role.moderator.fg,
               marginBottom: 6,
             }}
           >
@@ -424,7 +419,7 @@ export default function RecommendationsScreen() {
           position: 'absolute',
           top: 8,
           right: 8,
-          backgroundColor: COLORS.success.success100,
+          backgroundColor: `${colors.success.light}20`,
           borderRadius: 12,
           paddingHorizontal: 8,
           paddingVertical: 4,
@@ -432,12 +427,12 @@ export default function RecommendationsScreen() {
           alignItems: 'center',
         }}
       >
-        <Ionicons name="sparkles" size={12} color={COLORS.success.success700} />
+        <Ionicons name="sparkles" size={12} color={colors.success.dark} />
         <Text
           style={{
             fontSize: 11,
             fontWeight: '600',
-            color: COLORS.success.success700,
+            color: colors.success.dark,
             marginLeft: 4,
           }}
         >
@@ -452,13 +447,13 @@ export default function RecommendationsScreen() {
             width: 50,
             height: 50,
             borderRadius: 25,
-            backgroundColor: COLORS.success.success100,
+            backgroundColor: `${colors.success.light}20`,
             justifyContent: 'center',
             alignItems: 'center',
             marginRight: 12,
           }}
         >
-          <Ionicons name="person" size={24} color={COLORS.success.success700} />
+          <Ionicons name="person" size={24} color={colors.success.dark} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 16, fontWeight: '600', color: colors.text.primary }}>
@@ -466,7 +461,7 @@ export default function RecommendationsScreen() {
           </Text>
           {user.user.average_rating && (
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-              <Ionicons name="star" size={14} color={COLORS.warning.warning500} />
+              <Ionicons name="star" size={14} color={colors.warning.light} />
               <Text style={{ fontSize: 13, color: colors.text.secondary, marginLeft: 4 }}>
                 {user.user.average_rating.toFixed(1)} • {user.user.completed_rides_count} rides
               </Text>
@@ -493,7 +488,7 @@ export default function RecommendationsScreen() {
           <Text style={{ fontSize: 11, color: colors.text.secondary }}>Common Tribes</Text>
         </View>
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 18, fontWeight: '600', color: COLORS.accent.purple700 }}>
+          <Text style={{ fontSize: 18, fontWeight: '600', color: colors.role.moderator.fg }}>
             {user.common_routes_count}
           </Text>
           <Text style={{ fontSize: 11, color: colors.text.secondary }}>Common Routes</Text>
@@ -504,7 +499,7 @@ export default function RecommendationsScreen() {
       {user.reasons && user.reasons.length > 0 && (
         <View
           style={{
-            backgroundColor: COLORS.success.success50,
+            backgroundColor: `${colors.success.light}15`,
             borderRadius: 8,
             padding: 10,
           }}
@@ -513,7 +508,7 @@ export default function RecommendationsScreen() {
             style={{
               fontSize: 12,
               fontWeight: '600',
-              color: COLORS.success.success700,
+              color: colors.success.dark,
               marginBottom: 6,
             }}
           >

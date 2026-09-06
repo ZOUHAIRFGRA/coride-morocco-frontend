@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { COLORS } from '@/constants/theme';
 import { useAppTheme } from '@/hooks/useAppTheme';
@@ -23,8 +23,13 @@ const { width } = Dimensions.get('window');
 
 const PublicProfile = () => {
   const router = useRouter();
+  const { userId } = useLocalSearchParams<{ userId?: string }>();
   const { colors, isDarkMode } = useAppTheme();
   const { getPublicProfile, profile } = useUser();
+
+  // No userId param means "preview my own profile as others see it" (the
+  // screen's original purpose); a userId viewing someone else's profile.
+  const isOwnProfile = !userId || Number(userId) === profile?.id;
 
   const [publicProfile, setPublicProfile] = useState<PublicUserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,15 +40,18 @@ const PublicProfile = () => {
 
   useEffect(() => {
     loadPublicProfile();
-    loadLanguagePreferences();
-  }, []);
+    if (isOwnProfile) {
+      loadLanguagePreferences();
+    }
+  }, [userId]);
 
   const loadPublicProfile = async () => {
-    if (!profile?.id) return;
-    
+    const targetId = userId ? Number(userId) : profile?.id;
+    if (!targetId) return;
+
     try {
       setIsLoading(true);
-      const response = await getPublicProfile(profile.id);
+      const response = await getPublicProfile(targetId);
       if (response.success && response.data) {
         setPublicProfile(response.data);
       }
@@ -213,10 +221,14 @@ const PublicProfile = () => {
           fontSize: 18,
           fontWeight: '600',
           color: colors.text.primary
-        }}>Public Profile</Text>
-        <TouchableOpacity onPress={() => router.push('../profile/profile' as any)}>
-          <Ionicons name="create-outline" size={24} color="#006389" />
-        </TouchableOpacity>
+        }}>{isOwnProfile ? 'Public Profile' : 'Profile'}</Text>
+        {isOwnProfile ? (
+          <TouchableOpacity onPress={() => router.push('../profile/profile' as any)}>
+            <Ionicons name="create-outline" size={24} color="#006389" />
+          </TouchableOpacity>
+        ) : (
+          <View className="w-6" />
+        )}
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
@@ -325,21 +337,26 @@ const PublicProfile = () => {
               </View>
             )}
 
-            {/* Contact Information */}
+            {/* Contact Information — only shown for your own preview; the
+                public API doesn't return another user's phone/email. */}
             <View className="mt-2">
-              <InfoCard
-                icon="call"
-                title="Phone Number"
-                value={profile?.phone || 'Not shared publicly'}
-                color="#10B981"
-              />
+              {isOwnProfile && (
+                <>
+                  <InfoCard
+                    icon="call"
+                    title="Phone Number"
+                    value={profile?.phone || 'Not shared publicly'}
+                    color="#10B981"
+                  />
 
-              <InfoCard
-                icon="mail"
-                title="Email"
-                value={profile?.email || 'Not shared publicly'}
-                color="#3B82F6"
-              />
+                  <InfoCard
+                    icon="mail"
+                    title="Email"
+                    value={profile?.email || 'Not shared publicly'}
+                    color="#3B82F6"
+                  />
+                </>
+              )}
 
               <InfoCard
                 icon="person"
@@ -349,7 +366,8 @@ const PublicProfile = () => {
               />
             </View>
 
-            {/* Languages */}
+            {/* Languages — device-local preference, only meaningful for your own preview */}
+            {isOwnProfile && (
             <View style={{
               backgroundColor: colors.background.secondary,
               marginHorizontal: 16,
@@ -412,6 +430,7 @@ const PublicProfile = () => {
                 </View>
               </View>
             </View>
+            )}
 
             {/* Profile Stats */}
             {(publicProfile.rating_count || profile?.created_at) && (
@@ -461,7 +480,7 @@ const PublicProfile = () => {
                       </View>
                     )}
                     
-                    {profile?.created_at && (
+                    {isOwnProfile && profile?.created_at && (
                       <View className="flex-row justify-between items-center">
                         <Text style={{color: colors.text.secondary}}>Member Since</Text>
                         <Text style={{
@@ -480,7 +499,8 @@ const PublicProfile = () => {
               </View>
             )}
 
-            {/* Profile Completion Tip */}
+            {/* Profile Completion Tip — only relevant when previewing your own profile */}
+            {isOwnProfile && (
             <View className="mx-4 mb-6">
               <View style={{
                 backgroundColor: isDarkMode ? colors.background.secondary : '#EFF6FF',
@@ -525,6 +545,7 @@ const PublicProfile = () => {
                 </View>
               </View>
             </View>
+            )}
           </>
         )}
 
