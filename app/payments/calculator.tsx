@@ -1,17 +1,17 @@
 // Cost Calculator Screen
 // Phase 7: Estimate ride costs with detailed breakdown
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, View } from 'react-native';
 import { Button, ButtonText } from '@/components/ui/button';
-import { useRouter } from 'expo-router';
 import { paymentApiService } from '@/services/paymentApi';
+import { useLocation } from '@/contexts/AppStateContext';
 import { Ionicons } from '@expo/vector-icons';
 import type { CostEstimateResponse, CostEstimateRequest } from '@/types/payment';
 
 export default function CostCalculatorScreen() {
-  const router = useRouter();
-  
+  const { cachedLocation, refreshLocation } = useLocation();
+
   // Form state
   const [startLat, setStartLat] = useState('');
   const [startLng, setStartLng] = useState('');
@@ -33,23 +33,29 @@ export default function CostCalculatorScreen() {
       Alert.alert('Error', 'Please enter all location coordinates');
       return;
     }
-    
+
+    const coords = [parseFloat(startLat), parseFloat(startLng), parseFloat(endLat), parseFloat(endLng)];
+    if (coords.some((c) => !Number.isFinite(c))) {
+      Alert.alert('Error', 'Coordinates must be valid numbers');
+      return;
+    }
+
     const request: CostEstimateRequest = {
-      start_latitude: parseFloat(startLat),
-      start_longitude: parseFloat(startLng),
-      end_latitude: parseFloat(endLat),
-      end_longitude: parseFloat(endLng),
+      start_latitude: coords[0],
+      start_longitude: coords[1],
+      end_latitude: coords[2],
+      end_longitude: coords[3],
       departure_time: departureTime.toISOString(),
       passengers: parseInt(passengers) || 1,
     };
-    
+
     setLoading(true);
     try {
       const response = await paymentApiService.estimateCost(request);
       if (response.success && response.data) {
         setEstimate(response.data);
       } else {
-        Alert.alert('Error', response.error || 'Failed to calculate cost');
+        Alert.alert('Error', response.error?.message || 'Failed to calculate cost');
       }
     } catch (error) {
       console.error('Cost calculation error:', error);
@@ -58,13 +64,23 @@ export default function CostCalculatorScreen() {
       setLoading(false);
     }
   };
-  
+
   /**
    * Use current location for start
    */
-  const useCurrentLocation = () => {
-    // TODO: Get actual current location
-    Alert.alert('Info', 'Current location feature coming soon');
+  const useCurrentLocation = async () => {
+    if (cachedLocation) {
+      setStartLat(cachedLocation.latitude.toString());
+      setStartLng(cachedLocation.longitude.toString());
+      return;
+    }
+    const result = await refreshLocation();
+    if (result.success && result.data) {
+      setStartLat(result.data.latitude.toString());
+      setStartLng(result.data.longitude.toString());
+    } else {
+      Alert.alert('Error', 'Could not get your current location');
+    }
   };
   
   return (
@@ -274,7 +290,7 @@ export default function CostCalculatorScreen() {
                         })}
                       </Text>
                       <Text className="text-xs text-muted-foreground">
-                        {alt.reason}
+                        {alt.pricing_tier} pricing
                       </Text>
                     </View>
                     <Text className="text-md font-semibold text-green-600 dark:text-green-400">

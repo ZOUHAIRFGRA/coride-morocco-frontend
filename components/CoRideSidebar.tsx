@@ -518,23 +518,6 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                 </Text>
               </TouchableOpacity>
 
-              {/* Bookings */}
-              <TouchableOpacity
-                style={[styles.menuItem, isActive("/bookings") && styles.menuItemActive]}
-                onPress={() => handleNavigation("/bookings")}
-              >
-                <View style={[styles.menuIcon, isActive("/bookings") && styles.menuIconActive]}>
-                  <Ionicons
-                    name="calendar"
-                    size={wp(5)}
-                    color={isActive("/bookings") ? "#FFFFFF" : colors.primary.dark}
-                  />
-                </View>
-                <Text style={[styles.menuText, isActive("/bookings") && styles.menuTextActive]}>
-                  Bookings
-                </Text>
-              </TouchableOpacity>
-
               {/* Trajectory Tribes */}
               <TouchableOpacity
                 style={[styles.menuItem, isActive("/tribes") && styles.menuItemActive]}
@@ -549,6 +532,40 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                 </View>
                 <Text style={[styles.menuText, isActive("/tribes") && styles.menuTextActive]}>
                   Trajectory Tribes
+                </Text>
+              </TouchableOpacity>
+
+              {/* Payments */}
+              <TouchableOpacity
+                style={[styles.menuItem, isActive("/payments") && styles.menuItemActive]}
+                onPress={() => handleNavigation("/payments")}
+              >
+                <View style={[styles.menuIcon, isActive("/payments") && styles.menuIconActive]}>
+                  <Ionicons
+                    name="wallet"
+                    size={wp(5)}
+                    color={isActive("/payments") ? "#FFFFFF" : colors.primary.dark}
+                  />
+                </View>
+                <Text style={[styles.menuText, isActive("/payments") && styles.menuTextActive]}>
+                  Payments
+                </Text>
+              </TouchableOpacity>
+
+              {/* Recommendations */}
+              <TouchableOpacity
+                style={[styles.menuItem, isActive("/recommendations") && styles.menuItemActive]}
+                onPress={() => handleNavigation("/recommendations")}
+              >
+                <View style={[styles.menuIcon, isActive("/recommendations") && styles.menuIconActive]}>
+                  <Ionicons
+                    name="sparkles"
+                    size={wp(5)}
+                    color={isActive("/recommendations") ? "#FFFFFF" : colors.primary.dark}
+                  />
+                </View>
+                <Text style={[styles.menuText, isActive("/recommendations") && styles.menuTextActive]}>
+                  For You
                 </Text>
               </TouchableOpacity>
 

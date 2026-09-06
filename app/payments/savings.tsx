@@ -63,12 +63,12 @@ export default function SavingsScreen() {
         <View className="p-6 mb-4 bg-green-50 dark:bg-green-900/20">
           <View className="items-center">
             <Ionicons name="trending-down" size={48} color="#10b981" />
-            <Text className="text-sm text-muted-foreground mt-4 mb-2">Total Saved</Text>
+            <Text className="text-sm text-muted-foreground mt-4 mb-2">Saved vs Taxi</Text>
             <Text className="text-5xl font-bold text-green-600 dark:text-green-400">
-              {savings.total_saved_mad.toFixed(0)}
+              {savings.savings_vs_taxi.toFixed(0)}
             </Text>
             <Text className="text-xl text-green-600 dark:text-green-400">MAD</Text>
-            
+
             {savings.percentage_saved > 0 && (
               <Text className="text-md text-muted-foreground mt-4">
                 {savings.percentage_saved.toFixed(1)}% savings rate
@@ -76,7 +76,7 @@ export default function SavingsScreen() {
             )}
           </View>
         </View>
-        
+
         {/* Comparison Views */}
         <View className="space-y-4">
           {/* vs Taxi */}
@@ -87,18 +87,18 @@ export default function SavingsScreen() {
                 vs Regular Taxi
               </Text>
             </View>
-            
+
             <View className="space-y-2">
               <View className="flex-row justify-between">
                 <Text className="text-sm text-muted-foreground">Taxi Cost</Text>
                 <Text className="text-sm font-semibold text-foreground">
-                  {savings.taxi_alternative_cost.toFixed(2)} MAD
+                  {savings.estimated_taxi_cost.toFixed(2)} MAD
                 </Text>
               </View>
               <View className="flex-row justify-between">
                 <Text className="text-sm text-muted-foreground">CoRide Cost</Text>
                 <Text className="text-sm font-semibold text-foreground">
-                  {savings.coride_cost.toFixed(2)} MAD
+                  {savings.total_spent.toFixed(2)} MAD
                 </Text>
               </View>
               <View className="border-t border-border pt-2 flex-row justify-between">
@@ -106,12 +106,12 @@ export default function SavingsScreen() {
                   Saved
                 </Text>
                 <Text className="text-sm font-bold text-green-600 dark:text-green-400">
-                  {savings.saved_vs_taxi.toFixed(2)} MAD
+                  {savings.savings_vs_taxi.toFixed(2)} MAD
                 </Text>
               </View>
             </View>
           </View>
-          
+
           {/* vs Public Transport */}
           <View className="p-4">
             <View className="flex-row items-center mb-3">
@@ -120,34 +120,34 @@ export default function SavingsScreen() {
                 vs Public Transport
               </Text>
             </View>
-            
+
             <View className="space-y-2">
               <View className="flex-row justify-between">
                 <Text className="text-sm text-muted-foreground">Public Transport Cost</Text>
                 <Text className="text-sm font-semibold text-foreground">
-                  {savings.public_transport_alternative_cost.toFixed(2)} MAD
+                  {savings.estimated_public_transport_cost.toFixed(2)} MAD
                 </Text>
               </View>
               <View className="flex-row justify-between">
                 <Text className="text-sm text-muted-foreground">CoRide Cost</Text>
                 <Text className="text-sm font-semibold text-foreground">
-                  {savings.coride_cost.toFixed(2)} MAD
+                  {savings.total_spent.toFixed(2)} MAD
                 </Text>
               </View>
               <View className="border-t border-border pt-2 flex-row justify-between">
                 <Text className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                  {savings.saved_vs_public_transport >= 0 ? 'Saved' : 'Additional Cost'}
+                  {savings.savings_vs_public_transport >= 0 ? 'Saved' : 'Additional Cost'}
                 </Text>
                 <Text className={`text-sm font-bold ${
-                  savings.saved_vs_public_transport >= 0
+                  savings.savings_vs_public_transport >= 0
                     ? 'text-blue-600 dark:text-blue-400'
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {Math.abs(savings.saved_vs_public_transport).toFixed(2)} MAD
+                  {Math.abs(savings.savings_vs_public_transport).toFixed(2)} MAD
                 </Text>
               </View>
             </View>
-            
+
             <View className="mt-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
               <Text className="text-xs text-blue-700 dark:text-blue-300">
                 💡 Public transport is cheaper but less convenient. CoRide offers door-to-door service!
@@ -155,60 +155,22 @@ export default function SavingsScreen() {
             </View>
           </View>
         </View>
-        
-        {/* Monthly Breakdown */}
-        {savings.monthly_breakdown && savings.monthly_breakdown.length > 0 && (
-          <View className="p-4 mt-4">
-            <Text className="text-lg font-semibold text-foreground mb-4">
-              Monthly Breakdown
-            </Text>
-            
-            <View className="space-y-2">
-              {savings.monthly_breakdown.map((month) => (
-                <View
-                  key={month.month}
-                  className="flex-row justify-between items-center py-2 border-b border-border last:border-b-0"
-                >
-                  <View className="flex-1">
-                    <Text className="text-sm font-medium text-foreground">
-                      {new Date(month.month).toLocaleDateString('en-US', {
-                        month: 'long',
-                        year: 'numeric',
-                      })}
-                    </Text>
-                    <Text className="text-xs text-muted-foreground">
-                      {month.rides_count} rides • {month.distance_km.toFixed(1)} km
-                    </Text>
-                  </View>
-                  <View className="items-end">
-                    <Text className="text-sm font-semibold text-foreground">
-                      {month.total_spent.toFixed(2)} MAD
-                    </Text>
-                    <Text className="text-xs text-green-600 dark:text-green-400">
-                      Saved {month.saved.toFixed(2)}
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-        
+
         {/* Stats */}
         <View className="flex-row gap-4 mt-4">
           <View className="flex-1 p-4">
             <Text className="text-sm text-muted-foreground mb-1">Total Rides</Text>
             <Text className="text-2xl font-bold text-foreground">
-              {savings.rides_count}
+              {savings.total_rides}
             </Text>
           </View>
-          
+
           <View className="flex-1 p-4">
-            <Text className="text-sm text-muted-foreground mb-1">Distance</Text>
+            <Text className="text-sm text-muted-foreground mb-1">CO₂ Saved</Text>
             <Text className="text-2xl font-bold text-foreground">
-              {savings.total_distance_km.toFixed(0)}
+              {savings.co2_savings_kg.toFixed(1)}
             </Text>
-            <Text className="text-xs text-muted-foreground">km</Text>
+            <Text className="text-xs text-muted-foreground">kg</Text>
           </View>
         </View>
       </View>

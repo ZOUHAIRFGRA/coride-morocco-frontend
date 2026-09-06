@@ -102,7 +102,7 @@ export default function RequestRideScreen() {
         end_longitude: endLocation.longitude,
         departure_time: departureDateTime.toISOString(),
         max_cost_per_person: maxPricePerPerson ? parseFloat(maxPricePerPerson) : 0,
-        flexible_time_minutes: flexibleTime ? 30 : undefined,
+        flexible_time_minutes: flexibleTime ? 30 : 0,
         notes: notes.trim() || undefined
       });
 

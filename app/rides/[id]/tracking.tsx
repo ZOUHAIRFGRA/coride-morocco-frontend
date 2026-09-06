@@ -2,53 +2,65 @@
 // Phase 8: Real-time GPS tracking with driver location
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, TouchableOpacity, ActivityIndicator, Alert, StyleSheet, Text } from 'react-native';
+import { View, TouchableOpacity, ActivityIndicator, Alert, StyleSheet, Text, Linking } from 'react-native';
 import { Button, ButtonText } from '@/components/ui/button';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { liveTrackingApiService } from '@/services/liveTrackingApi';
+import { integratedRideService } from '@/services/integratedRideService';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import type { RideTracking, LiveLocation, RideTrackingStatus } from '@/types/liveTracking';
+import type { Ride } from '@/types/ride';
 
 export default function LiveTrackingScreen() {
   const { id } = useLocalSearchParams();
   const rideId = parseInt(id as string);
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
-  
+
+  const [ride, setRide] = useState<Ride | null>(null);
   const [tracking, setTracking] = useState<RideTracking | null>(null);
   const [driverLocation, setDriverLocation] = useState<LiveLocation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showEmergencyPanel, setShowEmergencyPanel] = useState(false);
-  
+
   useEffect(() => {
+    fetchRide();
     fetchTrackingData();
-    
+
     // Poll for updates every 5 seconds
     const interval = setInterval(fetchTrackingData, 5000);
-    
+
     return () => clearInterval(interval);
   }, [rideId]);
-  
+
+  const fetchRide = async () => {
+    try {
+      const response = await integratedRideService.api.getRideDetails(rideId);
+      if (response.success && response.data) {
+        setRide(response.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch ride:', error);
+    }
+  };
+
   /**
    * Fetch tracking data
    */
   const fetchTrackingData = async () => {
     try {
-      const [trackingResponse, locationResponse] = await Promise.all([
-        liveTrackingApiService.getRideTracking(rideId),
-        // Get driver's latest location (assuming we have driver_id)
-        tracking?.driver_id
-          ? liveTrackingApiService.getLatestLocation(tracking.driver_id)
-          : null,
-      ]);
-      
+      const trackingResponse = await liveTrackingApiService.getRideTracking(rideId);
+
       if (trackingResponse.success && trackingResponse.data) {
         setTracking(trackingResponse.data);
       }
-      
-      if (locationResponse?.success && locationResponse.data) {
-        setDriverLocation(locationResponse.data);
+
+      // Driver's dedicated live-location feed, when a driver id is known from the ride
+      if (ride?.driver_id) {
+        const locationResponse = await liveTrackingApiService.getLatestLocation(ride.driver_id);
+        if (locationResponse.success && locationResponse.data) {
+          setDriverLocation(locationResponse.data);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch tracking data:', error);
@@ -56,6 +68,17 @@ export default function LiveTrackingScreen() {
       setLoading(false);
     }
   };
+
+  // Driver's current position — prefer the dedicated live-location feed, fall
+  // back to the ride-tracking record's own current_latitude/longitude.
+  const driverPosition = driverLocation
+    ? { latitude: driverLocation.latitude, longitude: driverLocation.longitude }
+    : tracking?.current_latitude != null && tracking?.current_longitude != null
+    ? { latitude: tracking.current_latitude, longitude: tracking.current_longitude }
+    : null;
+
+  const pickupPosition = ride ? { latitude: ride.start_latitude, longitude: ride.start_longitude } : null;
+  const destinationPosition = ride ? { latitude: ride.end_latitude, longitude: ride.end_longitude } : null;
   
   /**
    * Trigger emergency alert
@@ -71,14 +94,14 @@ export default function LiveTrackingScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              if (driverLocation) {
+              if (driverPosition) {
                 const response = await liveTrackingApiService.triggerPanicButton(
-                  driverLocation.latitude,
-                  driverLocation.longitude,
+                  driverPosition.latitude,
+                  driverPosition.longitude,
                   rideId,
                   'Emergency alert from live tracking'
                 );
-                
+
                 if (response.success) {
                   Alert.alert('Alert Sent', 'Emergency services and contacts have been notified');
                 }
@@ -180,81 +203,60 @@ export default function LiveTrackingScreen() {
         provider={PROVIDER_DEFAULT}
         style={StyleSheet.absoluteFill}
         initialRegion={{
-          latitude: driverLocation?.latitude || tracking.current_latitude || 33.5731,
-          longitude: driverLocation?.longitude || tracking.current_longitude || -7.5898,
+          latitude: driverPosition?.latitude ?? pickupPosition?.latitude ?? 33.5731,
+          longitude: driverPosition?.longitude ?? pickupPosition?.longitude ?? -7.5898,
           latitudeDelta: 0.02,
           longitudeDelta: 0.02,
         }}
       >
         {/* Driver Location */}
-        {driverLocation && (
-          <Marker
-            coordinate={{
-              latitude: driverLocation.latitude,
-              longitude: driverLocation.longitude,
-            }}
-            title="Driver"
-          >
+        {driverPosition && (
+          <Marker coordinate={driverPosition} title="Driver">
             <View className="bg-blue-500 p-2 rounded-full">
               <Ionicons name="car" size={24} color="white" />
             </View>
           </Marker>
         )}
-        
+
         {/* Pickup Location */}
-        {tracking.pickup_latitude && tracking.pickup_longitude && (
-          <Marker
-            coordinate={{
-              latitude: tracking.pickup_latitude,
-              longitude: tracking.pickup_longitude,
-            }}
-            pinColor="green"
-            title="Pickup"
-          />
+        {pickupPosition && (
+          <Marker coordinate={pickupPosition} pinColor="green" title="Pickup" />
         )}
-        
+
         {/* Destination */}
-        {tracking.destination_latitude && tracking.destination_longitude && (
-          <Marker
-            coordinate={{
-              latitude: tracking.destination_latitude,
-              longitude: tracking.destination_longitude,
-            }}
-            pinColor="red"
-            title="Destination"
-          />
+        {destinationPosition && (
+          <Marker coordinate={destinationPosition} pinColor="red" title="Destination" />
         )}
-        
+
         {/* Route Polyline */}
-        {driverLocation && tracking.destination_latitude && tracking.destination_longitude && (
+        {driverPosition && destinationPosition && (
           <Polyline
-            coordinates={[
-              {
-                latitude: driverLocation.latitude,
-                longitude: driverLocation.longitude,
-              },
-              {
-                latitude: tracking.destination_latitude,
-                longitude: tracking.destination_longitude,
-              },
-            ]}
+            coordinates={[driverPosition, destinationPosition]}
             strokeColor="#3b82f6"
             strokeWidth={3}
           />
         )}
       </MapView>
+
+      {/* Back Button */}
+      <TouchableOpacity
+        onPress={() => router.back()}
+        className="absolute top-4 left-4 bg-black/40 p-2 rounded-full z-10"
+      >
+        <Ionicons name="arrow-back" size={24} color="white" />
+      </TouchableOpacity>
       
       {/* Status Card */}
-      <View className="absolute top-4 left-4 right-4">
+      <View className="absolute top-16 left-4 right-4">
         <View className="p-4" style={{ backgroundColor: getStatusColor(tracking.tracking_status) }}>
           <View className="flex-row items-center justify-between">
             <View className="flex-1">
               <Text className="text-lg font-bold text-white">
                 {getStatusText(tracking.tracking_status)}
               </Text>
-              {tracking.estimated_arrival && (
+              {tracking.estimated_arrival_time && (
                 <Text className="text-sm text-white/90 mt-1">
-                  ETA: {new Date(tracking.estimated_arrival).toLocaleTimeString()}
+                  ETA: {new Date(tracking.estimated_arrival_time).toLocaleTimeString()}
                 </Text>
               )}
             </View>
@@ -309,19 +311,14 @@ export default function LiveTrackingScreen() {
             <ButtonText className="text-white ml-2">Emergency</ButtonText>
           </Button>
           
-          <TouchableOpacity
-            onPress={() => router.push(`/rides/${rideId}/chat`)}
-            className="bg-blue-500 p-3 rounded-lg items-center justify-center"
-          >
-            <Ionicons name="chatbubble" size={24} color="white" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            onPress={() => Alert.alert('Info', 'Call feature coming soon')}
-            className="bg-green-500 p-3 rounded-lg items-center justify-center"
-          >
-            <Ionicons name="call" size={24} color="white" />
-          </TouchableOpacity>
+          {ride?.driver?.phone_number && (
+            <TouchableOpacity
+              onPress={() => Linking.openURL(`tel:${ride.driver?.phone_number}`)}
+              className="bg-green-500 p-3 rounded-lg items-center justify-center"
+            >
+              <Ionicons name="call" size={24} color="white" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </View>

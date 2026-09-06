@@ -333,7 +333,7 @@ export default function MainScreen() {
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled={true}
               >
-                {routes.slice(0, 3).map((route) => {
+                {routes.map((route) => {
                   const driverName = route.driver ? `${route.driver.first_name} ${route.driver.last_name}` : 'Driver';
                   const driverInitial = route.driver?.first_name?.charAt(0)?.toUpperCase() || 'D';
                   const driverRating = route.driver?.rating_average || 0;
@@ -426,18 +426,6 @@ export default function MainScreen() {
                     </TouchableOpacity>
                   );
                 })}
-                
-                {routes.length > 3 && (
-                  <TouchableOpacity 
-                    style={[dynamicStyles.viewMoreButton, { borderColor: colors.border.primary }]}
-                    onPress={() => router.push('/rides')}
-                  >
-                    <Text style={[dynamicStyles.viewMoreText, { color: colors.primary.dark }]}>
-                      View All {routes.length} Rides
-                    </Text>
-                    <Ionicons name="chevron-forward" size={16} color={colors.primary.dark} />
-                  </TouchableOpacity>
-                )}
               </ScrollView>
             </View>
           )}

@@ -134,11 +134,12 @@ export default function RidesScreen() {
     const canCancel = isOffered && (ride.status === 'offered' || ride.status === 'matched');
     const canStart = isOffered && ride.status === 'matched';
     const canComplete = isOffered && ride.status === 'in_progress';
+    const isOwnPendingRequest = !isOffered && ride.rider_id === user?.id && ride.status === 'requested';
 
     return (
       <TouchableOpacity
         key={ride.id}
-        style={[dynamicStyles.rideCard, { 
+        style={[dynamicStyles.rideCard, {
           backgroundColor: colors.surface.primary,
           borderColor: colors.border.primary
         }]}
@@ -146,11 +147,18 @@ export default function RidesScreen() {
         activeOpacity={0.7}
       >
         {/* Status Badge */}
-        <View style={[dynamicStyles.statusBadge, { backgroundColor: statusColor }]}>
-          <Ionicons name={statusIcon} size={14} color="#FFFFFF" />
-          <Text style={dynamicStyles.statusText}>
-            {getStatusLabel(ride.status)}
-          </Text>
+        <View style={dynamicStyles.statusRow}>
+          <View style={[dynamicStyles.statusBadge, { backgroundColor: statusColor }]}>
+            <Ionicons name={statusIcon} size={14} color="#FFFFFF" />
+            <Text style={dynamicStyles.statusText}>
+              {getStatusLabel(ride.status)}
+            </Text>
+          </View>
+          {isOwnPendingRequest && (
+            <Text style={[dynamicStyles.ownRequestLabel, { color: colors.text.secondary }]}>
+              Awaiting a driver
+            </Text>
+          )}
         </View>
 
         {/* Route Information */}
@@ -568,6 +576,16 @@ const createStyles = (colors: any) => StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  ownRequestLabel: {
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -575,7 +593,6 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
-    marginBottom: 16,
     gap: 6,
   },
   statusText: {

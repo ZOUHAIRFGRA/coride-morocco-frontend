@@ -1,7 +1,7 @@
 // Join Ride Modal - Enhanced booking confirmation with pickup/dropoff selection
 // Provides complete ride booking experience with location customization
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,32 @@ export const JoinRideModal: React.FC<JoinRideModalProps> = ({
   const [showPickupModal, setShowPickupModal] = useState(false);
   const [showDropoffModal, setShowDropoffModal] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+
+  // Seed pickup/dropoff from the ride being joined, so the rider doesn't have to
+  // re-enter locations they already searched to find this match.
+  useEffect(() => {
+    if (visible && ride) {
+      setPickupLocation({
+        display_name: ride.start_address,
+        address: ride.start_address,
+        latitude: ride.start_latitude,
+        longitude: ride.start_longitude,
+        relevance_score: 1,
+        distance_km: 0,
+        country: 'Morocco',
+      });
+      setDropoffLocation({
+        display_name: ride.end_address,
+        address: ride.end_address,
+        latitude: ride.end_latitude,
+        longitude: ride.end_longitude,
+        relevance_score: 1,
+        distance_km: 0,
+        country: 'Morocco',
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, ride?.id]);
 
   const handleJoinRide = async () => {
     if (!ride) return;
@@ -346,6 +372,7 @@ export const JoinRideModal: React.FC<JoinRideModalProps> = ({
         }}
         title="Select Pickup Location"
         placeholder="Where should the driver pick you up?"
+        initialLocation={pickupLocation || undefined}
         useCurrentLocation={true}
         showHistory={true}
       />
@@ -359,7 +386,7 @@ export const JoinRideModal: React.FC<JoinRideModalProps> = ({
         }}
         title="Select Dropoff Location"
         placeholder="Where do you want to be dropped off?"
-        initialLocation={pickupLocation || undefined}
+        initialLocation={dropoffLocation || undefined}
         useCurrentLocation={false}
         showHistory={true}
       />

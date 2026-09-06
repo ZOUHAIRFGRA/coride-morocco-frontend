@@ -37,9 +37,16 @@ export default function RideDetailScreen() {
   }, [id]);
 
   const loadRideDetails = async () => {
+    const rideId = Number(id);
+    if (!Number.isFinite(rideId)) {
+      Alert.alert('Error', 'This ride link looks invalid.');
+      router.back();
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const response = await integratedRideService.api.getRideDetails(parseInt(id));
+      const response = await integratedRideService.api.getRideDetails(rideId);
       if (response.success && response.data) {
         setRide(response.data);
       } else {
@@ -201,9 +208,19 @@ export default function RideDetailScreen() {
   const departureDateTime = formatDateTime(ride.departure_time);
   const arrivalDateTime = ride.arrival_time_estimated ? formatDateTime(ride.arrival_time_estimated) : null;
 
-  const canStart = ride.status === 'matched';
-  const canComplete = ride.status === 'in_progress';
-  const canCancel = ride.status === 'offered' || ride.status === 'matched';
+  const isOwnerDriver = ride.driver_id === user?.id;
+  const isOwnRequest = ride.rider_id === user?.id && !isOwnerDriver;
+
+  // Start/complete are driver actions. Cancel is available to the driver who
+  // owns the ride, or to a rider cancelling their own not-yet-matched request —
+  // there's no backend support for a rider leaving just their own seat on an
+  // already-matched ride, so no cancel action is shown for that case.
+  const canStart = isOwnerDriver && ride.status === 'matched';
+  const canComplete = isOwnerDriver && ride.status === 'in_progress';
+  const canCancel = isOwnerDriver
+    ? (ride.status === 'offered' || ride.status === 'matched')
+    : (isOwnRequest && ride.status === 'requested');
+  const canTrack = ride.status === 'in_progress';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background.primary }]}>
@@ -543,6 +560,16 @@ export default function RideDetailScreen() {
 
         {/* Action Buttons */}
         <View style={styles.actionsContainer}>
+          {canTrack && !isOwnerDriver && (
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: colors.primary.dark, shadowColor: colors.shadow }]}
+              onPress={() => router.push(`/rides/${ride.id}/tracking`)}
+            >
+              <Ionicons name="navigate" size={20} color="#FFFFFF" />
+              <Text style={styles.actionButtonText}>Track Driver</Text>
+            </TouchableOpacity>
+          )}
+
           {canStart && (
             <TouchableOpacity
               style={[styles.actionButton, styles.primaryAction, { backgroundColor: colors.primary.dark, shadowColor: colors.shadow }]}

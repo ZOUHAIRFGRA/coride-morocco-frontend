@@ -32,7 +32,6 @@ export default function Profile() {
   // Use profile data or fallback to auth user
   const userProfile = profile || user;
   const isUserProfileError = !!userProfileError;
-  console.log("userProfile >>>>", userProfile);
 
   // Animation values
   const slideAnimation = useSharedValue(0); // 0 = profile view, 1 = edit view
@@ -53,9 +52,7 @@ export default function Profile() {
     }
   }, [userProfile]);
 
-  // Log the results for testing and clear error if we have valid profile data
   useEffect(() => {
-    // console.log("User Profile Data:", userProfile);
     if (isUserProfileError) {
       console.error("User Profile Error:", userProfileError);
       // Clear error if we actually have profile data from auth
@@ -194,31 +191,31 @@ export default function Profile() {
       icon: "search",
       text: "Find Rides",
       subtitle: "Search for available rides",
-      action: () => Alert.alert("Find Rides", "Coming soon! Search for available rides."),
+      action: () => router.push("/(main)"),
     },
     {
       icon: "car",
-      text: "Offer Ride", 
+      text: "Offer Ride",
       subtitle: "Post a ride offer",
-      action: () => Alert.alert("Offer Ride", "Coming soon! Post a ride offer."),
+      action: () => router.push("/offer"),
     },
     {
       icon: "list",
       text: "My Rides",
-      subtitle: "View your ride history", 
-      action: () => Alert.alert("My Rides", "Coming soon! View your ride history."),
+      subtitle: "View your ride history",
+      action: () => router.push("/(main)/rides"),
     },
     {
       icon: "chatbubbles",
       text: "Messages",
       subtitle: "Chat with other users",
-      action: () => Alert.alert("Messages", "Coming soon! Chat with other users."),
+      action: () => router.push("/messages"),
     },
     {
-      icon: "calendar", 
+      icon: "calendar",
       text: "Bookings",
       subtitle: "Manage your ride bookings",
-      action: () => Alert.alert("Bookings", "Coming soon! Manage your ride bookings."),
+      action: () => router.push("/(main)/rides"),
     },
     {
       icon: "notifications-outline",

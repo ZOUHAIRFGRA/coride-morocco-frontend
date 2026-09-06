@@ -9,6 +9,7 @@ import {
   ScrollView,
   Platform,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Stack } from "expo-router";
@@ -165,28 +166,31 @@ export default function SignInScreen() {
 
               {/* Social Buttons */}
               <View style={styles.socialContainer}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.socialButton}
                   activeOpacity={0.7}
                   disabled={isLoading}
+                  onPress={() => Alert.alert('Coming soon', 'Sign in with Google isn\'t available yet.')}
                 >
                   <Ionicons name="logo-google" size={24} color="#FFFFFF" />
                   <Text className="text-md text-white font-semiBold ml-2">Google</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.socialButton}
                   activeOpacity={0.7}
                   disabled={isLoading}
+                  onPress={() => Alert.alert('Coming soon', 'Sign in with Facebook isn\'t available yet.')}
                 >
                   <Ionicons name="logo-facebook" size={24} color="#FFFFFF" />
                   <Text className="text-md text-white font-semiBold ml-2">Facebook</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.socialButton}
                   activeOpacity={0.7}
                   disabled={isLoading}
+                  onPress={() => Alert.alert('Coming soon', 'Sign in with Apple isn\'t available yet.')}
                 >
                   <Ionicons name="logo-apple" size={24} color="#FFFFFF" />
                   <Text className="text-md text-white font-semiBold ml-2">Apple</Text>

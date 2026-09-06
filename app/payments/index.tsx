@@ -18,19 +18,21 @@ export default function PaymentsScreen() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchPayments();
   }, [activeTab]);
-  
+
   /**
    * Fetch payments based on active tab
    */
   const fetchPayments = async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       let response;
-      
+
       switch (activeTab) {
         case 'pending':
           response = await paymentApiService.getPendingPayments();
@@ -44,12 +46,17 @@ export default function PaymentsScreen() {
         default:
           response = await paymentApiService.getRecentPayments();
       }
-      
+
       if (response.success && response.data) {
         setPayments(response.data.payments);
+      } else {
+        setPayments([]);
+        setLoadError(response.error?.message || 'Failed to load payments');
       }
     } catch (error) {
       console.error('Failed to fetch payments:', error);
+      setPayments([]);
+      setLoadError('Failed to load payments');
     } finally {
       setLoading(false);
     }
@@ -81,6 +88,8 @@ export default function PaymentsScreen() {
               if (response.success) {
                 Alert.alert('Success', 'Payment confirmed');
                 fetchPayments();
+              } else {
+                Alert.alert('Error', response.error?.message || 'Failed to confirm payment');
               }
             } catch (error) {
               Alert.alert('Error', 'Failed to confirm payment');
@@ -92,10 +101,13 @@ export default function PaymentsScreen() {
   };
   
   /**
-   * Open dispute for a payment
+   * Report an issue with a payment — no dedicated dispute flow exists yet
    */
-  const handleOpenDispute = (payment: Payment) => {
-    router.push(`/payments/${payment.id}/dispute`);
+  const handleOpenDispute = (_payment: Payment) => {
+    Alert.alert(
+      'Report an issue',
+      'Payment disputes aren\'t handled in the app yet. Please contact support with this payment\'s reference number.'
+    );
   };
   
   return (
@@ -135,6 +147,14 @@ export default function PaymentsScreen() {
           {loading ? (
             <View className="items-center py-8">
               <ActivityIndicator size="large" />
+            </View>
+          ) : loadError ? (
+            <View className="items-center py-8">
+              <Ionicons name="alert-circle-outline" size={64} color="#ef4444" />
+              <Text className="text-md text-muted-foreground mt-4">{loadError}</Text>
+              <TouchableOpacity onPress={fetchPayments} className="mt-4">
+                <Text className="text-blue-500">Retry</Text>
+              </TouchableOpacity>
             </View>
           ) : payments.length === 0 ? (
             <View className="items-center py-8">
@@ -275,37 +295,25 @@ function PaymentCard({
           <Text className="text-sm text-muted-foreground">Method</Text>
           <Text className="text-sm text-foreground">{payment.payment_method}</Text>
         </View>
-        {payment.distance_km && (
-          <View className="flex-row justify-between py-1">
-            <Text className="text-sm text-muted-foreground">Distance</Text>
-            <Text className="text-sm text-foreground">{payment.distance_km.toFixed(1)} km</Text>
-          </View>
-        )}
-        {payment.driver_earnings && (
-          <View className="flex-row justify-between py-1">
-            <Text className="text-sm text-muted-foreground">Driver Earnings</Text>
-            <Text className="text-sm text-foreground">{payment.driver_earnings.toFixed(2)} MAD</Text>
-          </View>
-        )}
       </View>
-      
+
       {/* Confirmation Status */}
       {payment.status === 'pending' && (
         <View className="mb-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
           <Text className="text-xs text-yellow-700 dark:text-yellow-300">
             Waiting for confirmation
           </Text>
-          {!payment.driver_confirmed && (
+          {!payment.confirmed_by_driver && (
             <Text className="text-xs text-muted-foreground">• Driver confirmation pending</Text>
           )}
-          {!payment.rider_confirmed && (
+          {!payment.confirmed_by_rider && (
             <Text className="text-xs text-muted-foreground">• Your confirmation pending</Text>
           )}
         </View>
       )}
-      
+
       {/* Actions */}
-      {payment.status === 'pending' && !payment.rider_confirmed && (
+      {payment.status === 'pending' && !payment.confirmed_by_rider && (
         <View className="flex-row gap-2">
           <Button
             onPress={() => onConfirm(payment)}
