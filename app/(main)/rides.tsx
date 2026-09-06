@@ -131,9 +131,13 @@ export default function RidesScreen() {
   const renderRideCard = (ride: RideWithGeospatial, isOffered: boolean) => {
     const statusColor = getStatusColor(ride.status, colors);
     const statusIcon = getStatusIcon(ride.status);
-    const canCancel = isOffered && (ride.status === 'offered' || ride.status === 'matched');
-    const canStart = isOffered && ride.status === 'matched';
-    const canComplete = isOffered && ride.status === 'in_progress';
+    // Defense-in-depth: `offeredRides` should only ever contain the current
+    // driver's own rides (from a "current user" scoped endpoint), but gate on
+    // ownership explicitly anyway, matching app/rides/[id].tsx's permission check.
+    const isOwnerDriver = isOffered && ride.driver_id === user?.id;
+    const canCancel = isOwnerDriver && (ride.status === 'offered' || ride.status === 'matched');
+    const canStart = isOwnerDriver && ride.status === 'matched';
+    const canComplete = isOwnerDriver && ride.status === 'in_progress';
     const isOwnPendingRequest = !isOffered && ride.rider_id === user?.id && ride.status === 'requested';
 
     return (
