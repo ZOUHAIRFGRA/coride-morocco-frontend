@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { router } from 'expo-router';
@@ -8,6 +9,7 @@ import { useAuth } from '@/contexts/AppStateContext';
 import { useUser } from '@/hooks/useUserProfile';
 import CoRideSidebar from '@/components/CoRideSidebar';
 import { useAppTheme } from '@/hooks/useAppTheme';
+import { GRADIENTS } from '@/constants/theme';
 import LocationSearchModal from '@/components/modals/LocationSearchModal';
 import JoinRideModal from '@/components/modals/JoinRideModal';
 import { LocationSelectorRow } from '@/components/ui/LocationSelectorRow';
@@ -15,6 +17,11 @@ import { PassengerStepper } from '@/components/ui/PassengerStepper';
 import { integratedRideService } from '@/services/integratedRideService';
 import type { LocationSuggestion } from '@/types/geospatial';
 import type { SmartRideMatch } from '@/types/ride';
+
+const ROLE_ILLUSTRATIONS = {
+  RIDER: require('@assets/images/features/find_ride.png'),
+  DRIVER: require('@assets/images/features/offer_ride.png'),
+};
 
 export default function MainScreen() {
   const [sidebarVisible, setSidebarVisible] = useState(false);
@@ -136,54 +143,52 @@ export default function MainScreen() {
 
   return (
     <>
-      <SafeAreaView style={dynamicStyles.container}>
-        {/* Header */}
-        <View style={dynamicStyles.header}>
-          <View>
-            <Text style={dynamicStyles.welcomeText}>{getWelcomeMessage()}</Text>
-            <Text style={dynamicStyles.subtitle}>{getSubtitleMessage()}</Text>
-          </View>
-          <View style={dynamicStyles.headerRight}>
-            {/* Role Indicator */}
+      <SafeAreaView style={dynamicStyles.container} edges={['top']}>
+        {/* Gradient hero band */}
+        <LinearGradient
+          colors={colors.primary.gradient}
+          start={GRADIENTS.vertical.start}
+          end={GRADIENTS.vertical.end}
+          style={dynamicStyles.heroBand}
+        >
+          <View style={dynamicStyles.heroTopRow}>
             <View style={[
               dynamicStyles.roleIndicator,
-              { backgroundColor: userRole === 'DRIVER' ? colors.role.driver.bg : colors.role.rider.bg }
+              { backgroundColor: 'rgba(255,255,255,0.2)' }
             ]}>
-              <Ionicons
-                name={userRole === 'DRIVER' ? 'car' : 'person'}
-                size={16}
-                color={userRole === 'DRIVER' ? colors.role.driver.fg : colors.role.rider.fg}
-              />
-              <Text style={[
-                dynamicStyles.roleText,
-                { color: userRole === 'DRIVER' ? colors.role.driver.fg : colors.role.rider.fg }
-              ]}>
+              <Ionicons name={userRole === 'DRIVER' ? 'car' : 'person'} size={16} color="#FFFFFF" />
+              <Text style={[dynamicStyles.roleText, { color: '#FFFFFF' }]}>
                 {userRole === 'DRIVER' ? 'Driver' : 'Rider'}
               </Text>
             </View>
 
-            <TouchableOpacity 
-              style={dynamicStyles.menuButton}
+            <TouchableOpacity
+              style={[dynamicStyles.menuButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
               onPress={() => setSidebarVisible(true)}
             >
-              <Ionicons name="menu" size={wp(7)} color={colors.text.primary} />
+              <Ionicons name="menu" size={wp(7)} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-        </View>
+
+          <View style={dynamicStyles.heroTextRow}>
+            <View style={dynamicStyles.heroTextColumn}>
+              <Text style={dynamicStyles.welcomeText}>{getWelcomeMessage()}</Text>
+              <Text style={dynamicStyles.subtitle}>{getSubtitleMessage()}</Text>
+            </View>
+            <Image
+              source={ROLE_ILLUSTRATIONS[userRole === 'DRIVER' ? 'DRIVER' : 'RIDER']}
+              style={dynamicStyles.heroIllustration}
+              resizeMode="contain"
+            />
+          </View>
+        </LinearGradient>
 
         {/* Main Content */}
-        <View style={dynamicStyles.content}>
-          <View style={dynamicStyles.logoContainer}>
-            <View style={dynamicStyles.logoCircle}>
-              <Ionicons name="car" size={wp(10)} color="#FFFFFF" />
-            </View>
-            <Text style={dynamicStyles.title}>CoRide Morocco</Text>
-          </View>
-          
-          <Text style={dynamicStyles.description}>
-            Where would you like to go today?
-          </Text>
-
+        <ScrollView
+          style={dynamicStyles.contentScroll}
+          contentContainerStyle={dynamicStyles.content}
+          showsVerticalScrollIndicator={false}
+        >
           {/* Location Selection Section - Only for Riders */}
           {userRole === 'RIDER' && (
             <View style={dynamicStyles.searchSection}>
@@ -227,6 +232,28 @@ export default function MainScreen() {
               </TouchableOpacity>
             )}
           </View>
+          )}
+
+          {/* Empty state - Driver, no active offers to show here */}
+          {userRole === 'DRIVER' && (
+            <View style={dynamicStyles.driverEmptyState}>
+              <Image
+                source={require('@assets/images/features/route_map.png')}
+                style={dynamicStyles.driverEmptyIllustration}
+                resizeMode="contain"
+              />
+              <Text style={dynamicStyles.driverEmptyTitle}>Ready to offer a ride?</Text>
+              <Text style={dynamicStyles.driverEmptyText}>
+                Post your route and available seats — riders on your way will find you.
+              </Text>
+              <TouchableOpacity
+                style={dynamicStyles.driverEmptyButton}
+                onPress={() => router.push('/offer')}
+              >
+                <Ionicons name="add-circle" size={18} color="#FFFFFF" />
+                <Text style={dynamicStyles.driverEmptyButtonText}>Offer a Ride</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {/* Quick Actions - Role-based */}
@@ -420,7 +447,7 @@ export default function MainScreen() {
               </Text>
             </View>
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
 
       {/* Sidebar */}
@@ -473,31 +500,17 @@ const createStyles = (colors: any) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.primary,
   },
-  header: {
+  heroBand: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 28,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  heroTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
-    backgroundColor: colors.background.secondary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.primary,
-  },
-  welcomeText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text.primary,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.text.secondary,
-    marginTop: 2,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   roleIndicator: {
     flexDirection: 'row',
@@ -514,47 +527,84 @@ const createStyles = (colors: any) => StyleSheet.create({
   menuButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: colors.background.tertiary,
+  },
+  heroTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  heroTextColumn: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  welcomeText: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 4,
+  },
+  heroIllustration: {
+    width: wp(26),
+    height: wp(26),
+  },
+  contentScroll: {
+    flex: 1,
   },
   content: {
-    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
+    paddingBottom: 30,
     alignItems: 'center',
   },
-  logoContainer: {
+  driverEmptyState: {
+    width: '100%',
+    backgroundColor: colors.surface.primary,
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
     alignItems: 'center',
-    marginBottom: 24,
-  },
-  logoCircle: {
-    width: wp(18),
-    height: wp(18),
-    borderRadius: wp(9),
-    backgroundColor: colors.primary.dark,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: colors.primary.dark,
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     elevation: 4,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  driverEmptyIllustration: {
+    width: wp(40),
+    height: wp(30),
+    marginBottom: 16,
+  },
+  driverEmptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.text.primary,
+    marginBottom: 6,
     textAlign: 'center',
   },
-  description: {
-    fontSize: 18,
-    color: colors.text.primary,
+  driverEmptyText: {
+    fontSize: 14,
+    color: colors.text.secondary,
     textAlign: 'center',
-    fontWeight: '500',
-    marginBottom: 30,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  driverEmptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary.dark,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    gap: 8,
+  },
+  driverEmptyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
   searchSection: {
     width: '100%',
@@ -570,21 +620,6 @@ const createStyles = (colors: any) => StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-  },
-  locationInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.tertiary,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border.primary,
-  },
-  locationPlaceholder: {
-    flex: 1,
-    fontSize: 16,
-    marginLeft: 12,
   },
   searchButton: {
     flexDirection: 'row',
@@ -707,47 +742,12 @@ const createStyles = (colors: any) => StyleSheet.create({
     textTransform: 'uppercase',
     fontWeight: '500',
   },
-  locationTextContainer: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  locationName: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  locationAddress: {
-    fontSize: 14,
-  },
   passengerSection: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 16,
     marginBottom: 8,
-  },
-  passengerLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  passengerControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  passengerButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  passengerCount: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginHorizontal: 16,
-    minWidth: 24,
-    textAlign: 'center',
   },
   routesSection: {
     width: '100%',
