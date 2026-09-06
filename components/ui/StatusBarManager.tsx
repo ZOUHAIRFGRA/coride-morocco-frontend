@@ -14,7 +14,7 @@ type StatusBarCustomProps = ExpoStatusBarProps & {
  * This can be included in the layout file or individual screens
  */
 const StatusBarManagerComponent: React.FC<StatusBarCustomProps> = (props) => {
-  const { children, ...statusBarProps } = props;
+  const { children } = props;
   const insets = useSafeAreaInsets();
 
   // Ensure status bar shows up on Android
@@ -22,7 +22,7 @@ const StatusBarManagerComponent: React.FC<StatusBarCustomProps> = (props) => {
   if (children) {
     return (
       <View style={styles.container}>
-        <StatusBar style="auto" backgroundColor="white" />
+        <StatusBar style="auto" />
         {Platform.OS === "ios" ? (
           <KeyboardAvoidingView style={styles.container} behavior="padding" keyboardVerticalOffset={insets.top}>
             {children}
@@ -34,7 +34,7 @@ const StatusBarManagerComponent: React.FC<StatusBarCustomProps> = (props) => {
     );
   }
 
-  return <StatusBar style="auto" backgroundColor="white" />;
+  return <StatusBar style="auto" />;
 };
 
 const styles = StyleSheet.create({

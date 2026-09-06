@@ -123,10 +123,8 @@ function RootLayoutNav() {
   // Main render
   return (
     <View style={styles.container}>
-      <StatusBarManagerComponent 
-        style={Platform.OS === "ios" ? "dark" : "light"} 
-        backgroundColor={Platform.OS === "ios" ? "transparent" : undefined} 
-        translucent={true} 
+      <StatusBarManagerComponent
+        style={Platform.OS === "ios" ? "dark" : "light"}
       />
       <AuthStateCheck />
       <Stack
