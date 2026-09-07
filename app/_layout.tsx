@@ -1,3 +1,4 @@
+import "../polyfills";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useEffect, useState } from "react";
 import { useColorScheme, Platform, StatusBar, View, StyleSheet } from "react-native";
@@ -5,6 +6,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import StatusBarManagerComponent from "@/components/ui/StatusBarManager";
 import { UIProvider } from "@/contexts/UIContext";
+import { RideDraftProvider } from "@/contexts/RideDraftContext";
 import { AppStateProvider } from "@/contexts/AppStateContext";
 import { useAuth } from "@/contexts/AppStateContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -122,10 +124,8 @@ function RootLayoutNav() {
   // Main render
   return (
     <View style={styles.container}>
-      <StatusBarManagerComponent 
-        style={Platform.OS === "ios" ? "dark" : "light"} 
-        backgroundColor={Platform.OS === "ios" ? "transparent" : undefined} 
-        translucent={true} 
+      <StatusBarManagerComponent
+        style={Platform.OS === "ios" ? "dark" : "light"}
       />
       <AuthStateCheck />
       <Stack
@@ -164,9 +164,11 @@ export default function RootLayout() {
           <AppStateProvider>
             <SafeAreaProvider>
                 <UIProvider>
-                  <AppInitializer>
-                    <RootLayoutNav />
-                  </AppInitializer>
+                  <RideDraftProvider>
+                    <AppInitializer>
+                      <RootLayoutNav />
+                    </AppInitializer>
+                  </RideDraftProvider>
                 </UIProvider>
             </SafeAreaProvider>
           </AppStateProvider>

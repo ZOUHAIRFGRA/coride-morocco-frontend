@@ -17,23 +17,40 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import LocationSearchModal from '@/components/modals/LocationSearchModal';
+import { useLocation } from '@/contexts/AppStateContext';
+import { useRideDraft } from '@/contexts/RideDraftContext';
+import LocationPickerModal from '@/components/modals/LocationPickerModal';
+import { SimpleDatePicker } from '@/components/ui/SimpleDatePicker';
+import { SimpleTimePicker } from '@/components/ui/SimpleTimePicker';
 import { integratedRideService } from '@/services/integratedRideService';
+import { MAX_COST_PER_PERSON } from '@/types/ride';
 import type { LocationSuggestion } from '@/types/geospatial';
 
 export default function OfferRideScreen() {
   const { colors } = useAppTheme();
-  
-  // Location state
-  const [startLocation, setStartLocation] = useState<LocationSuggestion | null>(null);
-  const [endLocation, setEndLocation] = useState<LocationSuggestion | null>(null);
+
+  // Location state (shared draft — persists across Home/Request/Offer)
+  const { pickup: startLocation, destination: endLocation, setPickup: setStartLocation, setDestination: setEndLocation, clearDraft } = useRideDraft();
+  const { cachedLocation, refreshLocation } = useLocation();
   const [showStartLocationModal, setShowStartLocationModal] = useState(false);
   const [showEndLocationModal, setShowEndLocationModal] = useState(false);
   
   // Ride details state
-  const [departureTime, setDepartureTime] = useState(new Date(Date.now() + 2 * 60 * 60 * 1000)); // 2 hours from now
+  const initialDeparture = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours from now
+  const [departureDate, setDepartureDate] = useState(() => {
+    const y = initialDeparture.getFullYear();
+    const m = String(initialDeparture.getMonth() + 1).padStart(2, '0');
+    const d = String(initialDeparture.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  });
+  const [departureTimeStr, setDepartureTimeStr] = useState(() => {
+    const h = String(initialDeparture.getHours()).padStart(2, '0');
+    const min = String(initialDeparture.getMinutes()).padStart(2, '0');
+    return `${h}:${min}`;
+  });
   const [availableSeats, setAvailableSeats] = useState(3);
   const [costPerPerson, setCostPerPerson] = useState(50);
+  const [hasManualPrice, setHasManualPrice] = useState(false);
   const [notes, setNotes] = useState('');
   const [vehicleInfo, setVehicleInfo] = useState('');
   
@@ -48,6 +65,15 @@ export default function OfferRideScreen() {
   const [routeInsights, setRouteInsights] = useState<any>(null);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
+  const todayString = (() => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  })();
+  const isDepartureDateToday = departureDate === todayString;
+
   // Get route insights when both locations are selected
   useEffect(() => {
     if (startLocation && endLocation) {
@@ -55,15 +81,38 @@ export default function OfferRideScreen() {
     }
   }, [startLocation, endLocation]);
 
+  // Default pickup to the user's current location, like Uber/InDrive, unless
+  // something has already been picked (persisted via the shared ride draft).
+  useEffect(() => {
+    if (startLocation) return;
+    if (cachedLocation) {
+      setStartLocation({
+        display_name: cachedLocation.address,
+        address: cachedLocation.address,
+        latitude: cachedLocation.latitude,
+        longitude: cachedLocation.longitude,
+        relevance_score: 1.0,
+        distance_km: 0,
+        country: 'Morocco',
+      });
+    } else {
+      refreshLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cachedLocation]);
+
   const loadRouteInsights = async () => {
     if (!startLocation || !endLocation) return;
 
     try {
       const insights = await integratedRideService.getRouteInsights(startLocation, endLocation);
       setRouteInsights(insights);
-      
-      // Suggest optimal cost based on insights
-      setCostPerPerson(insights.costSuggestion.recommended);
+
+      // Suggest optimal cost based on insights — but never clobber a price
+      // the driver has already typed in themselves.
+      if (!hasManualPrice) {
+        setCostPerPerson(insights.costSuggestion.recommended);
+      }
     } catch (error) {
       console.error('Error loading route insights:', error);
     }
@@ -75,6 +124,11 @@ export default function OfferRideScreen() {
       return;
     }
 
+    if (!departureDate || !departureTimeStr) {
+      Alert.alert('Missing Information', 'Please specify your departure date and time.');
+      return;
+    }
+
     if (availableSeats < 1 || availableSeats > 8) {
       Alert.alert('Invalid Seats', 'Available seats must be between 1 and 8.');
       return;
@@ -82,6 +136,12 @@ export default function OfferRideScreen() {
 
     if (costPerPerson <= 0) {
       Alert.alert('Invalid Price', 'Cost per person must be greater than 0.');
+      return;
+    }
+
+    const departureTime = new Date(`${departureDate}T${departureTimeStr}`);
+    if (departureTime < new Date()) {
+      Alert.alert('Invalid Date', 'Departure time must be in the future.');
       return;
     }
 
@@ -105,6 +165,14 @@ export default function OfferRideScreen() {
       });
 
       if (rideResponse.success && rideResponse.data) {
+        // Reset form — unconditionally, so a stale pickup/destination doesn't
+        // leak into Home's rider search or Request Ride regardless of which
+        // button below is tapped.
+        clearDraft();
+        setNotes('');
+        setVehicleInfo('');
+        setHasManualPrice(false);
+
         Alert.alert(
           'Ride Offer Created!',
           'Your ride offer has been created successfully. Riders can now find and join your ride.',
@@ -115,13 +183,7 @@ export default function OfferRideScreen() {
             },
             {
               text: 'Create Another',
-              onPress: () => {
-                // Reset form
-                setStartLocation(null);
-                setEndLocation(null);
-                setNotes('');
-                setVehicleInfo('');
-              }
+              style: 'cancel'
             }
           ]
         );
@@ -139,20 +201,11 @@ export default function OfferRideScreen() {
     setIsLoading(false);
   };
 
-  const formatTime = (time: Date): string => {
-    return time.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric'
-    });
+  const handleSwapLocations = () => {
+    if (!startLocation && !endLocation) return;
+    const prevStart = startLocation;
+    setStartLocation(endLocation);
+    setEndLocation(prevStart);
   };
 
   const renderLocationSelector = (
@@ -221,9 +274,12 @@ export default function OfferRideScreen() {
           
           <View style={styles.routeSeparator}>
             <View style={[styles.separatorLine, { backgroundColor: colors.border.primary }]} />
-            <View style={[styles.swapButton, { backgroundColor: colors.background.primary }]}>
+            <TouchableOpacity
+              style={[styles.swapButton, { backgroundColor: colors.background.primary }]}
+              onPress={handleSwapLocations}
+            >
               <Ionicons name="swap-vertical" size={16} color={colors.primary.dark} />
-            </View>
+            </TouchableOpacity>
           </View>
           
           {renderLocationSelector(
@@ -257,21 +313,27 @@ export default function OfferRideScreen() {
           <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>
             Departure Time
           </Text>
-          
-          <View style={[styles.timeSelector, { backgroundColor: colors.background.tertiary }]}>
-            <Ionicons name="time-outline" size={20} color={colors.primary.dark} />
-            <View style={styles.timeContent}>
-              <Text style={[styles.timeDate, { color: colors.text.primary }]}>
-                {formatDate(departureTime)}
-              </Text>
-              <Text style={[styles.timeTime, { color: colors.text.secondary }]}>
-                {formatTime(departureTime)}
-              </Text>
-            </View>
-            <TouchableOpacity>
-              <Ionicons name="create-outline" size={16} color={colors.text.tertiary} />
-            </TouchableOpacity>
-          </View>
+
+          <Text style={[styles.detailLabel, { color: colors.text.secondary, marginBottom: 8 }]}>
+            Date *
+          </Text>
+          <SimpleDatePicker
+            value={departureDate}
+            onChange={setDepartureDate}
+            placeholder="Select departure date"
+            minimumDate={new Date()}
+          />
+
+          <Text style={[styles.detailLabel, { color: colors.text.secondary, marginTop: 16, marginBottom: 8 }]}>
+            Time *
+          </Text>
+          <SimpleTimePicker
+            value={departureTimeStr}
+            onChange={setDepartureTimeStr}
+            placeholder="Select departure time"
+            selectedDate={departureDate ? new Date(`${departureDate}T00:00:00`) : new Date()}
+            minimumDateTime={isDepartureDateToday ? new Date() : undefined}
+          />
         </View>
 
         {/* Ride Details Section */}
@@ -326,7 +388,8 @@ export default function OfferRideScreen() {
                 value={costPerPerson.toString()}
                 onChangeText={(text) => {
                   const price = parseInt(text) || 0;
-                  setCostPerPerson(Math.max(0, price));
+                  setHasManualPrice(true);
+                  setCostPerPerson(Math.min(Math.max(0, price), MAX_COST_PER_PERSON));
                 }}
                 keyboardType="numeric"
                 placeholder="0"
@@ -414,6 +477,37 @@ export default function OfferRideScreen() {
                 />
               </View>
 
+              {/* Music Preference */}
+              <View style={styles.inputGroup}>
+                <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
+                  Music Preference
+                </Text>
+                <View style={styles.musicChipRow}>
+                  {(['any', 'pop', 'rock', 'quiet'] as const).map((option) => (
+                    <TouchableOpacity
+                      key={option}
+                      style={[
+                        styles.musicChip,
+                        {
+                          backgroundColor: musicPreference === option ? colors.primary.dark : colors.background.tertiary,
+                          borderColor: colors.border.primary,
+                        }
+                      ]}
+                      onPress={() => setMusicPreference(option)}
+                    >
+                      <Text style={{
+                        color: musicPreference === option ? '#FFFFFF' : colors.text.secondary,
+                        fontSize: 13,
+                        fontWeight: '600',
+                        textTransform: 'capitalize',
+                      }}>
+                        {option}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
               {/* Notes Input */}
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>
@@ -478,28 +572,26 @@ export default function OfferRideScreen() {
       </ScrollView>
 
       {/* Location Selection Modals */}
-      <LocationSearchModal
+      <LocationPickerModal
         visible={showStartLocationModal}
         onClose={() => setShowStartLocationModal(false)}
         onLocationSelect={setStartLocation}
         title="Select Pickup Location"
         placeholder="Where will you start your journey?"
+        initialLocation={startLocation || undefined}
+        useCurrentLocation={true}
         showHistory={true}
-        showNearbyPlaces={true}
       />
 
-      <LocationSearchModal
+      <LocationPickerModal
         visible={showEndLocationModal}
         onClose={() => setShowEndLocationModal(false)}
         onLocationSelect={setEndLocation}
         title="Select Destination"
         placeholder="Where are you going?"
-        currentLocation={startLocation ? {
-          latitude: startLocation.latitude,
-          longitude: startLocation.longitude
-        } : undefined}
+        initialLocation={endLocation || undefined}
+        useCurrentLocation={false}
         showHistory={true}
-        showNearbyPlaces={false}
       />
     </SafeAreaView>
   );
@@ -596,24 +688,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginLeft: 8,
   },
-  timeSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 16,
-  },
-  timeContent: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  timeDate: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  timeTime: {
-    fontSize: 14,
-    marginTop: 2,
-  },
   detailRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -699,6 +773,16 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     marginBottom: 8,
+  },
+  musicChipRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  musicChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
   },
   textInput: {
     borderWidth: 1,

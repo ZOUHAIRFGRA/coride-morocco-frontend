@@ -1,7 +1,7 @@
 // Tribes API Service
 // Handles all API calls related to Trajectory Tribes
 
-import { BaseApiService } from './BaseApiService';
+import { BaseApiService, defaultApiConfig } from './BaseApiService';
 import type {
   Tribe,
   TribeListResponse,
@@ -23,6 +23,10 @@ import type {
 import type { ApiResponse } from './BaseApiService';
 
 class TribesApiService extends BaseApiService {
+  constructor() {
+    super(defaultApiConfig);
+  }
+
   /**
    * Search and discover tribes
    */
@@ -190,17 +194,8 @@ class TribesApiService extends BaseApiService {
   }
 }
 
-// Default API configuration
-const defaultConfig = {
-  baseUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000/api',
-  timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-};
-
 // Export singleton instance
-export const tribesApiService = new TribesApiService(defaultConfig);
+export const tribesApiService = new TribesApiService();
 
 // Export class for testing or custom instances
 export { TribesApiService };

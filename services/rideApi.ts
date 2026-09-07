@@ -123,7 +123,7 @@ class RideApiService extends BaseApiService {
       end_latitude: requestData.end_latitude,
       end_longitude: requestData.end_longitude,
       departure_time: requestData.departure_time,
-      flexible_time_minutes: Math.min(Math.max(requestData.flexible_time_minutes || 30, 0), 180),
+      flexible_time_minutes: Math.min(Math.max(requestData.flexible_time_minutes ?? 30, 0), 180),
       max_cost_per_person: Math.max(requestData.max_cost_per_person, 0),
       notes: requestData.notes || null
     };

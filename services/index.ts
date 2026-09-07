@@ -10,6 +10,8 @@ import { authService } from './auth';
 import { ridesApiService } from './ridesApi';
 import { userApiService } from './userApi';
 import { tribesApiService } from './tribesApi';
+import { paymentApiService } from './paymentApi';
+import { liveTrackingApiService } from './liveTrackingApi';
 
 export type {
     PasswordChangeRequest, TokenResponse, UserLoginRequest, UserRegistrationRequest, UserResponse
@@ -48,6 +50,24 @@ export type {
 export { tribeWebSocketService } from './tribeWebSocket';
 export type { TribeWebSocketCallbacks } from './tribeWebSocket';
 
+// Payment API service (Phase 7: Payments & Cost Management)
+export { paymentApiService, PaymentApiService } from './paymentApi';
+export type {
+  CostEstimateRequest, CostEstimateResponse, Payment, CreatePaymentRequest,
+  ConfirmPaymentRequest, PaymentListResponse, PaymentDispute, CreateDisputeRequest,
+  DisputeListResponse, PaymentHistory, SavingsCalculation, FuelPrice,
+  PaymentStatus, PaymentMethod, DisputeStatus, DisputeType, PricingTier
+} from '../types/payment';
+
+// Live Tracking API service (Phase 8: Real-time Features)
+export { liveTrackingApiService, LiveTrackingApiService } from './liveTrackingApi';
+export type {
+  LiveLocation, UpdateLocationRequest, RideTracking, UpdateRideTrackingRequest,
+  EmergencyAlert, CreateEmergencyAlertRequest, EmergencyAlertListResponse,
+  RideNotification, NotificationListResponse, LocationUpdateType, RideTrackingStatus,
+  EmergencyType, EmergencyStatus, NotificationPriority
+} from '../types/liveTracking';
+
 // Service configuration helpers
 export const configureServices = (config: {
   baseUrl?: string;
@@ -59,6 +79,8 @@ export const configureServices = (config: {
   ridesApiService.updateConfig(config);
   userApiService.updateConfig(config);
   tribesApiService.updateConfig(config);
+  paymentApiService.updateConfig(config);
+  liveTrackingApiService.updateConfig(config);
 };
 
 // Service status checker

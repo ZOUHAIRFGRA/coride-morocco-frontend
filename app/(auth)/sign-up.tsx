@@ -46,7 +46,7 @@ export default function SignUpScreen() {
   });
   const router = useRouter();
   const params = useLocalSearchParams();
-  const slideFromRight = params.slideFromRight === "true";
+  const slideUp = params.slideUp === "true";
   const slideRightAnim = useRef(new Animated.Value(Dimensions.get("window").width)).current;
 
   // Handle back button press
@@ -65,7 +65,7 @@ export default function SignUpScreen() {
   useEffect(() => {
     const windowWidth = Dimensions.get("window").width;
     
-    if (slideFromRight) {
+    if (slideUp) {
       slideRightAnim.setValue(isNaN(windowWidth) ? 400 : windowWidth);
       Animated.timing(slideRightAnim, {
         toValue: 0,
@@ -75,7 +75,7 @@ export default function SignUpScreen() {
     } else {
       slideRightAnim.setValue(0);
     }
-  }, [slideFromRight, slideRightAnim]);
+  }, [slideUp, slideRightAnim]);
 
   // Client-side validation functions
   const validateEmail = (email: string): boolean => {

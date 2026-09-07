@@ -5,7 +5,7 @@ import { BaseApiService, ApiResponse, defaultApiConfig } from './BaseApiService'
 import { authService } from './auth';
 
 export interface UserRoleInfo {
-  current_role: 'rider' | 'driver' | 'admin';
+  current_role: 'RIDER' | 'DRIVER' | 'ADMIN';
   can_drive: boolean;
   driver_license_verified: boolean;
   identity_verified: boolean;
@@ -14,7 +14,7 @@ export interface UserRoleInfo {
 
 export interface RoleSwitchResponse {
   message: string;
-  new_role: 'rider' | 'driver';
+  new_role: 'RIDER' | 'DRIVER';
   can_drive: boolean;
   driver_license_verified: boolean;
 }
@@ -65,23 +65,25 @@ class UserRoleApiService extends BaseApiService {
 
   /**
    * Switch user role between rider and driver
-   * @param role - The role to switch to ('rider' or 'driver')
+   * @param role - The role to switch to ('RIDER' or 'DRIVER')
    */
-  async switchRole(role: 'rider' | 'driver'): Promise<ApiResponse<RoleSwitchResponse>> {
+  async switchRole(role: 'RIDER' | 'DRIVER'): Promise<ApiResponse<RoleSwitchResponse>> {
     try {
       // Validate role parameter
-      if (!['rider', 'driver'].includes(role)) {
+      if (!['RIDER', 'DRIVER'].includes(role)) {
         return {
           success: false,
           error: {
-            message: "Can only switch between 'rider' and 'driver' roles",
+            message: "Can only switch between 'RIDER' and 'DRIVER' roles",
             code: '400',
             statusCode: 400
           }
         };
       }
 
-      const response = await this.put<RoleSwitchResponse>('/users/role', role);
+      const response = await this.put<RoleSwitchResponse>('/users/role', {
+        new_role: role
+      });
       
       return response;
     } catch (error: any) {

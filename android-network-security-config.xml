@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+  Android Network Security Configuration
+  Place this file in android/app/src/main/res/xml/network_security_config.xml
+  Then reference it in AndroidManifest.xml:
+  <application android:networkSecurityConfig="@xml/network_security_config">
+-->
+<network-security-config>
+    <!-- Trust system and user certificates -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+    
+    <!-- Allow cleartext and self-signed certificates for development server -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">79.72.60.38</domain>
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain> <!-- Android emulator -->
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

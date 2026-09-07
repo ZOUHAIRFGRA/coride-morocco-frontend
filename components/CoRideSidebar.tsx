@@ -1,23 +1,25 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, Alert, Switch, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, Alert, ActivityIndicator, StyleSheet, Dimensions, Pressable, ScrollView, Platform } from "react-native";
 import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { widthPercentageToDP as wp } from "react-native-responsive-screen";
-import { COLORS } from "@/constants/theme";
 import { useRouter, usePathname } from "expo-router";
 import { useAuth } from "@/contexts/AppStateContext";
 import { useUser } from "@/hooks/useUserProfile";
 import { userRoleApiService } from "@/services/userRoleApi";
-import type { UserRoleInfo } from "@/types/user";
-import {
-  Drawer,
-  DrawerBackdrop,
-  DrawerContent,
-  DrawerHeader,
-  DrawerBody,
-  DrawerFooter,
-} from "@/components/ui/drawer";
+import type { UserRoleInfo } from "@/services/userRoleApi";
 import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from "react-native-reanimated";
+import { useAppTheme } from "@/hooks/useAppTheme";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+// Use 80% of screen width, but cap at 320dp to follow platform guidelines
+// This ensures appropriate sizing on phones while preventing full-screen on tablets
+const DRAWER_WIDTH = Math.min(SCREEN_WIDTH * 0.8, 320);
 
 export type CoRideSidebarProps = {
   isVisible: boolean;
@@ -29,10 +31,16 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
   isVisible,
   onClose,
 }) => {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const router = useRouter();
   const pathname = usePathname();
   const { logout, user } = useAuth();
   const [imageError, setImageError] = useState(false);
+  
+  // Reanimated values
+  const translateX = useSharedValue(DRAWER_WIDTH);
+  const backdropOpacity = useSharedValue(0);
   
   // Role management state
   const [roleInfo, setRoleInfo] = useState<UserRoleInfo | null>(null);
@@ -45,6 +53,27 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
   // Use profile data or fallback to auth user
   const userData = profile || user;
 
+  useEffect(() => {
+    if (isVisible) {
+      // Animate in
+      translateX.value = withTiming(0, { duration: 300 });
+      backdropOpacity.value = withTiming(1, { duration: 300 });
+    } else {
+      // Animate out
+      translateX.value = withTiming(DRAWER_WIDTH, { duration: 250 });
+      backdropOpacity.value = withTiming(0, { duration: 250 });
+    }
+  }, [isVisible]);
+
+  // Animated styles
+  const drawerStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+
   // Load user role info on sidebar open
   useEffect(() => {
     if (isVisible) {
@@ -55,20 +84,41 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
   const loadUserRoleInfo = async () => {
     try {
       const response = await userRoleApiService.getUserRole();
-      console.log('Loaded role info:', response);
       if (response.success && response.data) {
         setRoleInfo(response.data);
-        console.log('setShowRoleSwitcher', response.data.available_roles.length >= 1);
-        setShowRoleSwitcher(response.data.available_roles.length >= 1);
-        console.log('Role Info:', roleInfo);
+        setShowRoleSwitcher(response.data.available_roles.length >= 2);
       }
     } catch (error) {
       console.error('Error loading role info:', error);
     }
   };
 
-  const handleRoleSwitch = async (newRole: 'rider' | 'driver') => {
-    if (isRoleSwitching || !roleInfo || newRole === roleInfo.current_role) {
+  const handleRoleSwitch = async (newRole: 'RIDER' | 'DRIVER') => {
+    // Prevent multiple simultaneous switches
+    if (isRoleSwitching || !roleInfo) {
+      return;
+    }
+
+    // Prevent switching to same role
+    if (newRole === roleInfo.current_role) {
+      return;
+    }
+
+    // Prevent switching to DRIVER if not eligible
+    if (newRole === 'DRIVER' && !roleInfo.can_drive) {
+      Alert.alert(
+        'Cannot Switch to Driver',
+        'You need to complete DRIVER verification first:\n\n• Verified identity document\n• Valid DRIVER\'s license\n• License verification approval\n\nTap "Verify Now" to start the verification process.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { 
+            text: 'Verify Now', 
+            onPress: () => {
+              handleNavigation('/settings/verification');
+            }
+          }
+        ]
+      );
       return;
     }
 
@@ -89,7 +139,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
 
         Alert.alert(
           'Role Switched',
-          `You are now a ${newRole}. ${newRole === 'driver' ? 'You can now offer rides to passengers.' : 'You can now search and book rides.'}`,
+          `You are now a ${newRole}. ${newRole === 'DRIVER' ? 'You can now offer rides to passengers.' : 'You can now search and book rides.'}`,
           [{ text: 'OK' }]
         );
       } else {
@@ -142,19 +192,19 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
     if (!role) return null;
 
     const roleConfig = {
-      driver: { icon: "car", color: "#10B981", label: "Driver" },
-      rider: { icon: "person", color: "#3B82F6", label: "Rider" },
-      admin: { icon: "shield-checkmark", color: "#F59E0B", label: "Admin" },
-      moderator: { icon: "settings", color: "#8B5CF6", label: "Moderator" }
+      DRIVER: { icon: "car", ...colors.role.driver, label: "Driver" },
+      RIDER: { icon: "person", ...colors.role.rider, label: "Rider" },
+      admin: { icon: "shield-checkmark", ...colors.role.admin, label: "Admin" },
+      moderator: { icon: "settings", ...colors.role.moderator, label: "Moderator" }
     };
 
     const config = roleConfig[role as keyof typeof roleConfig];
     if (!config) return null;
 
     return (
-      <View className="flex-row items-center justify-center px-2 py-1 rounded-lg mt-2 self-center" style={{ backgroundColor: `${config.color}15` }}>
-        <Ionicons name={config.icon as any} size={wp(3)} color={config.color} />
-        <Text className="text-sm font-semiBold ml-1" style={{ color: config.color }}>
+      <View className="flex-row items-center justify-center px-2 py-1 rounded-lg mt-2 self-center" style={{ backgroundColor: config.bg }}>
+        <Ionicons name={config.icon as any} size={wp(3)} color={config.fg} />
+        <Text className="text-sm font-semiBold ml-1" style={{ color: config.fg }}>
           {config.label}
         </Text>
       </View>
@@ -187,108 +237,100 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
       onClose();
     }
   };
-  console.log({showRoleSwitcher, roleInfo})
+  if (!isVisible) return null;
 
   return (
-    <Drawer
-      isOpen={isVisible}
-      onClose={() => {
-        onClose();
-      }}
-      size="md"
-      anchor="right"
-    >
-      <DrawerBackdrop />
-      <DrawerContent className="px-3">
-        <SafeAreaView className="flex-1">
-          <DrawerHeader>
-            <View className="items-center w-full ">
+    <View style={styles.container}>
+      {/* Backdrop */}
+      <Animated.View style={[styles.backdrop, backdropStyle]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      </Animated.View>
+
+      {/* Drawer */}
+      <Animated.View style={[styles.drawer, { backgroundColor: colors.background.primary, height: Platform.OS === 'android' ? '100%' : SCREEN_HEIGHT }, drawerStyle]}>
+        <SafeAreaView style={[styles.safeArea, Platform.OS === 'android' && { flex: 1 }]} edges={Platform.OS === 'android' ? ['top'] : undefined}>
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            {/* Header */}
+            <View style={styles.header}>
               <TouchableOpacity
-                className="w-16 h-16 rounded-full bg-primary-oceanBlue100/10 justify-center items-center mb-4 relative border-2 border-primary-oceanBlue100"
+                style={styles.profileImageContainer}
                 onPress={() => handleNavigation("/profile/profile")}
               >
                 {!imageError ? (
                   <Image
                     source={{ uri: getProfileImageUrl() }}
-                    style={{ width: 64, height: 64, borderRadius: 32 }}                    contentFit="cover"
+                    style={styles.profileImage}
+                    contentFit="cover"
                     transition={200}
                     cachePolicy="memory-disk"
-                    onError={() => setImageError(true)} // 👈 force fallback
+                    onError={() => setImageError(true)}
                   />
                 ) : (
                   <Image
-                    source={require("@assets/images/mix/user.jpg")} // 👈 local fallback
-                    style={{ width: 64, height: 64, borderRadius: 32 }}
+                    source={require("@assets/images/mix/user.jpg")}
+                    style={styles.profileImage}
                     contentFit="cover"
                   />
                 )}
-                <View className="absolute bottom-0 right-0 bg-primary-oceanBlue700 w-5 h-5 rounded-full justify-center items-center border-2 border-white">
+                <View style={styles.profileBadge}>
                   <Ionicons name="person" size={wp(3)} color="#FFFFFF" />
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() => handleNavigation("/profile/profile")}
-              >
-                <Text className="text-lg font-semiBold text-[#333] my-2 text-center">
-                  {getFormattedName()}
-                </Text>
+              <TouchableOpacity onPress={() => handleNavigation("/profile/profile")}>
+                <Text style={styles.userName}>{getFormattedName()}</Text>
                 {userData?.phone && (
-                  <Text className="text-md font-medium text-primary-oceanBlue700 text-center mt-1">
-                    {userData.phone}
-                  </Text>
+                  <Text style={styles.userPhone}>{userData.phone}</Text>
                 )}
-                <Text className="text-sm font-regular text-black/60 text-center mt-1">
-                  {userData?.email || "No email"}
-                </Text>
+                <Text style={styles.userEmail}>{userData?.email || "No email"}</Text>
 
                 {/* Current Role Badge (when no switching available) */}
                 {!showRoleSwitcher && getUserRoleBadge()}
 
                 {/* Verification Status */}
                 {userData?.is_verified && (
-                  <View className="flex-row items-center justify-center bg-emerald-500/15 px-2 py-1 rounded-lg mt-2 self-center">
+                  <View style={styles.verifiedBadge}>
                     <Ionicons name="checkmark-circle" size={wp(3)} color="#10B981" />
-                    <Text className="text-sm font-semiBold text-emerald-600 ml-1">
-                      Verified
-                    </Text>
+                    <Text style={styles.verifiedText}>Verified</Text>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* Role Switcher - Outside of profile TouchableOpacity */}
+              {/* Role Switcher */}
               {showRoleSwitcher && roleInfo && (
-                <View className="mt-4 w-full">
-                  <Text className="text-xs font-medium text-gray-500 text-center mb-3 uppercase">
+                <View style={styles.roleSwitcherContainer}>
+                  <Text style={styles.roleSwitcherTitle}>
                     Switch Mode
                   </Text>
                   
-                  <View className="flex-row bg-gray-100 rounded-lg p-1">
+                  <View style={styles.roleSwitcherButtons}>
                     {/* Rider Mode */}
                     <TouchableOpacity
-                      className={`flex-1 flex-row items-center justify-center py-2 px-3 rounded-md ${
-                        roleInfo.current_role === 'rider' ? 'bg-white shadow-sm' : ''
-                      }`}
+                      style={[
+                        styles.roleButton,
+                        roleInfo.current_role === 'RIDER' && styles.roleButtonActive
+                      ]}
                       onPress={(e) => {
                         e.stopPropagation();
-                        handleRoleSwitch('rider');
+                        handleRoleSwitch('RIDER');
                       }}
-                      disabled={isRoleSwitching || roleInfo.current_role === 'rider'}
+                      disabled={isRoleSwitching || roleInfo.current_role === 'RIDER'}
                       activeOpacity={0.7}
                     >
-                      {isRoleSwitching && roleInfo.current_role !== 'rider' ? (
+                      {isRoleSwitching && roleInfo.current_role !== 'RIDER' ? (
                         <ActivityIndicator size="small" color="#3B82F6" />
                       ) : (
                         <>
                           <Ionicons 
                             name="person" 
                             size={14} 
-                            color={roleInfo.current_role === 'rider' ? '#3B82F6' : '#6B7280'} 
+                            color={roleInfo.current_role === 'RIDER' ? '#3B82F6' : '#6B7280'} 
                           />
                           <Text 
-                            className={`text-xs font-medium ml-1 ${
-                              roleInfo.current_role === 'rider' ? 'text-blue-600' : 'text-gray-500'
-                            }`}
+                            style={[
+                              styles.roleButtonText,
+                              roleInfo.current_role === 'RIDER' && styles.roleButtonTextActive
+                            ]}
                           >
                             Rider
                           </Text>
@@ -298,17 +340,18 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
 
                     {/* Driver Mode */}
                     <TouchableOpacity
-                      className={`flex-1 flex-row items-center justify-center py-2 px-3 rounded-md ${
-                        roleInfo.current_role === 'driver' ? 'bg-white shadow-sm' : ''
-                      }`}
+                      style={[
+                        styles.roleButton,
+                        roleInfo.current_role === 'DRIVER' && styles.roleButtonActiveDriver
+                      ]}
                       onPress={(e) => {
                         e.stopPropagation();
-                        handleRoleSwitch('driver');
+                        handleRoleSwitch('DRIVER');
                       }}
-                      disabled={isRoleSwitching || roleInfo.current_role === 'driver' || !roleInfo.can_drive}
+                      disabled={isRoleSwitching || roleInfo.current_role === 'DRIVER' || !roleInfo.can_drive}
                       activeOpacity={0.7}
                     >
-                      {isRoleSwitching && roleInfo.current_role !== 'driver' ? (
+                      {isRoleSwitching && roleInfo.current_role !== 'DRIVER' ? (
                         <ActivityIndicator size="small" color="#10B981" />
                       ) : (
                         <>
@@ -316,7 +359,7 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                             name="car" 
                             size={14} 
                             color={
-                              roleInfo.current_role === 'driver' 
+                              roleInfo.current_role === 'DRIVER' 
                                 ? '#10B981' 
                                 : roleInfo.can_drive 
                                   ? '#6B7280' 
@@ -324,13 +367,11 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                             } 
                           />
                           <Text 
-                            className={`text-xs font-medium ml-1 ${
-                              roleInfo.current_role === 'driver'
-                                ? 'text-emerald-600'
-                                : roleInfo.can_drive
-                                  ? 'text-gray-500'
-                                  : 'text-gray-300'
-                            }`}
+                            style={[
+                              styles.roleButtonText,
+                              roleInfo.current_role === 'DRIVER' && styles.roleButtonTextActiveDriver,
+                              !roleInfo.can_drive && styles.roleButtonTextDisabled
+                            ]}
                           >
                             Driver
                           </Text>
@@ -342,12 +383,12 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                   {/* Driver Requirements Info */}
                   {!roleInfo.can_drive && (
                     <TouchableOpacity 
-                      className="mt-2 p-2 bg-amber-50 rounded-lg"
+                      style={styles.DRIVERRequirementsButton}
                       onPress={(e) => {
                         e.stopPropagation();
                         Alert.alert(
                           'Driver Requirements',
-                          'To become a driver, you need:\n\n• Verified identity document\n• Valid driver\'s license\n• License verification approval\n\nTap to go to verification settings.',
+                          'To become a DRIVER, you need:\n\n• Verified identity document\n• Valid DRIVER\'s license\n• License verification approval\n\nTap to go to verification settings.',
                           [
                             { text: 'Cancel', style: 'cancel' },
                             { 
@@ -361,9 +402,9 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
                       }}
                       activeOpacity={0.7}
                     >
-                      <View className="flex-row items-center">
+                      <View style={styles.DRIVERRequirementsContent}>
                         <Ionicons name="information-circle" size={12} color="#F59E0B" />
-                        <Text className="text-xs text-amber-600 ml-1 flex-1">
+                        <Text style={styles.DRIVERRequirementsText}>
                           Complete verification to drive
                         </Text>
                         <Ionicons name="chevron-forward" size={10} color="#F59E0B" />
@@ -374,250 +415,471 @@ const CoRideSidebar: React.FC<CoRideSidebarProps> = ({
               )}
             </View>
 
+            {/* Menu */}
+            <View style={styles.menuContainer}>
+              <Text style={styles.menuHeader}>MAIN MENU</Text>
 
-
-
-
-
-
-
-
-
-
-
-
-          </DrawerHeader>
-
-
-          
-          <DrawerBody>
-            <View className="px-4 mt-12 mb-2">
-              <Text className="text-sm font-semiBold text-gray-500 uppercase">
-                Main Menu
-              </Text>
-            </View>
-
-            {/* Find Rides */}
-            <TouchableOpacity
-              className={`flex-row items-center py-2 px-4 my-2 ${isActive("/rides") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/rides/find")}
-            >
-              <View
-                className={`w-10 h-10 rounded-full ${isActive("/rides") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
-              >
-                <Ionicons
-                  name="search"
-                  size={wp(5)}
-                  color={
-                    isActive("/rides")
-                      ? "#FFFFFF"
-                      : COLORS.primary.oceanBlue700
-                  }
-                />
-              </View>
-              <Text
-                className={`text-md ${isActive("/rides") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
-              >
-                Find Rides
-              </Text>
-            </TouchableOpacity>
-
-            {/* Offer Ride */}
-            <TouchableOpacity
-              className={`flex-row items-center py-2 px-4 my-2 ${isActive("/offer") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/rides/offer")}
-            >
-              <View
-                className={`w-10 h-10 rounded-full ${isActive("/offer") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
-              >
-                <Ionicons
-                  name="car"
-                  size={wp(5)}
-                  color={
-                    isActive("/offer")
-                      ? "#FFFFFF"
-                      : COLORS.primary.oceanBlue700
-                  }
-                />
-              </View>
-              <Text
-                className={`text-md ${isActive("/offer") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
-              >
-                Offer Ride
-              </Text>
-            </TouchableOpacity>
-
-            {/* My Rides */}
-            <TouchableOpacity
-              className={`flex-row items-center py-2 px-4 my-2 ${isActive("/my-rides") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/rides/my-rides")}
-            >
-              <View
-                className={`w-10 h-10 rounded-full ${isActive("/my-rides") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
-              >
-                <Ionicons
-                  name="list"
-                  size={wp(5)}
-                  color={
-                    isActive("/my-rides")
-                      ? "#FFFFFF"
-                      : COLORS.primary.oceanBlue700
-                  }
-                />
-              </View>
-              <Text
-                className={`text-md ${isActive("/my-rides") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
-              >
-                My Rides
-              </Text>
-            </TouchableOpacity>
-
-            {/* Messages */}
-            <TouchableOpacity
-              className={`flex-row items-center py-2 px-4 my-2 ${isActive("/messages") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/messages")}
-            >
-              <View
-                className={`w-10 h-10 rounded-full ${isActive("/messages") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
-              >
-                <Ionicons
-                  name="chatbubbles"
-                  size={wp(5)}
-                  color={
-                    isActive("/messages")
-                      ? "#FFFFFF"
-                      : COLORS.primary.oceanBlue700
-                  }
-                />
-              </View>
-              <Text
-                className={`text-md ${isActive("/messages") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
-              >
-                Messages
-              </Text>
-            </TouchableOpacity>
-
-            {/* Bookings */}
-            <TouchableOpacity
-              className={`flex-row items-center py-2 px-4 my-2 ${isActive("/bookings") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/bookings")}
-            >
-              <View
-                className={`w-10 h-10 rounded-full ${isActive("/bookings") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
-              >
-                <Ionicons
-                  name="calendar"
-                  size={wp(5)}
-                  color={
-                    isActive("/bookings")
-                      ? "#FFFFFF"
-                      : COLORS.primary.oceanBlue700
-                  }
-                />
-              </View>
-              <Text
-                className={`text-md ${isActive("/bookings") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
-              >
-                Bookings
-              </Text>
-            </TouchableOpacity>
-
-            {/* Trajectory Tribes */}
-            <TouchableOpacity
-              className={`flex-row items-center py-2 px-4 my-2 ${isActive("/tribes") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/tribes")}
-            >
-              <View
-                className={`w-10 h-10 rounded-full ${isActive("/tribes") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
-              >
-                <Ionicons
-                  name="people"
-                  size={wp(5)}
-                  color={
-                    isActive("/tribes")
-                      ? "#FFFFFF"
-                      : COLORS.primary.oceanBlue700
-                  }
-                />
-              </View>
-              <Text
-                className={`text-md ${isActive("/tribes") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
-              >
-                Trajectory Tribes
-              </Text>
-            </TouchableOpacity>
-
-            <View className="h-px bg-black/10 my-4" />
-
-            {/* Profile */}
-            <TouchableOpacity
-              className={`flex-row items-center  px-4 my-2 ${isActive("/profile") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/profile/profile")}
-            >
-              <View
-                className={`w-10 h-10 rounded-full ${isActive("/profile") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
-              >
-                <Ionicons
-                  name="person"
-                  size={wp(5)}
-                  color={
-                    isActive("/profile/profile")
-                      ? "#FFFFFF"
-                      : COLORS.primary.oceanBlue700
-                  }
-                />
-              </View>
-              <Text
-                className={`text-md ${isActive("/profile/profile") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
-              >
-                Profile
-              </Text>
-            </TouchableOpacity>
-
-            {/* Settings */}
-            <TouchableOpacity
-              className={`flex-row  items-center  px-4 my-2 ${isActive("/settings") ? "bg-primary-oceanBlue50 rounded-xl" : ""}`}
-              onPress={() => handleNavigation("/settings")}
-            >
-              <View
-                className={`w-10 h-10 rounded-full ${isActive("/settings") ? "bg-primary-oceanBlue700" : "bg-primary-oceanBlue50"} justify-center items-center mr-3`}
-              >
-                <Ionicons
-                  name="settings"
-                  size={wp(5)}
-                  color={
-                    isActive("/settings")
-                      ? "#FFFFFF"
-                      : COLORS.primary.oceanBlue700
-                  }
-                />
-              </View>
-              <Text
-                className={`text-md ${isActive("/settings") ? "font-semiBold text-primary-oceanBlue700" : "font-medium text-[#414141]"}`}
-              >
-                Settings
-              </Text>
-            </TouchableOpacity>
-          </DrawerBody>
-          <DrawerFooter>
-            <View className="w-full items-center">
+              {/* Home */}
               <TouchableOpacity
-                className="flex-row items-center py-3 px-5 bg-red-500 rounded-xl"
-                onPress={handleLogout}
+                style={[styles.menuItem, pathname === "/(main)" && styles.menuItemActive]}
+                onPress={() => handleNavigation("/(main)")}
               >
-                <View className="mr-2">
-                  <Ionicons name="log-out" size={wp(5)} color="#FFFFFF" />
+                <View style={[styles.menuIcon, pathname === "/(main)" && styles.menuIconActive]}>
+                  <Ionicons
+                    name="home"
+                    size={wp(5)}
+                    color={pathname === "/(main)" ? "#FFFFFF" : colors.primary.dark}
+                  />
                 </View>
-                <Text className="text-white font-semiBold text-md">
-                  Log Out
+                <Text style={[styles.menuText, pathname === "/(main)" && styles.menuTextActive]}>
+                  Home
+                </Text>
+              </TouchableOpacity>
+
+              {/* Request Ride - Rider Only */}
+              {roleInfo?.current_role === 'RIDER' && (
+                <TouchableOpacity
+                  style={[styles.menuItem, isActive("/request") && styles.menuItemActive]}
+                  onPress={() => handleNavigation("/request")}
+                >
+                  <View style={[styles.menuIcon, isActive("/request") && styles.menuIconActive]}>
+                    <Ionicons
+                      name="megaphone"
+                      size={wp(5)}
+                      color={isActive("/request") ? "#FFFFFF" : colors.primary.dark}
+                    />
+                  </View>
+                  <Text style={[styles.menuText, isActive("/request") && styles.menuTextActive]}>
+                    Request a Ride
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Offer Ride - Driver Only */}
+              {roleInfo?.current_role === 'DRIVER' && (
+                <TouchableOpacity
+                  style={[styles.menuItem, isActive("/offer") && styles.menuItemActive]}
+                  onPress={() => handleNavigation("/offer")}
+                >
+                  <View style={[styles.menuIcon, isActive("/offer") && styles.menuIconActive]}>
+                    <Ionicons
+                      name="car"
+                      size={wp(5)}
+                      color={isActive("/offer") ? "#FFFFFF" : colors.primary.dark}
+                    />
+                  </View>
+                  <Text style={[styles.menuText, isActive("/offer") && styles.menuTextActive]}>
+                    Offer a Ride
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {/* My Rides - Both roles */}
+              <TouchableOpacity
+                style={[styles.menuItem, isActive("/rides") && styles.menuItemActive]}
+                onPress={() => handleNavigation("/(main)/rides")}
+              >
+                <View style={[styles.menuIcon, isActive("/rides") && styles.menuIconActive]}>
+                  <Ionicons
+                    name="list"
+                    size={wp(5)}
+                    color={isActive("/rides") ? "#FFFFFF" : colors.primary.dark}
+                  />
+                </View>
+                <Text style={[styles.menuText, isActive("/rides") && styles.menuTextActive]}>
+                  My {roleInfo?.current_role === 'DRIVER' ? 'Offered' : 'Booked'} Rides
+                </Text>
+              </TouchableOpacity>
+
+              {/* Messages */}
+              <TouchableOpacity
+                style={[styles.menuItem, isActive("/messages") && styles.menuItemActive]}
+                onPress={() => handleNavigation("/messages")}
+              >
+                <View style={[styles.menuIcon, isActive("/messages") && styles.menuIconActive]}>
+                  <Ionicons
+                    name="chatbubbles"
+                    size={wp(5)}
+                    color={isActive("/messages") ? "#FFFFFF" : colors.primary.dark}
+                  />
+                </View>
+                <Text style={[styles.menuText, isActive("/messages") && styles.menuTextActive]}>
+                  Messages
+                </Text>
+              </TouchableOpacity>
+
+              {/* Trajectory Tribes */}
+              <TouchableOpacity
+                style={[styles.menuItem, isActive("/tribes") && styles.menuItemActive]}
+                onPress={() => handleNavigation("/tribes")}
+              >
+                <View style={[styles.menuIcon, isActive("/tribes") && styles.menuIconActive]}>
+                  <Ionicons
+                    name="people"
+                    size={wp(5)}
+                    color={isActive("/tribes") ? "#FFFFFF" : colors.primary.dark}
+                  />
+                </View>
+                <Text style={[styles.menuText, isActive("/tribes") && styles.menuTextActive]}>
+                  Trajectory Tribes
+                </Text>
+              </TouchableOpacity>
+
+              {/* Payments */}
+              <TouchableOpacity
+                style={[styles.menuItem, isActive("/payments") && styles.menuItemActive]}
+                onPress={() => handleNavigation("/payments")}
+              >
+                <View style={[styles.menuIcon, isActive("/payments") && styles.menuIconActive]}>
+                  <Ionicons
+                    name="wallet"
+                    size={wp(5)}
+                    color={isActive("/payments") ? "#FFFFFF" : colors.primary.dark}
+                  />
+                </View>
+                <Text style={[styles.menuText, isActive("/payments") && styles.menuTextActive]}>
+                  Payments
+                </Text>
+              </TouchableOpacity>
+
+              {/* Recommendations */}
+              <TouchableOpacity
+                style={[styles.menuItem, isActive("/recommendations") && styles.menuItemActive]}
+                onPress={() => handleNavigation("/recommendations")}
+              >
+                <View style={[styles.menuIcon, isActive("/recommendations") && styles.menuIconActive]}>
+                  <Ionicons
+                    name="sparkles"
+                    size={wp(5)}
+                    color={isActive("/recommendations") ? "#FFFFFF" : colors.primary.dark}
+                  />
+                </View>
+                <Text style={[styles.menuText, isActive("/recommendations") && styles.menuTextActive]}>
+                  For You
+                </Text>
+              </TouchableOpacity>
+
+              <View style={styles.divider} />
+
+              {/* Profile */}
+              <TouchableOpacity
+                style={[styles.menuItem, isActive("/profile") && styles.menuItemActive]}
+                onPress={() => handleNavigation("/profile/profile")}
+              >
+                <View style={[styles.menuIcon, isActive("/profile") && styles.menuIconActive]}>
+                  <Ionicons
+                    name="person"
+                    size={wp(5)}
+                    color={isActive("/profile") ? "#FFFFFF" : colors.primary.dark}
+                  />
+                </View>
+                <Text style={[styles.menuText, isActive("/profile") && styles.menuTextActive]}>
+                  Profile
+                </Text>
+              </TouchableOpacity>
+
+              {/* Settings */}
+              <TouchableOpacity
+                style={[styles.menuItem, isActive("/settings") && styles.menuItemActive]}
+                onPress={() => handleNavigation("/settings")}
+              >
+                <View style={[styles.menuIcon, isActive("/settings") && styles.menuIconActive]}>
+                  <Ionicons
+                    name="settings"
+                    size={wp(5)}
+                    color={isActive("/settings") ? "#FFFFFF" : colors.primary.dark}
+                  />
+                </View>
+                <Text style={[styles.menuText, isActive("/settings") && styles.menuTextActive]}>
+                  Settings
+                </Text>
+              </TouchableOpacity>
+
+              {/* Emergency */}
+              <TouchableOpacity
+                style={[styles.menuItem, isActive("/emergency") && styles.menuItemActive]}
+                onPress={() => handleNavigation("/emergency")}
+              >
+                <View style={[styles.menuIcon, { backgroundColor: `${colors.error.light}20` }, isActive("/emergency") && { backgroundColor: colors.error.dark }]}>
+                  <Ionicons
+                    name="warning"
+                    size={wp(5)}
+                    color={isActive("/emergency") ? "#FFFFFF" : colors.error.light}
+                  />
+                </View>
+                <Text style={[styles.menuText, { color: colors.error.light }, isActive("/emergency") && styles.menuTextActive]}>
+                  Emergency
                 </Text>
               </TouchableOpacity>
             </View>
-          </DrawerFooter>
+          </ScrollView>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Ionicons name="log-out" size={wp(5)} color="#FFFFFF" />
+              <Text style={styles.logoutText}>Log Out</Text>
+            </TouchableOpacity>
+          </View>
         </SafeAreaView>
-      </DrawerContent>
-    </Drawer>
+      </Animated.View>
+    </View>
   );
 };
+
+const createStyles = (colors: any) => StyleSheet.create({
+  container: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9999,
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: colors.overlay,
+  },
+  drawer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: DRAWER_WIDTH,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: -2, height: 0 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  safeArea: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  header: {
+    padding: 16,
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.primary,
+  },
+  profileImageContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primary.oceanBlue50,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: colors.primary.dark,
+    position: "relative",
+  },
+  profileImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+  },
+  profileBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: colors.primary.dark,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: colors.background.primary,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: colors.text.primary,
+    marginBottom: 4,
+    textAlign: "center",
+  },
+  userPhone: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.primary.dark,
+    textAlign: "center",
+    marginTop: 4,
+  },
+  userEmail: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    textAlign: "center",
+    marginTop: 4,
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: `${colors.success.light}20`,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    marginTop: 8,
+    alignSelf: "center",
+  },
+  verifiedText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: colors.success.dark,
+    marginLeft: 4,
+  },
+  roleSwitcherContainer: {
+    marginTop: 16,
+    width: "100%",
+  },
+  roleSwitcherTitle: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: colors.text.tertiary,
+    textAlign: "center",
+    marginBottom: 12,
+    textTransform: "uppercase",
+  },
+  roleSwitcherButtons: {
+    flexDirection: "row",
+    backgroundColor: colors.background.tertiary,
+    borderRadius: 8,
+    padding: 4,
+  },
+  roleButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  roleButtonActive: {
+    backgroundColor: colors.background.primary,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  roleButtonActiveDriver: {
+    backgroundColor: colors.background.primary,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  roleButtonText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: colors.text.secondary,
+    marginLeft: 4,
+  },
+  roleButtonTextActive: {
+    color: colors.role.rider.fg,
+    fontWeight: "600",
+  },
+  roleButtonTextActiveDriver: {
+    color: colors.role.driver.fg,
+    fontWeight: "600",
+  },
+  roleButtonTextDisabled: {
+    color: colors.text.tertiary,
+  },
+  DRIVERRequirementsButton: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: `${colors.warning.light}20`,
+    borderRadius: 8,
+  },
+  DRIVERRequirementsContent: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  DRIVERRequirementsText: {
+    fontSize: 11,
+    color: colors.warning.dark,
+    marginLeft: 4,
+    flex: 1,
+  },
+  menuContainer: {
+    flex: 1,
+    paddingTop: 20,
+    paddingHorizontal: 12,
+  },
+  menuHeader: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.text.tertiary,
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+  },
+  menuItemActive: {
+    backgroundColor: colors.primary.oceanBlue50,
+  },
+  menuIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary.oceanBlue50,
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  menuIconActive: {
+    backgroundColor: colors.primary.dark,
+  },
+  menuText: {
+    fontSize: 15,
+    fontWeight: "500",
+    color: colors.text.primary,
+  },
+  menuTextActive: {
+    fontWeight: "600",
+    color: colors.primary.dark,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.border.primary,
+    marginVertical: 16,
+  },
+  footer: {
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.primary,
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    backgroundColor: colors.error.dark,
+    borderRadius: 12,
+  },
+  logoutText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+    fontSize: 16,
+    marginLeft: 8,
+  },
+});
 
 export default CoRideSidebar;

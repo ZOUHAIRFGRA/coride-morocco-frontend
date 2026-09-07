@@ -32,10 +32,12 @@ class DocumentVerificationWebSocket {
   private reconnectDelay = 3000;
   private pingInterval: number | null = null;
   private baseUrl: string;
-  
-  // Callbacks
-  private onVerificationUpdate: VerificationUpdateCallback | null = null;
-  private onConnectionStatusChange: ConnectionStatusCallback | null = null;
+
+  // Multiple components (verification screen, status widget, debug panel) can all
+  // be mounted at once, each wanting updates — a single callback slot meant the
+  // last one to mount silently stole updates from the others. Use subscriber sets.
+  private verificationListeners = new Set<VerificationUpdateCallback>();
+  private connectionListeners = new Set<ConnectionStatusCallback>();
 
   constructor() {
     // Use environment-specific WebSocket URL from proper config
@@ -64,6 +66,12 @@ class DocumentVerificationWebSocket {
    * Connect to the WebSocket server
    */
   async connect(): Promise<boolean> {
+    // Already connected or connecting — reuse it instead of opening a second
+    // socket (multiple consumers all call connect() on mount).
+    if (this.socket && (this.socket.readyState === WebSocket.OPEN || this.socket.readyState === WebSocket.CONNECTING)) {
+      return true;
+    }
+
     try {
       const token = await authService.getStoredAccessToken();
       if (!token) {
@@ -104,9 +112,15 @@ class DocumentVerificationWebSocket {
   }
 
   /**
-   * Disconnect from WebSocket server
+   * Disconnect from WebSocket server — only actually closes the socket once
+   * every subscriber has unsubscribed, so one consumer unmounting doesn't kill
+   * the connection for the others still using it.
    */
   disconnect(): void {
+    if (this.verificationListeners.size > 0 || this.connectionListeners.size > 0) {
+      return;
+    }
+
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
       this.pingInterval = null;
@@ -119,17 +133,19 @@ class DocumentVerificationWebSocket {
   }
 
   /**
-   * Set callback for verification updates
+   * Subscribe to verification updates. Returns an unsubscribe function.
    */
-  setVerificationUpdateCallback(callback: VerificationUpdateCallback): void {
-    this.onVerificationUpdate = callback;
+  subscribeVerificationUpdate(callback: VerificationUpdateCallback): () => void {
+    this.verificationListeners.add(callback);
+    return () => this.verificationListeners.delete(callback);
   }
 
   /**
-   * Set callback for connection status changes
+   * Subscribe to connection status changes. Returns an unsubscribe function.
    */
-  setConnectionStatusCallback(callback: ConnectionStatusCallback): void {
-    this.onConnectionStatusChange = callback;
+  subscribeConnectionStatus(callback: ConnectionStatusCallback): () => void {
+    this.connectionListeners.add(callback);
+    return () => this.connectionListeners.delete(callback);
   }
 
   /**
@@ -205,7 +221,7 @@ class DocumentVerificationWebSocket {
       this.sendPing();
     }, 30000); // Every 30 seconds
 
-    this.onConnectionStatusChange?.(true);
+    this.connectionListeners.forEach(cb => cb(true));
   }
 
   /**
@@ -250,7 +266,7 @@ class DocumentVerificationWebSocket {
       this.pingInterval = null;
     }
 
-    this.onConnectionStatusChange?.(false);
+    this.connectionListeners.forEach(cb => cb(false));
 
     // Handle specific close codes
     switch (event.code) {
@@ -308,12 +324,13 @@ class DocumentVerificationWebSocket {
       }, this.reconnectDelay * this.reconnectAttempts);
     } else {
       console.log('Max reconnection attempts reached');
-      this.onVerificationUpdate?.({
+      const status: VerificationStatus = {
         status: 'failed',
         message: 'Connection lost. Please refresh to reconnect.',
         progress: 0,
         result: null
-      });
+      };
+      this.verificationListeners.forEach(cb => cb(status));
     }
   }
 
@@ -322,14 +339,15 @@ class DocumentVerificationWebSocket {
    */
   private handleVerificationStarted(data: WebSocketMessage): void {
     console.log('Verification started:', data.task_id);
-    
-    this.onVerificationUpdate?.({
+
+    const status: VerificationStatus = {
       status: 'processing',
       message: 'Document verification started...',
       progress: 0,
       result: null,
       taskId: data.task_id
-    });
+    };
+    this.verificationListeners.forEach(cb => cb(status));
   }
 
   /**
@@ -337,14 +355,15 @@ class DocumentVerificationWebSocket {
    */
   private handleVerificationProgress(data: WebSocketMessage): void {
     console.log('Verification progress:', data.progress, data.message);
-    
-    this.onVerificationUpdate?.({
+
+    const status: VerificationStatus = {
       status: 'processing',
       message: data.message || 'Processing...',
       progress: data.progress || 0,
       result: null,
       taskId: data.task_id
-    });
+    };
+    this.verificationListeners.forEach(cb => cb(status));
   }
 
   /**
@@ -352,14 +371,15 @@ class DocumentVerificationWebSocket {
    */
   private handleVerificationCompleted(data: WebSocketMessage): void {
     console.log('Verification completed:', data.result);
-    
-    this.onVerificationUpdate?.({
+
+    const status: VerificationStatus = {
       status: 'completed',
       message: 'Document verification completed successfully!',
       progress: 100,
       result: data.result,
       taskId: data.task_id
-    });
+    };
+    this.verificationListeners.forEach(cb => cb(status));
   }
 
   /**
@@ -367,14 +387,15 @@ class DocumentVerificationWebSocket {
    */
   private handleVerificationFailed(data: WebSocketMessage): void {
     console.error('Verification failed:', data.error);
-    
-    this.onVerificationUpdate?.({
+
+    const status: VerificationStatus = {
       status: 'failed',
       message: data.error || 'Document verification failed',
       progress: 0,
       result: null,
       taskId: data.task_id
-    });
+    };
+    this.verificationListeners.forEach(cb => cb(status));
   }
 }
 

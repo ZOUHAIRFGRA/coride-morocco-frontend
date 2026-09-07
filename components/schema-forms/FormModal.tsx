@@ -9,8 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
-  Animated,
-  Easing,
+  Dimensions,
+  Pressable,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS, FONTS } from "@/constants/theme";
@@ -21,6 +21,14 @@ import * as Haptics from "expo-haptics";
 import { heightPercentageToDP as hp } from "react-native-responsive-screen";
 import { userApiService } from "@/services/userApi";
 import { useAppTheme } from "@/hooks/useAppTheme";
+import { SafeAreaView } from "react-native-safe-area-context";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from "react-native-reanimated";
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 // Mock API functions for CoRide Morocco forms
 const mockContactSupport = async (data: any) => {
@@ -162,8 +170,10 @@ export const FormModal: React.FC<FormModalProps> = ({
 }) => {
   const { colors, isDarkMode } = useAppTheme();
   const scrollViewRef = useRef<ScrollView>(null);
-  const slideAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  
+  // Reanimated values - start in hidden state
+  const translateY = useSharedValue(SCREEN_HEIGHT);
+  const backdropOpacity = useSharedValue(0);
 
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -174,25 +184,15 @@ export const FormModal: React.FC<FormModalProps> = ({
   // Animation when modal becomes visible
   useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.cubic),
-        }),
-        Animated.timing(slideAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.cubic),
-        })
-      ]).start();
+      // Animate in
+      translateY.value = withTiming(0, { duration: 300 });
+      backdropOpacity.value = withTiming(1, { duration: 300 });
     } else {
-      fadeAnim.setValue(0);
-      slideAnim.setValue(0);
+      // Animate out
+      translateY.value = withTiming(SCREEN_HEIGHT, { duration: 250 });
+      backdropOpacity.value = withTiming(0, { duration: 250 });
     }
-  }, [visible, slideAnim, fadeAnim]);
+  }, [visible]);
 
   // Pre-populate form with initial data when modal becomes visible
   useEffect(() => {
@@ -324,109 +324,123 @@ export const FormModal: React.FC<FormModalProps> = ({
     }
   }, [formDefinition, formName, formData, getApiFunction, onSuccess, onClose]);
 
+  // Animated styles
+  const modalStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
+
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
+
   if (!formDefinition || !visible) {
     return null;
   }
 
   return (
-    <View style={styles.overlay}>
-      <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
-      
+    <View style={styles.overlay} pointerEvents="box-none">
+      {/* Background overlay */}
+      <Animated.View style={[styles.backdrop, backdropStyle]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+      </Animated.View>
+
+      {/* Modal content */}
       <View style={styles.modalContainer}>
-        <Animated.View 
-          style={[
-            {
-              backgroundColor: colors.background.primary,
-              borderTopLeftRadius: 32,
-              borderTopRightRadius: 32,
-              height: hp(90),
-              shadowColor: isDarkMode ? '#000000' : '#000000',
-              shadowOffset: { width: 0, height: -3 },
-              shadowOpacity: isDarkMode ? 0.3 : 0.1,
-              shadowRadius: 10,
-              elevation: 8,
-            },
-            {
-              transform: [{
-                translateY: slideAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [400, 0],
-                })
-              }]
-            }
-          ]}
-        >
-          {/* Header */}
-          <View style={{
-            paddingHorizontal: 24,
-            paddingVertical: 24,
-            borderBottomWidth: 1,
-            borderBottomColor: isDarkMode ? colors.border.primary : '#E5E7EB',
-            backgroundColor: colors.background.primary,
-          }}>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color={colors.text.primary} />
-            </TouchableOpacity>
-
-            <Text style={{
-              fontSize: 20,
-              fontFamily: FONTS.bold,
-              color: colors.text.primary,
-              textAlign: 'center',
-              marginTop: 8,
-            }}>{formDefinition.schema.title}</Text>
-            <View style={{ width: 40 }} />
-
-            {formDefinition.schema.description && (
-              <Text style={{
-                fontFamily: FONTS.regular,
-                fontSize: 14,
-                color: colors.text.secondary,
-                textAlign: 'center',
-                marginTop: 16,
-                lineHeight: 20,
-              }}>
-                {formDefinition.schema.description}
-              </Text>
-            )}
-          </View>
+        <Animated.View style={[styles.modalContent, modalStyle]}>
+          <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+            {/* Header */}
+            <View style={{
+              backgroundColor: "#FFFFFF",
+              borderBottomWidth: 1,
+              borderBottomColor: "#E5E7EB",
+              paddingHorizontal: 24,
+              paddingVertical: 24,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <TouchableOpacity onPress={onClose} style={{ padding: 8 }}>
+                <Ionicons name="close" size={24} color="#000" />
+              </TouchableOpacity>
+              
+              <View style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={{
+                  fontSize: 20,
+                  fontFamily: FONTS.bold,
+                  color: "#000",
+                  textAlign: 'center',
+                }}>
+                  {formDefinition.schema.title}
+                </Text>
+                {formDefinition.schema.description && (
+                  <Text style={{
+                    fontFamily: FONTS.regular,
+                    fontSize: 14,
+                    color: "#6B7280",
+                    textAlign: 'center',
+                    marginTop: 8,
+                    lineHeight: 20,
+                  }}>
+                    {formDefinition.schema.description}
+                  </Text>
+                )}
+              </View>
+              
+              <View style={{ width: 40 }} />
+            </View>
 
           {/* Form Content */}
           <KeyboardAvoidingView
             style={{ flex: 1 }}
             behavior={Platform.OS === "ios" ? "padding" : "height"}
+            keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
+            enabled={Platform.OS === "ios"}
           >
             <ScrollView
               ref={scrollViewRef}
               style={{ flex: 1, paddingHorizontal: 24 }}
-              contentContainerStyle={{ paddingVertical: 16, paddingBottom: 80 }}
+              contentContainerStyle={{
+                paddingVertical: 16,
+                paddingBottom: 80
+              }}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
-              {Object.entries(formDefinition.schema.properties).map(([fieldName, fieldDef]) => (
-                <FormFieldRenderer
-                  key={fieldName}
-                  fieldName={fieldName}
-                  fieldDef={fieldDef}
-                  uiDef={(formDefinition.uiSchema as any)[fieldName]}
-                  value={formData[fieldName]}
-                  error={errors[fieldName]}
-                  onChange={(value) => handleFieldChange(fieldName, value)}
-                  disabled={isSubmitting}
-                  required={formDefinition.schema.required?.includes(fieldName) || false}
-                />
-              ))}
+              {/* Form Fields */}
+              <View style={{ gap: 16 }}>
+                {Object.entries(formDefinition.schema.properties).map(
+                  ([fieldName, fieldDef]) => (
+                    <FormFieldRenderer
+                      key={fieldName}
+                      fieldName={fieldName}
+                      fieldDef={fieldDef}
+                      uiDef={(formDefinition.uiSchema as any)[fieldName]}
+                      value={formData[fieldName]}
+                      error={errors[fieldName]}
+                      onChange={(value) => handleFieldChange(fieldName, value)}
+                      disabled={isSubmitting}
+                      required={
+                        formDefinition.schema.required?.includes(fieldName) ||
+                        false
+                      }
+                    />
+                  )
+                )}
+              </View>
             </ScrollView>
           </KeyboardAvoidingView>
 
           {/* Submit Button */}
-          <View style={{
-            paddingHorizontal: 24,
-            paddingVertical: 16,
-            paddingBottom: Platform.OS === 'ios' ? 40 : 16,
-            borderTopWidth: 1,
-            borderTopColor: isDarkMode ? colors.border.primary : '#E5E7EB',
-            backgroundColor: colors.background.primary,
-          }}>
+          <View
+            style={{
+              paddingHorizontal: 24,
+              paddingVertical: 16,
+              paddingBottom: Platform.OS === 'ios' ? 60 : 50,
+              borderTopWidth: 1,
+              borderTopColor: "#E5E7EB",
+              backgroundColor: "#FFFFFF",
+            }}
+          >
             <GradientButton
               onPress={handleSubmit}
               text={isSubmitting ? "Submitting..." : "Submit"}
@@ -445,6 +459,7 @@ export const FormModal: React.FC<FormModalProps> = ({
               }}
             />
           </View>
+          </SafeAreaView>
         </Animated.View>
       </View>
     </View>
@@ -458,8 +473,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 9999,
-    elevation: 9999,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+    zIndex: Platform.OS === 'ios' ? 999999999 : 9999,
+    elevation: Platform.OS === 'android' ? 9999 : undefined,
   },
   backdrop: {
     position: "absolute",
@@ -471,14 +488,20 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    justifyContent: "flex-end",
     pointerEvents: "box-none",
-  },
-  closeButton: {
-    padding: 8,
-    position: "absolute",
-    left: 16,
-    top: 16,
-    zIndex: 1,
+    zIndex: Platform.OS === 'ios' ? 999999999 : 9999,
+  }, 
+  modalContent: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    shadowColor: "#000",
+
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: Platform.OS === 'android' ? 9999 : undefined,
+    zIndex: Platform.OS === 'ios' ? 999999999 : 9999,
   },
 });

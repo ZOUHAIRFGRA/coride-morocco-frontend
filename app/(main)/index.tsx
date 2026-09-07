@@ -1,33 +1,66 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, ScrollView, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { widthPercentageToDP as wp } from 'react-native-responsive-screen';
 import { router } from 'expo-router';
-import { useAuth } from '@/contexts/AppStateContext';
+import { useAuth, useLocation } from '@/contexts/AppStateContext';
+import { useRideDraft } from '@/contexts/RideDraftContext';
 import { useUser } from '@/hooks/useUserProfile';
 import CoRideSidebar from '@/components/CoRideSidebar';
 import { useAppTheme } from '@/hooks/useAppTheme';
-import LocationSearchModal from '@/components/modals/LocationSearchModal';
+import { GRADIENTS } from '@/constants/theme';
+import LocationPickerModal from '@/components/modals/LocationPickerModal';
+import JoinRideModal from '@/components/modals/JoinRideModal';
+import { LocationSelectorRow } from '@/components/ui/LocationSelectorRow';
+import { PassengerStepper } from '@/components/ui/PassengerStepper';
 import { integratedRideService } from '@/services/integratedRideService';
-import type { LocationSuggestion } from '@/types/geospatial';
 import type { SmartRideMatch } from '@/types/ride';
+
+const ROLE_ILLUSTRATIONS = {
+  RIDER: require('@assets/images/features/find_ride.png'),
+  DRIVER: require('@assets/images/features/offer_ride.png'),
+};
 
 export default function MainScreen() {
   const [sidebarVisible, setSidebarVisible] = useState(false);
-  const [startLocation, setStartLocation] = useState<LocationSuggestion | null>(null);
-  const [endLocation, setEndLocation] = useState<LocationSuggestion | null>(null);
+  const { pickup: startLocation, destination: endLocation, setPickup: setStartLocation, setDestination: setEndLocation, clearDraft } = useRideDraft();
+  const { cachedLocation, refreshLocation } = useLocation();
   const [passengerCount, setPassengerCount] = useState(1);
   const [routes, setRoutes] = useState<SmartRideMatch[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showStartLocationModal, setShowStartLocationModal] = useState(false);
   const [showEndLocationModal, setShowEndLocationModal] = useState(false);
+  const [showJoinRideModal, setShowJoinRideModal] = useState(false);
+  const [selectedRide, setSelectedRide] = useState<SmartRideMatch | null>(null);
   const { user } = useAuth();
   const { profile } = useUser();
-  const { colors, isDarkMode } = useAppTheme();
+  const { colors } = useAppTheme();
 
   // Use profile data or fallback to auth user
   const userData = profile || user;
+  const userRole = userData?.role || 'RIDER'; // Default to rider if no role
+
+  // Default pickup to the user's current location, like Uber/InDrive, unless
+  // something has already been picked (persisted via the shared ride draft).
+  useEffect(() => {
+    if (startLocation) return;
+    if (cachedLocation) {
+      setStartLocation({
+        display_name: cachedLocation.address,
+        address: cachedLocation.address,
+        latitude: cachedLocation.latitude,
+        longitude: cachedLocation.longitude,
+        relevance_score: 1.0,
+        distance_km: 0,
+        country: 'Morocco',
+      });
+    } else {
+      refreshLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cachedLocation]);
 
   const getWelcomeMessage = () => {
     const firstName = userData?.first_name;
@@ -42,13 +75,11 @@ export default function MainScreen() {
   };
 
   const getSubtitleMessage = () => {
-    const role = userData?.role;
-    
-    switch (role) {
-      case 'driver':
-        return 'Ready to offer rides or find passengers?';
-      case 'rider':
-        return 'Ready to find your next ride?';
+    switch (userRole) {
+      case 'DRIVER':
+        return 'Offer rides and earn money';
+      case 'RIDER':
+        return 'Find affordable rides near you';
       default:
         return 'Ready to share a ride?';
     }
@@ -81,13 +112,23 @@ export default function MainScreen() {
         passengerCount
       );
 
-      if (routeResponse.success && routeResponse.data) {
+      if (routeResponse.success && routeResponse.data && routeResponse.data.length > 0) {
         setRoutes(routeResponse.data);
       } else {
         setRoutes([]);
         Alert.alert(
           'No Routes Found',
-          routeResponse.error?.message || 'No matching routes found for your criteria. Try adjusting your locations.'
+          'No drivers are currently offering rides for this route. Would you like to request a ride? You\'ll be the first to initiate this trip!',
+          [
+            {
+              text: 'Request a Ride',
+              onPress: () => router.push('/request')
+            },
+            {
+              text: 'Maybe Later',
+              style: 'cancel'
+            }
+          ]
         );
       }
     } catch (error) {
@@ -100,12 +141,15 @@ export default function MainScreen() {
   };
 
   const handleRouteSelect = (route: SmartRideMatch) => {
-    const driverName = route.driver ? `${route.driver.first_name} ${route.driver.last_name}` : 'Driver';
-    Alert.alert(
-      'Route Selected',
-      `You selected a ride with ${driverName}. This would typically navigate to booking or contact details.`,
-      [{ text: 'OK' }]
-    );
+    setSelectedRide(route);
+    setShowJoinRideModal(true);
+  };
+
+  const handleJoinSuccess = () => {
+    // Ride secured — clear the shared draft so a stale pickup/destination
+    // doesn't linger into the next unrelated search.
+    clearDraft();
+    setRoutes([]);
   };
 
   const formatTime = (timeString: string): string => {
@@ -121,128 +165,77 @@ export default function MainScreen() {
 
   return (
     <>
-      <SafeAreaView style={dynamicStyles.container}>
-        {/* Header */}
-        <View style={dynamicStyles.header}>
-          <View>
-            <Text style={dynamicStyles.welcomeText}>{getWelcomeMessage()}</Text>
-            <Text style={dynamicStyles.subtitle}>{getSubtitleMessage()}</Text>
-          </View>
-          <View style={dynamicStyles.headerRight}>
-            {/* Role Indicator */}
-            <View style={[dynamicStyles.roleIndicator, { backgroundColor: colors.background.tertiary }]}>
-              <Ionicons 
-                name={userData?.role === 'driver' ? 'car' : 'person'} 
-                size={16} 
-                color={userData?.role === 'driver' ? '#10B981' : '#3B82F6'} 
-              />
+      <SafeAreaView style={dynamicStyles.container} edges={['top']}>
+        {/* Gradient hero band */}
+        <LinearGradient
+          colors={colors.primary.gradient}
+          start={GRADIENTS.vertical.start}
+          end={GRADIENTS.vertical.end}
+          style={dynamicStyles.heroBand}
+        >
+          <View style={dynamicStyles.heroTopRow}>
+            <View style={[
+              dynamicStyles.roleIndicator,
+              { backgroundColor: 'rgba(255,255,255,0.2)' }
+            ]}>
+              <Ionicons name={userRole === 'DRIVER' ? 'car' : 'person'} size={16} color="#FFFFFF" />
+              <Text style={[dynamicStyles.roleText, { color: '#FFFFFF' }]}>
+                {userRole === 'DRIVER' ? 'Driver' : 'Rider'}
+              </Text>
             </View>
 
-            <TouchableOpacity 
-              style={dynamicStyles.menuButton}
+            <TouchableOpacity
+              style={[dynamicStyles.menuButton, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
               onPress={() => setSidebarVisible(true)}
             >
-              <Ionicons name="menu" size={wp(7)} color={colors.text.primary} />
+              <Ionicons name="menu" size={wp(7)} color="#FFFFFF" />
             </TouchableOpacity>
           </View>
-        </View>
+
+          <View style={dynamicStyles.heroTextRow}>
+            <View style={dynamicStyles.heroTextColumn}>
+              <Text style={dynamicStyles.welcomeText}>{getWelcomeMessage()}</Text>
+              <Text style={dynamicStyles.subtitle}>{getSubtitleMessage()}</Text>
+            </View>
+            <Image
+              source={ROLE_ILLUSTRATIONS[userRole === 'DRIVER' ? 'DRIVER' : 'RIDER']}
+              style={dynamicStyles.heroIllustration}
+              resizeMode="contain"
+            />
+          </View>
+        </LinearGradient>
 
         {/* Main Content */}
-        <View style={dynamicStyles.content}>
-          <View style={dynamicStyles.logoContainer}>
-            <View style={dynamicStyles.logoCircle}>
-              <Ionicons name="car" size={wp(10)} color="#FFFFFF" />
-            </View>
-            <Text style={dynamicStyles.title}>CoRide Morocco</Text>
-          </View>
-          
-          <Text style={dynamicStyles.description}>
-            Where would you like to go today?
-          </Text>
+        <ScrollView
+          style={dynamicStyles.contentScroll}
+          contentContainerStyle={dynamicStyles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Location Selection Section - Only for Riders */}
+          {userRole === 'RIDER' && (
+            <View style={dynamicStyles.searchSection}>
+              <LocationSelectorRow
+                icon="location"
+                value={startLocation}
+                placeholder="From where?"
+                onPress={() => setShowStartLocationModal(true)}
+              />
 
-          {/* Location Selection Section */}
-          <View style={dynamicStyles.searchSection}>
-            <TouchableOpacity 
-              style={dynamicStyles.locationInput}
-              onPress={() => setShowStartLocationModal(true)}
-            >
-              <Ionicons name="location" size={20} color={colors.primary.light} />
-              <View style={dynamicStyles.locationTextContainer}>
-                {startLocation ? (
-                  <>
-                    <Text style={[dynamicStyles.locationName, { color: colors.text.primary }]} numberOfLines={1}>
-                      {startLocation.display_name}
-                    </Text>
-                    <Text style={[dynamicStyles.locationAddress, { color: colors.text.secondary }]} numberOfLines={1}>
-                      {startLocation.address}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={[dynamicStyles.locationPlaceholder, { color: colors.text.tertiary }]}>
-                    From where?
-                  </Text>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
-            </TouchableOpacity>
+              <LocationSelectorRow
+                icon="flag"
+                value={endLocation}
+                placeholder="Where to?"
+                onPress={() => setShowEndLocationModal(true)}
+              />
 
-            <TouchableOpacity 
-              style={dynamicStyles.locationInput}
-              onPress={() => setShowEndLocationModal(true)}
-            >
-              <Ionicons name="flag" size={20} color={colors.primary.light} />
-              <View style={dynamicStyles.locationTextContainer}>
-                {endLocation ? (
-                  <>
-                    <Text style={[dynamicStyles.locationName, { color: colors.text.primary }]} numberOfLines={1}>
-                      {endLocation.display_name}
-                    </Text>
-                    <Text style={[dynamicStyles.locationAddress, { color: colors.text.secondary }]} numberOfLines={1}>
-                      {endLocation.address}
-                    </Text>
-                  </>
-                ) : (
-                  <Text style={[dynamicStyles.locationPlaceholder, { color: colors.text.tertiary }]}>
-                    Where to?
-                  </Text>
-                )}
+              {/* Passenger Selection */}
+              <View style={dynamicStyles.passengerSection}>
+                <PassengerStepper
+                  label="Passengers"
+                  value={passengerCount}
+                  onChange={setPassengerCount}
+                />
               </View>
-              <Ionicons name="chevron-forward" size={16} color={colors.text.tertiary} />
-            </TouchableOpacity>
-
-            {/* Passenger Selection */}
-            <View style={dynamicStyles.passengerSection}>
-              <Text style={[dynamicStyles.passengerLabel, { color: colors.text.secondary }]}>Passengers</Text>
-              <View style={dynamicStyles.passengerControls}>
-                <TouchableOpacity
-                  style={[dynamicStyles.passengerButton, { 
-                    backgroundColor: colors.background.primary,
-                    borderColor: colors.border.primary,
-                    opacity: passengerCount <= 1 ? 0.5 : 1
-                  }]}
-                  onPress={() => setPassengerCount(Math.max(1, passengerCount - 1))}
-                  disabled={passengerCount <= 1}
-                >
-                  <Ionicons name="remove" size={16} color={colors.text.primary} />
-                </TouchableOpacity>
-                
-                <Text style={[dynamicStyles.passengerCount, { color: colors.text.primary }]}>
-                  {passengerCount}
-                </Text>
-                
-                <TouchableOpacity
-                  style={[dynamicStyles.passengerButton, { 
-                    backgroundColor: colors.background.primary,
-                    borderColor: colors.border.primary,
-                    opacity: passengerCount >= 4 ? 0.5 : 1
-                  }]}
-                  onPress={() => setPassengerCount(Math.min(4, passengerCount + 1))}
-                  disabled={passengerCount >= 4}
-                >
-                  <Ionicons name="add" size={16} color={colors.text.primary} />
-                </TouchableOpacity>
-              </View>
-            </View>
 
             {startLocation && endLocation && (
               <TouchableOpacity 
@@ -261,28 +254,75 @@ export default function MainScreen() {
               </TouchableOpacity>
             )}
           </View>
+          )}
 
-          {/* Quick Actions */}
+          {/* Empty state - Driver, no active offers to show here */}
+          {userRole === 'DRIVER' && (
+            <View style={dynamicStyles.driverEmptyState}>
+              <Image
+                source={require('@assets/images/features/route_map.png')}
+                style={dynamicStyles.driverEmptyIllustration}
+                resizeMode="contain"
+              />
+              <Text style={dynamicStyles.driverEmptyTitle}>Ready to offer a ride?</Text>
+              <Text style={dynamicStyles.driverEmptyText}>
+                Post your route and available seats — riders on your way will find you.
+              </Text>
+              <TouchableOpacity
+                style={dynamicStyles.driverEmptyButton}
+                onPress={() => router.push('/offer')}
+              >
+                <Ionicons name="add-circle" size={18} color="#FFFFFF" />
+                <Text style={dynamicStyles.driverEmptyButtonText}>Offer a Ride</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Quick Actions - Role-based */}
           <View style={dynamicStyles.quickActions}>
-            <TouchableOpacity 
-              style={[dynamicStyles.actionButton, dynamicStyles.secondaryButton]}
-              onPress={() => router.push('/offer')}
-            >
-              <Ionicons name="add-circle" size={wp(6)} color={colors.primary.dark} />
-              <Text style={[dynamicStyles.actionText, dynamicStyles.secondaryText]}>Offer a Ride</Text>
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={[dynamicStyles.actionButton, dynamicStyles.tertiaryButton]}
-              onPress={() => router.push('/rides')}
-            >
-              <Ionicons name="time" size={wp(6)} color={colors.text.secondary} />
-              <Text style={[dynamicStyles.actionText, dynamicStyles.tertiaryText]}>My Rides</Text>
-            </TouchableOpacity>
+            {userRole === 'RIDER' ? (
+              // Rider Interface
+              <>
+                <TouchableOpacity 
+                  style={[dynamicStyles.actionButton, dynamicStyles.primaryButton]}
+                  onPress={() => router.push('/request')}
+                >
+                  <Ionicons name="megaphone" size={wp(6)} color="#FFFFFF" />
+                  <Text style={[dynamicStyles.actionText, dynamicStyles.primaryText]}>Request a Ride</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[dynamicStyles.actionButton, dynamicStyles.tertiaryButton]}
+                  onPress={() => router.push('/rides')}
+                >
+                  <Ionicons name="time" size={wp(6)} color={colors.text.secondary} />
+                  <Text style={[dynamicStyles.actionText, dynamicStyles.tertiaryText]}>My Rides</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              // Driver Interface
+              <>
+                <TouchableOpacity 
+                  style={[dynamicStyles.actionButton, dynamicStyles.primaryButton]}
+                  onPress={() => router.push('/offer')}
+                >
+                  <Ionicons name="add-circle" size={wp(6)} color="#FFFFFF" />
+                  <Text style={[dynamicStyles.actionText, dynamicStyles.primaryText]}>Offer a Ride</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[dynamicStyles.actionButton, dynamicStyles.tertiaryButton]}
+                  onPress={() => router.push('/rides')}
+                >
+                  <Ionicons name="time" size={wp(6)} color={colors.text.secondary} />
+                  <Text style={[dynamicStyles.actionText, dynamicStyles.tertiaryText]}>My Rides</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
 
-          {/* Routes Results */}
-          {startLocation && endLocation && routes.length > 0 && (
+          {/* Routes Results - Only for Riders */}
+          {userRole === 'RIDER' && startLocation && endLocation && routes.length > 0 && (
             <View style={dynamicStyles.routesSection}>
               <Text style={[dynamicStyles.sectionTitle, { color: colors.text.primary }]}>
                 Available Rides ({routes.length})
@@ -293,7 +333,7 @@ export default function MainScreen() {
                 showsVerticalScrollIndicator={false}
                 nestedScrollEnabled={true}
               >
-                {routes.slice(0, 3).map((route) => {
+                {routes.map((route) => {
                   const driverName = route.driver ? `${route.driver.first_name} ${route.driver.last_name}` : 'Driver';
                   const driverInitial = route.driver?.first_name?.charAt(0)?.toUpperCase() || 'D';
                   const driverRating = route.driver?.rating_average || 0;
@@ -386,18 +426,6 @@ export default function MainScreen() {
                     </TouchableOpacity>
                   );
                 })}
-                
-                {routes.length > 3 && (
-                  <TouchableOpacity 
-                    style={[dynamicStyles.viewMoreButton, { borderColor: colors.border.primary }]}
-                    onPress={() => router.push('/rides')}
-                  >
-                    <Text style={[dynamicStyles.viewMoreText, { color: colors.primary.dark }]}>
-                      View All {routes.length} Rides
-                    </Text>
-                    <Ionicons name="chevron-forward" size={16} color={colors.primary.dark} />
-                  </TouchableOpacity>
-                )}
               </ScrollView>
             </View>
           )}
@@ -429,7 +457,7 @@ export default function MainScreen() {
               </Text>
             </View>
           </View>
-        </View>
+        </ScrollView>
       </SafeAreaView>
 
       {/* Sidebar */}
@@ -439,28 +467,37 @@ export default function MainScreen() {
       />
 
       {/* Location Selection Modals */}
-      <LocationSearchModal
+      <LocationPickerModal
         visible={showStartLocationModal}
         onClose={() => setShowStartLocationModal(false)}
         onLocationSelect={setStartLocation}
         title="Select Pickup Location"
         placeholder="Where should the driver pick you up?"
+        initialLocation={startLocation || undefined}
+        useCurrentLocation={true}
         showHistory={true}
-        showNearbyPlaces={true}
       />
 
-      <LocationSearchModal
+      <LocationPickerModal
         visible={showEndLocationModal}
         onClose={() => setShowEndLocationModal(false)}
         onLocationSelect={setEndLocation}
         title="Select Destination"
         placeholder="Where do you want to go?"
-        currentLocation={startLocation ? {
-          latitude: startLocation.latitude,
-          longitude: startLocation.longitude
-        } : undefined}
+        initialLocation={endLocation || undefined}
+        useCurrentLocation={false}
         showHistory={true}
-        showNearbyPlaces={false}
+      />
+
+      {/* Join Ride Modal */}
+      <JoinRideModal
+        visible={showJoinRideModal}
+        ride={selectedRide}
+        onClose={() => {
+          setShowJoinRideModal(false);
+          setSelectedRide(null);
+        }}
+        onSuccess={handleJoinSuccess}
       />
     </>
   );
@@ -471,85 +508,111 @@ const createStyles = (colors: any) => StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.primary,
   },
-  header: {
+  heroBand: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 28,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+  heroTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
-    backgroundColor: colors.background.secondary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.primary,
-  },
-  welcomeText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.text.primary,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.text.secondary,
-    marginTop: 2,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   roleIndicator: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
+  },
+  roleText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   menuButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: colors.background.tertiary,
+  },
+  heroTextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  heroTextColumn: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  welcomeText: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 4,
+  },
+  heroIllustration: {
+    width: wp(26),
+    height: wp(26),
+  },
+  contentScroll: {
+    flex: 1,
   },
   content: {
-    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
+    paddingBottom: 30,
     alignItems: 'center',
   },
-  logoContainer: {
+  driverEmptyState: {
+    width: '100%',
+    backgroundColor: colors.surface.primary,
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
     alignItems: 'center',
-    marginBottom: 24,
-  },
-  logoCircle: {
-    width: wp(18),
-    height: wp(18),
-    borderRadius: wp(9),
-    backgroundColor: colors.primary.dark,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    shadowColor: colors.primary.dark,
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     elevation: 4,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  driverEmptyIllustration: {
+    width: wp(40),
+    height: wp(30),
+    marginBottom: 16,
+  },
+  driverEmptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.text.primary,
+    marginBottom: 6,
     textAlign: 'center',
   },
-  description: {
-    fontSize: 18,
-    color: colors.text.primary,
+  driverEmptyText: {
+    fontSize: 14,
+    color: colors.text.secondary,
     textAlign: 'center',
-    fontWeight: '500',
-    marginBottom: 30,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  driverEmptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary.dark,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    gap: 8,
+  },
+  driverEmptyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
   },
   searchSection: {
     width: '100%',
@@ -557,7 +620,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 30,
-    shadowColor: colors.primary.dark,
+    shadowColor: colors.shadow,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -565,21 +628,6 @@ const createStyles = (colors: any) => StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-  },
-  locationInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background.tertiary,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border.primary,
-  },
-  locationPlaceholder: {
-    flex: 1,
-    fontSize: 16,
-    marginLeft: 12,
   },
   searchButton: {
     flexDirection: 'row',
@@ -628,6 +676,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  primaryButton: {
+    backgroundColor: colors.primary.dark,
+  },
   secondaryButton: {
     backgroundColor: colors.background.secondary,
     borderWidth: 2,
@@ -643,6 +694,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  primaryText: {
+    color: '#FFFFFF',
   },
   secondaryText: {
     color: colors.primary.dark,
@@ -696,18 +750,6 @@ const createStyles = (colors: any) => StyleSheet.create({
     textTransform: 'uppercase',
     fontWeight: '500',
   },
-  locationTextContainer: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  locationName: {
-    fontSize: 16,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  locationAddress: {
-    fontSize: 14,
-  },
   passengerSection: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -715,35 +757,20 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginTop: 16,
     marginBottom: 8,
   },
-  passengerLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  passengerControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  passengerButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  passengerCount: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginHorizontal: 16,
-    minWidth: 24,
-    textAlign: 'center',
-  },
   routesSection: {
     width: '100%',
     backgroundColor: colors.surface.primary,
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
+    shadowColor: colors.shadow,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   sectionTitle: {
     fontSize: 18,
